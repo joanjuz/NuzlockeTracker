@@ -1,0 +1,1797 @@
+.boxWeak {
+    /* Font & Text */
+    font-family: Flexo-Regular, arial, sans-serif;
+    font-size: 16px;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 400;
+    letter-spacing: normal;
+    line-height: 16px;
+    text-decoration: none solid rgb(255, 255, 255);
+    text-align: start;
+    text-indent: 0px;
+    text-transform: none;
+    vertical-align: baseline;
+    white-space: normal;
+    word-spacing: 0px;
+  
+  
+    /* Color & Background */
+    background-attachment: scroll;
+    background-color: rgba(0, 0, 0, 0);
+    background-image: none;
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(255, 255, 255);
+  
+    /* Box */
+    height: 50px;
+    width: 150.656px;
+    border: 0px none rgb(255, 255, 255);
+    border-top: 1px none rgb(255, 0, 0);
+    border-right: 0px none rgb(255, 255, 255);
+    border-bottom: 1px none rgb(233, 0, 0);
+    border-left: 0px none rgb(255, 255, 255);
+    margin: 0px;
+    padding: 0px;
+    max-height: none;
+    min-height: 0px;
+    max-width: none;
+    min-width: 0px;
+  
+    /* Positioning */
+    position: relative;
+    top: auto;
+    bottom: auto;
+    right: auto;
+    left: auto;
+    float: left;
+    display: inline-block;
+    clear: both;
+    z-index: auto;
+  
+    /* List */
+    list-style-image: none;
+    list-style-type: none;
+    list-style-position: outside;
+  
+    /* Table */
+    border-collapse: separate;
+    border-spacing: 0px 0px;
+    caption-side: top;
+    empty-cells: show;
+    table-layout: auto;
+  
+    /* Miscellaneous */
+    overflow: visible;
+    cursor: auto;
+    visibility: visible;
+  
+    /* Effects */
+    transform: none;
+    transition: all 0s ease 0s;
+    outline-offset: 0px;
+    box-sizing: content-box;
+    resize: none;
+    text-shadow: none;
+    text-overflow: clip;
+    word-wrap: normal;
+    box-shadow: none;
+    border-top-left-radius: 0px;
+    border-top-right-radius: 0px;
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
+  }
+  .clearfix::after {
+    content: "";
+    display: table;
+    clear: both;
+  }
+  
+  .BoxTiposEtc {
+  
+     font-family: Flexo-Regular, arial, sans-serif;
+     font-size: 16px;
+     font-style: normal;
+     font-variant: normal;
+     font-weight: 400;
+     letter-spacing: normal;
+     line-height: 16px;
+     text-decoration: none solid rgb(255, 255, 255);
+     text-align: center;
+     text-indent: 0px;
+     text-transform: none;
+     white-space: normal;
+     word-spacing: 0px;
+   
+     /* Color & Background */
+     background-attachment: scroll;
+     background-color: rgba(0, 0, 0, 0);
+     background-image: none;
+     background-position: 0% 0%;
+     background-repeat: repeat;
+     color: rgb(255, 255, 255);
+   
+     /* Box */
+     height: 450px;
+     width: 230px;
+     border: 0px none rgb(255, 255, 255);
+     border-top: 1px none rgb(44, 0, 0);
+     border-right: 0px none rgb(255, 255, 255);
+     border-bottom: 0px none rgb(255, 255, 255);
+     border-left: 0px none rgb(255, 255, 255);
+     margin: 0px;
+     padding: 0px;
+     max-height: none;
+     min-height: 0px;
+     max-width: none;
+     min-width: 0px;
+   
+     /* Positioning */
+     position: relative;
+     top: 0px;
+     bottom: 0px;
+     right: 0px;
+     left: 799px;
+     float: left;
+     display: block;
+     clear: both;
+     z-index: auto;
+   
+     /* List */
+     list-style-image: none;
+     list-style-type: none;
+     list-style-position: outside;
+   
+     /* Table */
+     border-collapse: separate;
+     border-spacing: 0px 0px;
+     caption-side: top;
+     empty-cells: show;
+     table-layout: auto;
+   
+     /* Miscellaneous */
+     overflow: visible;
+     cursor: auto;
+     visibility: visible;
+   
+     /* Effects */
+     transform: none;
+     transition: all 0s ease 0s;
+     outline-offset: 0px;
+     box-sizing: content-box;
+     resize: none;
+     text-shadow: none;
+     text-overflow: clip;
+     word-wrap: normal;
+     box-shadow: none;
+     border-top-left-radius: 0px;
+     border-top-right-radius: 0px;
+     border-bottom-left-radius: 0px;
+     border-bottom-right-radius: 0px;
+  }
+  
+  
+  .texto {
+    /* Font & Text */
+    font-family: Flexo-Medium, arial, sans-serif;
+    font-size: 20px;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 400;
+    letter-spacing: normal;
+    line-height: 25px;
+    text-decoration: none solid rgb(33, 33, 33);
+    text-align: start;
+    text-indent: 0px;
+    text-transform: none;
+    vertical-align: baseline;
+    white-space: normal;
+    word-spacing: 0px;
+  
+    /* Color & Background */
+    background-attachment: scroll;
+    background-color: rgba(0, 0, 0, 0);
+    background-image: none;
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(33, 33, 33);
+  
+    /* Box */
+    height: 25px;
+    width: 429.656px;
+    border: 0px none rgb(33, 33, 33);
+    border-top: 0px none rgb(33, 33, 33);
+    border-right: 0px none rgb(33, 33, 33);
+    border-bottom: 0px none rgb(33, 33, 33);
+    border-left: 0px none rgb(33, 33, 33);
+    margin: 25px 832px 10px;
+    padding: 0px;
+    max-height: none;
+    min-height: 0px;
+    max-width: none;
+    min-width: 0px;
+  
+    /* Positioning */
+    position: relative;
+    top: auto;
+    bottom: auto;
+    right: auto;
+    left: auto;
+    float: none;
+    display: block;
+    clear: both;
+    z-index: auto;
+  
+    /* List */
+    list-style-image: none;
+    list-style-type: disc;
+    list-style-position: outside;
+  
+    /* Table */
+    border-collapse: separate;
+    border-spacing: 0px 0px;
+    caption-side: top;
+    empty-cells: show;
+    table-layout: auto;
+  
+    /* Miscellaneous */
+    overflow: visible;
+    cursor: auto;
+    visibility: visible;
+  
+    /* Effects */
+    transform: none;
+    transition: all 0s ease 0s;
+    outline-offset: 0px;
+    box-sizing: content-box;
+    resize: none;
+    text-shadow: none;
+    text-overflow: clip;
+    word-wrap: normal;
+    box-shadow: none;
+    border-top-left-radius: 0px;
+    border-top-right-radius: 0px;
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
+  }
+  
+  .titulo {
+    /* Font & Text */
+    font-family: Flexo-Regular, arial, sans-serif;
+    font-size: 30px;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 400;
+    letter-spacing: normal;
+    line-height: 37.5px;
+    text-decoration: none solid rgb(145, 145, 145);
+    text-align: center;
+    text-indent: 0px;
+    text-transform: none;
+    vertical-align: baseline;
+    white-space: normal;
+    word-spacing: 0px;
+  
+    /* Color & Background */
+    background-attachment: scroll;
+    background-color: rgba(0, 0, 0, 0);
+    background-image: none;
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(145, 145, 145);
+  
+    /* Box */
+    height: 60px;
+    width: 1920.656px;
+    border: 12px none rgb(255, 0, 0);
+    border-top: 12px none rgb(255, 0, 0);
+    border-right: 0px none rgb(145, 145, 145);
+    border-bottom: 0px none rgb(145, 145, 145);
+    border-left: 0px none rgb(145, 145, 145);
+    margin: 0px;
+    padding: 0px;
+    max-height: none;
+    min-height: 0px;
+    max-width: none;
+    min-width: 0px;
+  
+    /* Positioning */
+    position: relative;
+    top: auto;
+    bottom: auto;
+    right: auto;
+    left: auto;
+    float: none;
+    display: block;
+    clear: none;
+    z-index: auto;
+  
+    /* List */
+    list-style-image: none;
+    list-style-type: disc;
+    list-style-position: outside;
+  
+    /* Table */
+    border-collapse: separate;
+    border-spacing: 0px 0px;
+    caption-side: top;
+    empty-cells: show;
+    table-layout: auto;
+  
+    /* Miscellaneous */
+    overflow: visible;
+    cursor: default;
+    visibility: visible;
+  
+  }
+  
+  /* Estilo del contenedor principal */
+  .container {
+    width: 100%;
+    height: 100%;
+  }
+  
+  /* Estilo de la sección izquierda */
+  .left-box {
+    width: 30%;
+    float: left;
+    background-color: #f2f2f2;
+    padding: 20px;
+  }
+  
+  /* Estilo de la sección central */
+  .center-box {
+    width: 40%;
+    margin: 0 auto; /* Esto centrará la caja central */
+    background-color: #e6e6e6;
+    padding: 20px;
+  }
+  
+  /* Estilo de la sección derecha */
+  .right-box {
+    width: 30%;
+    float: right;
+    background-color: #cccccc;
+    padding: 20px;
+  }
+  
+  
+  
+  .centering {
+    div .pokedex-filter-header {
+      /* Font & Text */
+      font-family: Flexo-Regular, arial, sans-serif;
+      font-size: 16px;
+      font-style: normal;
+      font-variant: normal;
+      font-weight: 400;
+      letter-spacing: normal;
+      line-height: 16px;
+      text-decoration: none solid rgb(255, 255, 255);
+      text-align: start;
+      text-indent: 0px;
+      text-transform: none;
+      vertical-align: baseline;
+      white-space: normal;
+      word-spacing: 0px;
+  
+      /* Color & Background */
+      background-attachment: scroll;
+      background-color: rgb(49, 49, 49);
+      background-image: none;
+      background-position: 0% 0%;
+      background-repeat: repeat;
+      color: rgb(255, 255, 255);
+  
+      /* Box */
+      height: 193.797px;
+      width: 1280px;
+      border: 0px none rgb(255, 255, 255);
+      border-top: 0px none rgb(255, 255, 255);
+      border-right: 0px none rgb(255, 255, 255);
+      border-bottom: 0px none rgb(255, 255, 255);
+      border-left: 0px none rgb(255, 255, 255);
+      margin: 0px;
+      padding: 0px;
+      max-height: none;
+      min-height: 0px;
+      max-width: none;
+      min-width: 0px;
+  
+      /* Positioning */
+      position: relative;
+      top: auto;
+      bottom: auto;
+      right: auto;
+      left: auto;
+      float: left;
+      display: block;
+      clear: none;
+      z-index: auto;
+  
+      /* List */
+      list-style-image: none;
+      list-style-type: disc;
+      list-style-position: outside;
+  
+      /* Table */
+      border-collapse: separate;
+      border-spacing: 0px 0px;
+      caption-side: top;
+      empty-cells: show;
+      table-layout: auto;
+  
+      /* Miscellaneous */
+      overflow: visible;
+      cursor: auto;
+      visibility: visible;
+  
+      /* Effects */
+      transform: none;
+      transition: all 0s ease 0s;
+      outline-offset: 0px;
+      box-sizing: content-box;
+      resize: none;
+      text-shadow: none;
+      text-overflow: clip;
+      word-wrap: normal;
+      box-shadow: none;
+      border-top-left-radius: 0px;
+      border-top-right-radius: 0px;
+      border-bottom-left-radius: 0px;
+      border-bottom-right-radius: 0px;
+    }
+  }
+  li {
+    /* Font & Text */
+    font-family: Monaco, Menlo, Consolas, "Courier New", monospace;
+    font-size: 12.8px;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 400;
+    letter-spacing: normal;
+    line-height: 17.28px;
+    text-decoration: none solid rgb(38, 50, 56);
+    text-align: left;
+    text-indent: 0px;
+    text-transform: none;
+    vertical-align: baseline;
+    white-space: normal;
+    word-spacing: 0px;
+  
+    /* Color & Background */
+    background-attachment: scroll;
+    background-color: rgba(0, 0, 0, 0);
+    background-image: none;
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(38, 50, 56);
+  
+    /* Box */
+    height: 20.4531px;
+    width: 848.625px;
+    border: 0px none rgb(38, 50, 56);
+    border-top: 0px none rgb(38, 50, 56);
+    border-right: 0px none rgb(38, 50, 56);
+    border-bottom: 0px none rgb(38, 50, 56);
+    border-left: 0px none rgb(38, 50, 56);
+    margin: 0px;
+    padding: 3.2px 0px 0px;
+    max-height: none;
+    min-height: 0px;
+    max-width: none;
+    min-width: 0px;
+  
+    /* Positioning */
+    position: relative;
+    top: 0px;
+    bottom: 0px;
+    right: 0px;
+    left: 0px;
+    float: none;
+    display: list-item;
+    clear: none;
+    z-index: auto;
+  
+    /* List */
+    list-style-image: none;
+    list-style-type: none;
+    list-style-position: outside;
+  
+    /* Table */
+    border-collapse: separate;
+    border-spacing: 0px 0px;
+    caption-side: top;
+    empty-cells: show;
+    table-layout: auto;
+  
+    /* Miscellaneous */
+    overflow: visible;
+    cursor: auto;
+    visibility: visible;
+  
+    /* Effects */
+    transform: none;
+    transition: all 0s ease 0s;
+    outline: rgb(255, 0, 0) dashed 1px;
+    outline-offset: 0px;
+    box-sizing: border-box;
+    resize: none;
+    text-shadow: none;
+    text-overflow: clip;
+    word-wrap: normal;
+    box-shadow: none;
+    border-top-left-radius: 0px;
+    border-top-right-radius: 0px;
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
+  }
+  .Seleccionar2 {
+    /* Font & Text */
+    font-family: Flexo-Regular, arial, sans-serif;
+    font-size: 16px;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 400;
+    letter-spacing: normal;
+    line-height: 16px;
+    text-decoration: none solid rgb(33, 33, 33);
+    text-align: center;
+    text-indent: 0px;
+    text-transform: none;
+    vertical-align: baseline;
+    white-space: normal;
+    word-spacing: 0px;
+  
+    /* Color & Background */
+    background-attachment: scroll;
+    background-color: rgb(255, 255, 255);
+    background-image: none;
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(33, 33, 33);
+  
+    /* Box */
+    height: 42px;
+    width: 311.672px;
+    border: 3px solid rgb(97, 97, 97);
+    border-top: 3px solid rgb(97, 97, 97);
+    border-right: 3px solid rgb(97, 97, 97);
+    border-bottom: 3px solid rgb(97, 97, 97);
+    border-left: 3px solid rgb(97, 97, 97);
+    margin: 0px -429.656px 0px 0px;
+    padding: 0px;
+    max-height: none;
+    min-height: auto;
+    max-width: none;
+    min-width: auto;
+  
+    /* Positioning */
+    position: relative;
+    top: -30px;
+    bottom: 0px;
+    right: 0px;
+    left: 5px;
+    float: left;
+    display: block;
+    clear: both;
+    z-index: auto;
+  
+    /* List */
+    list-style-image: none;
+    list-style-type: disc;
+    list-style-position: outside;
+  
+    /* Table */
+    border-collapse: separate;
+    border-spacing: 0px 0px;
+    caption-side: top;
+    empty-cells: show;
+    table-layout: auto;
+  
+    /* Miscellaneous */
+    overflow: visible;
+    cursor: auto;
+    visibility: visible;
+  
+    /* Effects */
+    transform: none;
+    transition: all 0s ease 0s;
+    outline-offset: 0px;
+    box-sizing: content-box;
+    resize: none;
+    text-shadow: none;
+    text-overflow: clip;
+    word-wrap: normal;
+    box-shadow: none;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+    border-bottom-left-radius: 5px;
+    border-bottom-right-radius: 5px;
+  
+  }
+  
+  
+  .Seleccionar {
+    /* Font & Text */
+    font-family: Flexo-Regular, arial, sans-serif;
+    font-size: 16px;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 400;
+    letter-spacing: normal;
+    line-height: 16px;
+    text-decoration: none solid rgb(33, 33, 33);
+    text-align: center;
+    text-indent: 0px;
+    text-transform: none;
+    vertical-align: baseline;
+    white-space: normal;
+    word-spacing: 0px;
+  
+    /* Color & Background */
+    background-attachment: scroll;
+    background-color: rgb(255, 255, 255);
+    background-image: none;
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(33, 33, 33);
+  
+    /* Box */
+    height: 42px;
+    width: 311.672px;
+    border: 3px solid rgb(97, 97, 97);
+    border-top: 3px solid rgb(97, 97, 97);
+    border-right: 3px solid rgb(97, 97, 97);
+    border-bottom: 3px solid rgb(97, 97, 97);
+    border-left: 3px solid rgb(97, 97, 97);
+    margin: 0px -429.656px 0px 0px;
+    padding: 0px;
+    max-height: none;
+    min-height: auto;
+    max-width: none;
+    min-width: auto;
+  
+    /* Positioning */
+    position: relative;
+    top: 12px;
+    bottom: 0px;
+    right: 0px;
+    left: 799px;
+    float: left;
+    display: block;
+    clear: both;
+    z-index: auto;
+  
+    /* List */
+    list-style-image: none;
+    list-style-type: disc;
+    list-style-position: outside;
+  
+    /* Table */
+    border-collapse: separate;
+    border-spacing: 0px 0px;
+    caption-side: top;
+    empty-cells: show;
+    table-layout: auto;
+  
+    /* Miscellaneous */
+    overflow: visible;
+    cursor: auto;
+    visibility: visible;
+  
+    /* Effects */
+    transform: none;
+    transition: all 0s ease 0s;
+    outline-offset: 0px;
+    box-sizing: content-box;
+    resize: none;
+    text-shadow: none;
+    text-overflow: clip;
+    word-wrap: normal;
+    box-shadow: none;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+    border-bottom-left-radius: 5px;
+    border-bottom-right-radius: 5px;
+  
+  }
+  
+  .boton-search {
+    /* Font & Text */
+    font-family: Roboto, arial, sans-serif;
+    font-size: 16.8px;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 400;
+    letter-spacing: normal;
+    line-height: 21px;
+    text-decoration: none solid rgb(255, 255, 255);
+    text-align: center;
+    text-indent: -9999px;
+    text-transform: none;
+    vertical-align: middle;
+    white-space: pre;
+    word-spacing: 0px;
+  
+    /* Color & Background */
+    background-attachment: scroll;
+    background-color: rgb(238, 107, 47);
+    background-image: url("https://assets.pokemon.com/static2/_ui/img/chrome/forms/input-search-bg.png");
+    background-position: 50% 50%;
+    background-repeat: no-repeat;
+    color: rgb(255, 255, 255);
+  
+    /* Box */
+    height: 48px;
+    width: 55.625px;
+    border: 0px none rgb(255, 255, 255);
+    border-top: 0px none rgb(255, 255, 255);
+    border-right: 0px none rgb(255, 255, 255);
+    border-bottom: 0px none rgb(255, 255, 255);
+    border-left: 0px none rgb(255, 255, 255);
+    margin: 0px -429.656px 6.70312px 451.125px;
+    padding: 12.6px 21px 11.34px;
+    max-height: none;
+    min-height: auto;
+    max-width: none;
+    min-width: auto;
+  
+    /* Positioning */
+    position: relative;
+    top: 0px;
+    bottom: 0px;
+    right: 0px;
+    left: 0px;
+    float: left;
+    display: block;
+    clear: none;
+    z-index: auto;
+  
+    /* List */
+    list-style-image: none;
+    list-style-type: disc;
+    list-style-position: outside;
+  
+    /* Table */
+    border-collapse: separate;
+    border-spacing: 0px 0px;
+    caption-side: top;
+    empty-cells: show;
+    table-layout: auto;
+  
+    /* Miscellaneous */
+    overflow: visible;
+    cursor: pointer;
+    visibility: visible;
+  }
+  
+  .App-header {
+    /* Font & Text */
+    font-family: Flexo-Regular, arial, sans-serif;
+    font-size: 26.8px;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 400;
+    letter-spacing: normal;
+    line-height: 26.8px;
+    text-decoration: none solid rgb(255, 255, 255);
+    text-align: start;
+    text-indent: 0px;
+    text-transform: none;
+    vertical-align: baseline;
+    white-space: normal;
+    word-spacing: 0px;
+  
+    /* Color & Background */
+    background-attachment: scroll;
+    background-color: rgba(0, 0, 0, 0);
+    background-image: none;
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(255, 255, 255);
+  
+    /* Box */
+    height: 1080px;
+    width: 1920px;
+    border: 0px none rgb(240, 240, 240);
+    border-top: 10px none rgb(255, 0, 0);
+    border-right: 12px none rgb(0, 238, 255);
+    border-bottom: 12px none rgb(0, 0, 0);
+    border-left: 12px none rgb(0, 17, 255);
+    margin: 10px;
+    padding: 20px;
+    max-height: none;
+    min-height: 0px;
+    max-width: none;
+    min-width: 0px;
+  
+    /* Positioning */
+    position: relative;
+    top: auto;
+    bottom: auto;
+    right: auto;
+    left: auto;
+    float: left;
+    display: block;
+    clear: none;
+    z-index: auto;
+  
+    /* List */
+    list-style-image: none;
+    list-style-type: disc;
+    list-style-position: outside;
+  
+    /* Table */
+    border-collapse: separate;
+    border-spacing: 0px 0px;
+    caption-side: top;
+    empty-cells: show;
+    table-layout: auto;
+  
+    /* Miscellaneous */
+    overflow: visible;
+    cursor: default;
+    visibility: visible;
+  
+    /* Effects */
+    transform: none;
+    transition: all 0s ease 0s;
+    outline-offset: 0px;
+    box-sizing: content-box;
+    resize: none;
+    text-shadow: none;
+    text-overflow: clip;
+    word-wrap: normal;
+    box-shadow: none;
+    border-top-left-radius: 0px;
+    border-top-right-radius: 0px;
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
+  }
+  
+  .App-link {
+    color: #61dafb;
+  }
+  
+  @keyframes App-logo-spin {
+    from {
+      transform: rotate(0deg);
+    }
+  
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  
+  body .us.fluid.custom-form-elements.nav-follow {
+    /* Font & Text */
+    font-family: Flexo-Regular, arial, sans-serif;
+    font-size: 16px;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 400;
+    letter-spacing: normal;
+    line-height: 16px;
+    text-decoration: none solid rgb(255, 255, 255);
+    text-align: start;
+    text-indent: 0px;
+    text-transform: none;
+    vertical-align: baseline;
+    white-space: normal;
+    word-spacing: 0px;
+  
+    /* Color & Background */
+    background-attachment: scroll;
+    background-color: rgb(66, 66, 66);
+    background-image: url("https://assets.pokemon.com/static2/_ui/img/chrome/body_bg.png");
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(255, 255, 255);
+  
+    /* Box */
+    height: 2462.84px;
+    width: 1903px;
+    border: 0px none rgb(255, 255, 255);
+    border-top: 0px none rgb(255, 255, 255);
+    border-right: 0px none rgb(255, 255, 255);
+    border-bottom: 0px none rgb(255, 255, 255);
+    border-left: 0px none rgb(255, 255, 255);
+    margin: 0px;
+    padding: 0px;
+    max-height: none;
+    min-height: 0px;
+    max-width: none;
+    min-width: 0px;
+  
+    /* Positioning */
+    position: relative;
+    top: auto;
+    bottom: auto;
+    right: auto;
+    left: auto;
+    float: none;
+    display: block;
+    clear: none;
+    z-index: auto;
+  
+    /* List */
+    list-style-image: none;
+    list-style-type: disc;
+    list-style-position: outside;
+  
+    /* Table */
+    border-collapse: separate;
+    border-spacing: 0px 0px;
+    caption-side: top;
+    empty-cells: show;
+    table-layout: auto;
+  
+    /* Miscellaneous */
+    overflow: visible;
+    cursor: auto;
+    visibility: visible;
+  
+    /* Effects */
+    transform: none;
+    transition: all 0s ease 0s;
+    outline-offset: 0px;
+    box-sizing: content-box;
+    resize: none;
+    text-shadow: none;
+    text-overflow: clip;
+    word-wrap: normal;
+    box-shadow: none;
+    border-top-left-radius: 0px;
+    border-top-right-radius: 0px;
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
+  }
+  
+  .selectedPokemon {
+    /* Copia y pega los estilos proporcionados para seleccionar un Pokémon aquí */
+    /* Font & Text */
+    font-family: Roboto, arial, sans-serif;
+    font-size: 16px;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 400;
+    letter-spacing: normal;
+    line-height: 24px;
+    text-decoration: none solid rgb(49, 49, 49);
+    text-align: start;
+    text-indent: 8px;
+    text-transform: none;
+    vertical-align: top;
+    white-space: normal;
+    word-spacing: 0px;
+  
+    /* Color & Background */
+    background-attachment: scroll;
+    background-color: rgba(0, 0, 0, 0);
+    background-image: none;
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(49, 49, 49);
+  
+    /* Box */
+    height: 40px;
+    width: 311.672px;
+    border: 0px none rgb(49, 49, 49);
+    border-top: 0px none rgb(49, 49, 49);
+    border-right: 0px none rgb(49, 49, 49);
+    border-bottom: 0px none rgb(49, 49, 49);
+    border-left: 0px none rgb(49, 49, 49);
+    margin: 0px;
+    padding: 8px 0px;
+    max-height: none;
+    min-height: 0px;
+    max-width: none;
+    min-width: 0px;
+  
+    /* Positioning */
+    position: relative;
+    top: 0px;
+    bottom: 0px;
+    right: 0px;
+    left: 0px;
+    float: left;
+    display: block;
+    clear: both;
+    z-index: auto;
+  
+    /* List */
+    list-style-image: none;
+    list-style-type: disc;
+    list-style-position: outside;
+  
+    /* Table */
+    border-collapse: separate;
+    border-spacing: 0px 0px;
+    caption-side: top;
+    empty-cells: show;
+    table-layout: auto;
+  
+    /* Miscellaneous */
+    overflow: visible;
+    cursor: text;
+    visibility: visible;
+  
+    /* Effects */
+    transform: none;
+    transition: all 0s ease 0s;
+    outline-offset: 0px;
+    box-sizing: border-box;
+    resize: none;
+    text-shadow: none;
+    text-overflow: clip;
+    word-wrap: normal;
+    box-shadow: none;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+    border-bottom-left-radius: 5px;
+    border-bottom-right-radius: 5px;
+  }
+  
+  /* Otros estilos */
+  
+  .pokemon-list .tt-dataset.tt-dataset-0 {
+    /* Copia y pega los estilos proporcionados para la lista de Pokémon aquí */
+    /* Font & Text */
+    font-family: Flexo-Regular, arial, sans-serif;
+    font-size: 16px;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 400;
+    letter-spacing: normal;
+    line-height: 16px;
+    text-decoration: none solid rgb(153, 153, 153);
+    text-align: start;
+    text-indent: 0px;
+    text-transform: none;
+    vertical-align: baseline;
+    white-space: normal;
+    word-spacing: 0px;
+  
+    /* Color & Background */
+    background-attachment: scroll;
+    background-color: rgb(255, 255, 255);
+    background-image: none;
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(153, 153, 153);
+  
+    /* Box */
+    height: 108px;
+    width: 311.672px;
+    border: 0px none rgb(153, 153, 153);
+    border-top: 0px none rgb(153, 153, 153);
+    border-right: 0px none rgb(153, 153, 153);
+    border-bottom: 0px none rgb(153, 153, 153);
+    border-left: 0px none rgb(153, 153, 153);
+    margin: 2px 0px 0px;
+    padding: 0px;
+    max-height: none;
+    min-height: 0px;
+    max-width: none;
+    min-width: 0px;
+  
+    /* Positioning */
+    position: relative;
+    top: auto;
+    bottom: auto;
+    right: auto;
+    left: auto;
+    float: none;
+    display: block;
+    clear: none;
+    z-index: auto;
+  
+    /* List */
+    list-style-image: none;
+    list-style-type: disc;
+    list-style-position: outside;
+  
+    /* Table */
+    border-collapse: separate;
+    border-spacing: 0px 0px;
+    caption-side: top;
+    empty-cells: show;
+    table-layout: auto;
+  
+    /* Miscellaneous */
+    overflow: visible;
+    cursor: auto;
+    visibility: visible;
+  
+    /* Effects */
+    transform: none;
+    transition: all 0s ease 0s;
+    outline-offset: 0px;
+    box-sizing: content-box;
+    resize: none;
+    text-shadow: none;
+    text-overflow: clip;
+    word-wrap: normal;
+    box-shadow: none;
+    border-top-left-radius: 0px;
+    border-top-right-radius: 0px;
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
+  }
+  
+  /* Agrega esto en tu archivo App.css */
+  
+  .container.pokedex {
+    /* Font & Text */
+    font-family: Flexo-Regular, arial, sans-serif;
+    font-size: 16px;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 400;
+    letter-spacing: normal;
+    line-height: 16px;
+    text-decoration: none solid rgb(255, 255, 255);
+    text-align: start;
+    text-indent: 0px;
+    text-transform: none;
+    vertical-align: baseline;
+    white-space: normal;
+    word-spacing: 0px;
+  
+    /* Color & Background */
+    background-attachment: scroll;
+    background-color: rgb(255, 255, 255);
+    background-image: url("https://assets.pokemon.com/static2/_ui/img/chrome/container_bg.png");
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(255, 255, 255);
+  
+    /* Box */
+    height: 2004.84px;
+    width: 1280px;
+    border: 0px none rgb(255, 255, 255);
+    border-top: 0px none rgb(255, 255, 255);
+    border-right: 0px none rgb(255, 255, 255);
+    border-bottom: 0px none rgb(255, 255, 255);
+    border-left: 0px none rgb(255, 255, 255);
+    margin: 0 auto;
+    /* Centra el contenedor en la página */
+    padding: 0px;
+    max-height: none;
+    min-height: 0px;
+    max-width: 1280px;
+    min-width: 0px;
+  
+    /* Positioning */
+    position: relative;
+    top: 0px;
+    bottom: 0px;
+    right: 0px;
+    left: 0px;
+    float: none;
+    display: block;
+    clear: both;
+    z-index: auto;
+  
+    /* List */
+    list-style-image: none;
+    list-style-type: disc;
+    list-style-position: outside;
+  
+    /* Table */
+    border-collapse: separate;
+    border-spacing: 0px 0px;
+    caption-side: top;
+    empty-cells: show;
+    table-layout: auto;
+  
+    /* Miscellaneous */
+    overflow: hidden;
+    cursor: auto;
+    visibility: visible;
+  
+    /* Effects */
+    transform: none;
+    transition: all 0s ease 0s;
+    outline-offset: 0px;
+    box-sizing: border-box;
+    resize: none;
+    text-shadow: none;
+    text-overflow: clip;
+    word-wrap: normal;
+    box-shadow: none;
+    border-top-left-radius: 0px;
+    border-top-right-radius: 0px;
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
+  }
+  .texto2 {
+    /* Font & Text */
+    font-family: Flexo-Medium, arial, sans-serif;
+    font-size: 20px;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 400;
+    letter-spacing: normal;
+    line-height: 25px;
+    text-decoration: none solid rgb(33, 33, 33);
+    text-align: start;
+    text-indent: 0px;
+    text-transform: none;
+    vertical-align: baseline;
+    white-space: normal;
+    word-spacing: 0px;
+
+    /* Color & Background */
+    background-attachment: scroll;
+    background-color: rgba(0, 0, 0, 0);
+    background-image: none;
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(33, 33, 33);
+
+    /* Box */
+    height: 25px;
+    width: 429.656px;
+    border: 0px none rgb(33, 33, 33);
+    border-top: 0px none rgb(33, 33, 33);
+    border-right: 0px none rgb(33, 33, 33);
+    border-bottom: 0px none rgb(33, 33, 33);
+    border-left: 0px none rgb(33, 33, 33);
+    margin: 25px 832px 10px;
+    padding: 0px;
+    max-height: none;
+    min-height: 0px;
+    max-width: none;
+    min-width: 0px;
+
+    /* Positioning */
+    position: relative;
+    top: auto;
+    bottom: 75%;
+    right: 32%;
+    left: auto;
+    float: none;
+    display: block;
+    clear: none;
+    z-index: auto;
+
+
+    /* List */
+    list-style-image: none;
+    list-style-type: disc;
+    list-style-position: outside;
+
+    /* Table */
+    border-collapse: separate;
+    border-spacing: 0px 0px;
+    caption-side: top;
+    empty-cells: show;
+    table-layout: auto;
+
+    /* Miscellaneous */
+    overflow: visible;
+    cursor: auto;
+    visibility: visible;
+
+    /* Effects */
+    transform: none;
+    transition: all 0s ease 0s;
+    outline-offset: 0px;
+    box-sizing: content-box;
+    resize: none;
+    text-shadow: none;
+    text-overflow: clip;
+    word-wrap: normal;
+    box-shadow: none;
+    border-top-left-radius: 0px;
+    border-top-right-radius: 0px;
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
+}
+
+.titulo2 {
+    /* Font & Text */
+    font-family: Flexo-Regular, arial, sans-serif;
+    font-size: 30px;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 400;
+    letter-spacing: normal;
+    line-height: 37.5px;
+    text-decoration: none solid rgb(145, 145, 145);
+    text-align: left;
+    text-indent: 0px;
+    text-transform: none;
+    vertical-align: baseline;
+    white-space: normal;
+    word-spacing: 0px;
+
+    /* Color & Background */
+    background-attachment: scroll;
+    background-color: rgba(0, 0, 0, 0);
+    background-image: none;
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(145, 145, 145);
+
+    /* Box */
+    height: 60px;
+    width: 1920.656px;
+    border: 12px none rgb(255, 0, 0);
+    border-top: 12px none rgb(255, 0, 0);
+    border-right: 0px none rgb(145, 145, 145);
+    border-bottom: 0px none rgb(145, 145, 145);
+    border-left: 0px none rgb(145, 145, 145);
+    margin: 0px;
+    padding: 0px;
+    max-height: none;
+    min-height: 0px;
+    max-width: none;
+    min-width: 0px;
+
+    /* Positioning */
+    position: relative;
+    top: auto;
+    bottom: auto;
+    right: auto;
+    left: auto;
+    float: left;
+    display: block;
+    clear: none;
+    z-index: auto;
+
+    /* List */
+    list-style-image: none;
+    list-style-type: disc;
+    list-style-position: outside;
+
+    /* Table */
+    border-collapse: separate;
+    border-spacing: 0px 0px;
+    caption-side: top;
+    empty-cells: show;
+    table-layout: auto;
+
+    /* Miscellaneous */
+    overflow: visible;
+    cursor: default;
+    visibility: visible;
+
+}
+
+.BoxTiposAttack {
+
+    font-family: Flexo-Regular, arial, sans-serif;
+    font-size: 16px;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 400;
+    letter-spacing: normal;
+    line-height: 16px;
+    text-decoration: none solid rgb(255, 255, 255);
+    text-align: center;
+    text-indent: 0px;
+    text-transform: none;
+    white-space: normal;
+    word-spacing: 0px;
+
+    /* Color & Background */
+    background-attachment: scroll;
+    background-color: rgba(0, 0, 0, 0);
+    background-image: none;
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(255, 255, 255);
+
+    /* Box */
+    height: 450px;
+    width: 230px;
+    border: 0px none rgb(255, 255, 255);
+    border-top: 1px none rgb(44, 0, 0);
+    border-right: 0px none rgb(255, 255, 255);
+    border-bottom: 0px none rgb(255, 255, 255);
+    border-left: 0px none rgb(255, 255, 255);
+    margin: 0px;
+    padding: 0px;
+    max-height: none;
+    min-height: 0px;
+    max-width: none;
+    min-width: 0px;
+
+    /* Positioning */
+    position: relative;
+    top: auto;
+    bottom: 27%;
+    right: auto;
+    left: auto;
+    float: none;
+    display: block;
+    clear: none;
+    z-index: auto;
+
+    /* List */
+    list-style-image: none;
+    list-style-type: none;
+    list-style-position: outside;
+
+    /* Table */
+    border-collapse: separate;
+    border-spacing: 0px 0px;
+    caption-side: top;
+    empty-cells: show;
+    table-layout: auto;
+
+    /* Miscellaneous */
+    overflow: visible;
+    cursor: auto;
+    visibility: visible;
+
+    /* Effects */
+    transform: none;
+    transition: all 0s ease 0s;
+    outline-offset: 0px;
+    box-sizing: content-box;
+    resize: none;
+    text-shadow: none;
+    text-overflow: clip;
+    word-wrap: normal;
+    box-shadow: none;
+    border-top-left-radius: 0px;
+    border-top-right-radius: 0px;
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
+}
+
+.texto3 {
+    /* Font & Text */
+    font-family: Flexo-Medium, arial, sans-serif;
+    font-size: 20px;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 400;
+    letter-spacing: normal;
+    line-height: 25px;
+    text-decoration: none solid rgb(33, 33, 33);
+    text-align: start;
+    text-indent: 0px;
+    text-transform: none;
+    vertical-align: baseline;
+    white-space: normal;
+    word-spacing: 0px;
+
+    /* Color & Background */
+    background-attachment: scroll;
+    background-color: rgba(0, 0, 0, 0);
+    background-image: none;
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(33, 33, 33);
+
+    /* Box */
+    height: 25px;
+    width: 429.656px;
+    border: 0px none rgb(33, 33, 33);
+    border-top: 0px none rgb(33, 33, 33);
+    border-right: 0px none rgb(33, 33, 33);
+    border-bottom: 0px none rgb(33, 33, 33);
+    border-left: 0px none rgb(33, 33, 33);
+    margin: 0;
+    padding: 0px;
+    max-height: none;
+    min-height: 0px;
+    max-width: none;
+    min-width: 0px;
+
+    /* Positioning */
+    position: relative;
+    top: auto;
+    bottom: 60%;
+    right: 32%;
+    left: auto;
+    float: none;
+    display: block;
+    clear: none;
+    z-index: auto;
+
+
+    /* List */
+    list-style-image: none;
+    list-style-type: disc;
+    list-style-position: outside;
+
+    /* Table */
+    border-collapse: separate;
+    border-spacing: 0px 0px;
+    caption-side: top;
+    empty-cells: show;
+    table-layout: auto;
+
+    /* Miscellaneous */
+    overflow: visible;
+    cursor: auto;
+    visibility: visible;
+
+    /* Effects */
+    transform: none;
+    transition: all 0s ease 0s;
+    outline-offset: 0px;
+    box-sizing: content-box;
+    resize: none;
+    text-shadow: none;
+    text-overflow: clip;
+    word-wrap: normal;
+    box-shadow: none;
+    border-top-left-radius: 0px;
+    border-top-right-radius: 0px;
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
+}
+
+.effectTypes li:last-child {
+    position: relative;
+    bottom: 40%;
+}
+
+.effectTypes li {
+    display: inline-block;
+    margin-right: 10px;
+    /* Ajusta la distancia entre los tipos */
+}
+
+.effectTypes {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.BoxTiposAttack2 {
+
+    font-family: Flexo-Regular, arial, sans-serif;
+    font-size: 16px;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 400;
+    letter-spacing: normal;
+    line-height: 16px;
+    text-decoration: none solid rgb(255, 255, 255);
+    text-align: center;
+    text-indent: 0px;
+    text-transform: none;
+    white-space: normal;
+    word-spacing: 0px;
+
+    /* Color & Background */
+    background-attachment: scroll;
+    background-color: rgba(0, 0, 0, 0);
+    background-image: none;
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(255, 255, 255);
+
+    /* Box */
+    height: 450px;
+    width: 230px;
+    border: 0px none rgb(255, 255, 255);
+    border-top: 1px none rgb(44, 0, 0);
+    border-right: 0px none rgb(255, 255, 255);
+    border-bottom: 0px none rgb(255, 255, 255);
+    border-left: 0px none rgb(255, 255, 255);
+    margin: 0px;
+    padding: 0px;
+    max-height: none;
+    min-height: 0px;
+    max-width: none;
+    min-width: 0px;
+
+    /* Positioning */
+    position: relative;
+    top: auto;
+    bottom: 37%;
+    right: auto;
+    left: auto;
+    float: none;
+    display: block;
+    clear: none;
+    z-index: auto;
+
+    /* List */
+    list-style-image: none;
+    list-style-type: none;
+    list-style-position: outside;
+
+    /* Table */
+    border-collapse: separate;
+    border-spacing: 0px 0px;
+    caption-side: top;
+    empty-cells: show;
+    table-layout: auto;
+
+    /* Miscellaneous */
+    overflow: visible;
+    cursor: auto;
+    visibility: visible;
+
+    /* Effects */
+    transform: none;
+    transition: all 0s ease 0s;
+    outline-offset: 0px;
+    box-sizing: content-box;
+    resize: none;
+    text-shadow: none;
+    text-overflow: clip;
+    word-wrap: normal;
+    box-shadow: none;
+    border-top-left-radius: 0px;
+    border-top-right-radius: 0px;
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
+}
+
+.BoxTiposAttack3 {
+
+    font-family: Flexo-Regular, arial, sans-serif;
+    font-size: 16px;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 400;
+    letter-spacing: normal;
+    line-height: 16px;
+    text-decoration: none solid rgb(255, 255, 255);
+    text-align: center;
+    text-indent: 0px;
+    text-transform: none;
+    white-space: normal;
+    word-spacing: 0px;
+
+    /* Color & Background */
+    background-attachment: scroll;
+    background-color: rgba(0, 0, 0, 0);
+    background-image: none;
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(255, 255, 255);
+
+    /* Box */
+    height: 450px;
+    width: 230px;
+    border: 0px none rgb(255, 255, 255);
+    border-top: 1px solid rgb(44, 0, 0);
+    border-right: 1px solid rgb(61, 42, 42);
+    border-bottom: 0px none rgb(255, 255, 255);
+    border-left: 0px none rgb(255, 255, 255);
+    margin: 0px;
+    padding: 0px;
+    max-height: none;
+    min-height: 0px;
+    max-width: none;
+    min-width: 0px;
+
+    /* Positioning */
+    position: relative;
+    top: auto;
+    bottom: 5%;
+    right: auto;
+    left: auto;
+    float: none;
+    display: block;
+    clear: none;
+    z-index: auto;
+
+    /* List */
+    list-style-image: none;
+    list-style-type: none;
+    list-style-position: outside;
+
+    /* Table */
+    border-collapse: separate;
+    border-spacing: 0px 0px;
+    caption-side: top;
+    empty-cells: show;
+    table-layout: auto;
+
+    /* Miscellaneous */
+    overflow: visible;
+    cursor: auto;
+    visibility: visible;
+
+    /* Effects */
+    transform: none;
+    transition: all 0s ease 0s;
+    outline-offset: 0px;
+    box-sizing: content-box;
+    resize: none;
+    text-shadow: none;
+    text-overflow: clip;
+    word-wrap: normal;
+    box-shadow: none;
+    border-top-left-radius: 0px;
+    border-top-right-radius: 0px;
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
+}
+
+.effectLabel {
+    /* Font & Text */
+    font-family: Flexo-Medium, arial, sans-serif;
+    font-size: 20px;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 400;
+    letter-spacing: normal;
+    line-height: 25px;
+    text-decoration: none solid rgb(33, 33, 33);
+    text-align: start;
+    text-indent: 0px;
+    text-transform: none;
+    vertical-align: baseline;
+    white-space: normal;
+    word-spacing: 0px;
+
+    /* Color & Background */
+    background-attachment: scroll;
+    background-color: rgba(0, 0, 0, 0);
+    background-image: none;
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(33, 33, 33);
+
+    /* Box */
+    height: 25px;
+    width: 429.656px;
+    border: 0px none rgb(33, 33, 33);
+    border-top: 0px none rgb(33, 33, 33);
+    border-right: 0px none rgb(33, 33, 33);
+    border-bottom: 0px none rgb(33, 33, 33);
+    border-left: 0px none rgb(33, 33, 33);
+    margin: 0;
+    padding: 0px;
+    max-height: none;
+    min-height: 0px;
+    max-width: none;
+    min-width: 0px;
+
+    /* Positioning */
+    position: relative;
+    top: auto;
+    bottom: 40%;
+    right: auto;
+    left: auto;
+    float: none;
+    display: block;
+    clear: none;
+    z-index: auto;
+    /* List */
+    list-style-image: none;
+    list-style-type: disc;
+    list-style-position: outside;
+
+    /* Table */
+    border-collapse: separate;
+    border-spacing: 0px 0px;
+    caption-side: top;
+    empty-cells: show;
+    table-layout: auto;
+
+    /* Miscellaneous */
+    overflow: visible;
+    cursor: auto;
+    visibility: visible;
+
+    /* Effects */
+    transform: none;
+    transition: all 0s ease 0s;
+    outline-offset: 0px;
+    box-sizing: content-box;
+    resize: none;
+    text-shadow: none;
+    text-overflow: clip;
+    word-wrap: normal;
+    box-shadow: none;
+    border-top-left-radius: 0px;
+    border-top-right-radius: 0px;
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
+}

@@ -1,0 +1,174 @@
+.titulo {
+    /* Font & Text */
+    font-family: Flexo-Regular, arial, sans-serif;
+    font-size: 30px;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 400;
+    letter-spacing: normal;
+    line-height: 37.5px;
+    text-decoration: none solid rgb(145, 145, 145);
+    text-align: left; /* Alinea el texto a la izquierda */
+    text-indent: 0px;
+    white-space: normal;
+    word-spacing: 0px;
+
+    /* Color & Background */
+    background-attachment: scroll;
+    background-color: rgba(0, 0, 0, 0);
+    background-image: none;
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(145, 145, 145);
+
+    /* Positioning */
+    position: relative;
+    top: auto;
+    bottom: auto;
+    right: auto;
+    left: auto;
+    float: none;
+    display: block;
+    clear: none;
+    z-index: auto;
+    margin: 25px 0 10px; /* Alinea al centro horizontalmente */
+}
+.Seleccionar {
+    /* Font & Text */
+    font-family: Flexo-Regular, arial, sans-serif;
+    font-size: 16px;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 400;
+    letter-spacing: normal;
+    line-height: 16px;
+    text-decoration: none solid rgb(33, 33, 33);
+    text-align: left; /* Alinea el texto a la izquierda */
+    text-indent: 0px;
+    white-space: normal;
+    word-spacing: 0px;
+
+    /* Color & Background */
+    background-attachment: scroll;
+    background-color: rgb(255, 255, 255);
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(33, 33, 33);
+
+    /* Box */
+    height: 42px;
+    width: 311.672px;
+    border: 3px solid rgb(97, 97, 97);
+    border-top: 3px solid rgb(97, 97, 97);
+    border-right: 3px solid rgb(97, 97, 97);
+    border-bottom: 3px solid rgb(97, 97, 97);
+    border-left: 3px solid rgb(97, 97, 97);
+    margin: 0 0 0 25px; /* Alinea al centro horizontalmente */
+    padding: 0px;
+    min-height: auto;
+    min-width: auto;
+
+    /* Positioning */
+    position: relative;
+    top: 12px;
+    bottom: 0px;
+    right: 0px;
+    left: 0;
+    float: none;
+    display: block;
+    clear: both;
+    z-index: auto;
+
+    /* Effects */
+    transition: all 0s ease 0s;
+    outline-offset: 0px;
+    box-sizing: content-box;
+    text-overflow: clip;
+    word-wrap: normal;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+    border-bottom-left-radius: 5px;
+    border-bottom-right-radius: 5px;
+}
+.sprite {
+    /* Positioning */
+    font-family: Flexo-Regular, arial, sans-serif;
+    font-size: 16px;
+    border-bottom-right-radius: 0px;
+    position: relative;
+    top: 12px;
+    bottom: 0px;
+    right: 0px;
+    left: 30; /* Ajusta el valor según sea necesario para centrar a la izquierda */
+    margin: 0;
+    display: block;
+    clear: both;
+    z-index: auto;
+
+    /* Box */
+    height: 205.172px;
+    width: 205.172px;
+    border: 0px none rgb(0, 0, 238);
+    border-top: 1px none rgb(0, 0, 238);
+    border-right: 0px none rgb(0, 0, 238);
+    border-bottom: 0px none rgb(0, 0, 238);
+    border-left: 0px none rgb(0, 0, 238);
+    margin: 20px;
+    padding: 0px;
+    max-height: none;
+    min-height: 0px;
+    max-width: none;
+    min-width: 0px;
+}
+
+
+  .texto {
+    /* Font & Text */
+    font-family: Flexo-Medium, arial, sans-serif;
+    font-size: 20px;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 400;
+    letter-spacing: normal;
+    line-height: 25px;
+    text-decoration: none solid rgb(33, 33, 33);
+    text-align: left; /* Alinea el texto a la izquierda */
+    text-indent: 0px;
+    text-transform: none;
+    white-space: normal;
+    word-spacing: 0px;
+
+    /* Color & Background */
+    background-attachment: scroll;
+    background-color: rgba(0, 0, 0, 0);
+    background-image: none;
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(33, 33, 33);
+
+    /* Box */
+    height: 25px;
+    width: 429.656px;
+    border: 0px none rgb(33, 33, 33);
+    border-top: 0px none rgb(33, 33, 33);
+    border-right: 0px none rgb(33, 33, 33);
+    border-bottom: 0px none rgb(33, 33, 33);
+    border-left: 0px none rgb(33, 33, 33);
+    margin: 25px 0 10px 25px; /* Alinea al centro horizontalmente */
+    padding: 0px;
+    max-height: none;
+    min-height: 0px;
+    max-width: none;
+    min-width: 0px;
+
+    /* Positioning */
+    position: relative;
+    top: auto;
+    bottom: auto;
+    right: auto;
+    left: auto;
+    float: none;
+    display: block;
+    clear: both;
+    z-index: auto;
+}

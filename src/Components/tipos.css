@@ -1,0 +1,275 @@
+.normal {
+    background-attachment: scroll;
+    background-color: rgb(164, 172, 175);
+    background-image: linear-gradient(rgb(164, 172, 175) 50%, rgb(164, 172, 175) 50%);
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(33, 33, 33);
+  
+  
+  }
+  .none{
+    background-attachment: scroll;
+    background-color: rgba(28, 102, 129, 0.548);
+    background-image: linear-gradient(rgba(4, 43, 58, 0.548) 50%, rgba(89, 126, 101, 0.548) 50%);
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(33, 33, 33);
+  }
+  .half{
+    background-attachment: scroll;
+    background-color: rgba(28, 102, 129, 0.548);
+    background-image: linear-gradient(rgba(36, 191, 252, 0.548) 50%,rgba(48, 212, 100, 0.548) 50%);
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(33, 33, 33);
+  }
+
+  ul {
+    list-style-type: none;
+  }
+  
+  .electric {
+    background-attachment: scroll;
+    background-color: rgb(238, 213, 53);
+    background-image: linear-gradient(rgb(238, 213, 53) 50%, rgb(238, 213, 53) 50%);
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(33, 33, 33);
+  
+  }
+  
+  .steel {
+    background-attachment: scroll;
+    background-color: rgb(158, 183, 184);
+    background-image: linear-gradient(rgb(158, 183, 184) 50%, rgb(158, 183, 184) 50%);
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(33, 33, 33);
+  
+  }
+  
+  .dark {
+    background-attachment: scroll;
+    background-color: rgb(112, 112, 112);
+    background-image: linear-gradient(rgb(112, 112, 112) 50%, rgb(112, 112, 112) 50%);
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(255, 255, 255);
+  
+  }
+  
+  .ground {
+    background-attachment: scroll;
+    background-color: rgb(247, 222, 63);
+    background-image: linear-gradient(rgb(247, 222, 63) 50%, rgb(171, 152, 66) 50%);
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(33, 33, 33);
+  
+  }
+  
+  .dragon {
+    background-attachment: scroll;
+    background-color: rgb(83, 164, 207);
+    background-image: linear-gradient(rgb(83, 164, 207) 50%, rgb(241, 110, 87) 50%);
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(255, 255, 255);
+  
+  }
+  
+  .fairy {
+    background-attachment: scroll;
+    background-color: rgb(253, 185, 233);
+    background-image: linear-gradient(rgb(253, 185, 233) 50%, rgb(253, 185, 233) 50%);
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(33, 33, 33);
+  
+  }
+  
+  .fire {
+    background-attachment: scroll;
+    background-color: rgb(253, 125, 36);
+    background-image: linear-gradient(rgb(253, 125, 36) 50%, rgb(253, 125, 36) 50%);
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(255, 255, 255);
+  
+  }
+  
+  .ghost {
+    background-attachment: scroll;
+    background-color: rgb(123, 98, 163);
+    background-image: linear-gradient(rgb(123, 98, 163) 50%, rgb(123, 98, 163) 50%);
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(255, 255, 255);
+  
+  }
+  
+  .poison {
+    background-attachment: scroll;
+    background-color: rgb(185, 127, 201);
+    background-image: linear-gradient(rgb(185, 127, 201) 50%, rgb(185, 127, 201) 50%);
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(255, 255, 255);
+  
+  }
+  
+  .water {
+    background-attachment: scroll;
+    background-color: rgb(69, 146, 196);
+    background-image: linear-gradient(rgb(69, 146, 196) 50%, rgb(69, 146, 196) 50%);
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(255, 255, 255);
+  
+  }
+  
+  .grass {
+  
+    background-attachment: scroll;
+    background-color: rgb(155, 204, 80);
+    background-image: linear-gradient(rgb(155, 204, 80) 50%, rgb(155, 204, 80) 50%);
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(33, 33, 33);
+  
+  }
+  
+  .flying {
+    background-attachment: scroll;
+    background-color: rgb(61, 199, 239);
+    background-image: linear-gradient(rgb(61, 199, 239) 50%, rgb(189, 185, 184) 50%);
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(33, 33, 33);
+  
+  }
+  
+  .bug {
+    background-attachment: scroll;
+    background-color: rgb(114, 159, 63);
+    background-image: linear-gradient(rgb(114, 159, 63) 50%, rgb(114, 159, 63) 50%);
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(255, 255, 255);
+  
+  }
+  
+  .psychic {
+    background-attachment: scroll;
+    background-color: rgb(243, 102, 185);
+    background-image: linear-gradient(rgb(243, 102, 185) 50%, rgb(243, 102, 185) 50%);
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(255, 255, 255);
+  }
+  
+  .ice {
+    background-attachment: scroll;
+    background-color: rgb(81, 196, 231);
+    background-image: linear-gradient(rgb(81, 196, 231) 50%, rgb(81, 196, 231) 50%);
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(33, 33, 33);
+  
+  }
+  
+  .rock {
+    background-attachment: scroll;
+    background-color: rgb(163, 140, 33);
+    background-image: linear-gradient(rgb(163, 140, 33) 50%, rgb(163, 140, 33) 50%);
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(255, 255, 255);
+  
+  }
+  
+  .fighting {
+    background-attachment: scroll;
+    background-color: rgb(213, 103, 35);
+    background-image: linear-gradient(rgb(213, 103, 35) 50%, rgb(213, 103, 35) 50%);
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(255, 255, 255);
+  
+  }
+  .tipo {
+    /* Font & Text */
+    font-family: Flexo-Medium, arial, sans-serif;
+    font-size: 16px;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 400;
+    letter-spacing: normal;
+    line-height: 16px;
+    text-decoration: none solid rgb(33, 33, 33);
+    text-align: center;
+    text-indent: 0px;
+    text-transform: none;
+    vertical-align: baseline;
+    white-space: normal;
+    word-spacing: 0px;
+  
+    /* Box */
+    height: 16px;
+    width: 138.734px;
+    border: 0px none rgb(33, 33, 33);
+    border-top: 1px none rgb(255, 0, 0);
+    border-right: 0px none rgb(33, 33, 33);
+    border-bottom: 0px none rgb(33, 33, 33);
+    border-left: 0px none rgb(33, 33, 33);
+    margin: 5px;
+    padding: 8px 0px;
+    max-height: none;
+    min-height: 0px;
+    max-width: none;
+    min-width: 0px;
+  
+    /* Positioning */
+    position: relative;
+    top: auto;
+    bottom: auto;
+    right: auto;
+    left: auto;
+    float: none;
+    display: inline-block;
+    clear: none;
+    z-index: auto;
+  
+    /* List */
+    list-style-image: none;
+    list-style-type: none;
+    list-style-position: outside;
+  
+    /* Table */
+    border-collapse: separate;
+    border-spacing: 0px 0px;
+    caption-side: top;
+    empty-cells: show;
+    table-layout: auto;
+  
+    /* Miscellaneous */
+    overflow: visible;
+    cursor: pointer;
+    visibility: visible;
+  
+    /* Effects */
+    transform: none;
+    transition: all 0s ease 0s;
+    outline-offset: 0px;
+    box-sizing: content-box;
+    resize: none;
+    text-shadow: none;
+    text-overflow: clip;
+    word-wrap: normal;
+    box-shadow: none;
+    border-top-left-radius: 0px;
+    border-top-right-radius: 0px;
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
+  }

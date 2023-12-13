@@ -1,38 +1,81 @@
-.App {
-  text-align: center;
-}
-
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
+  /* Estilo del contenedor principal */
+.container {
+    width: 100%;
   }
-}
-
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-}
-
-.App-link {
-  color: #61dafb;
-}
-
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
+  
+  /* Estilo de la sección izquierda */
+  .left-box {
+    width: 30%;
+    float: left;
+    background-color: #f2f2f2;
+    padding: 20px;
   }
-  to {
-    transform: rotate(360deg);
+  ul {
+    margin: 0;
+    padding: 0;
+    list-style-type: none;
+}
+
+.BoxTiposEtc li {
+    margin-bottom: 10px;
+}
+
+  /* Estilo de la sección central */
+  .center-box {
+    outline: rgb(255, 0, 0) dashed 1px;
+    height: 100%;
+    width: 30%;
+    max-height: 500px; 
+    margin: 0 auto; /* Esto centrará la caja central */
+    background-color: #e6e6e6;
+    box-sizing: border-box;
+    padding: 20px;
+    text-align: center;
+
+    .sprite {
+        /* Positioning */
+        font-family: Flexo-Regular, arial, sans-serif;
+        font-size: 16px;
+        border-bottom-right-radius: 0px;
+        position: relative;
+        top: auto;
+        bottom: auto;
+        right: auto;
+        left: auto;
+        float: left;
+        margin: 0;
+        display: block;
+        clear: both;
+        z-index: auto;
+      
+        /* Box */
+        height: 205.172px;
+        width: 205.172px;
+        border: 0px none rgb(0, 0, 238);
+        border-top: 1px none rgb(0, 0, 238);
+        border-right: 0px none rgb(0, 0, 238);
+        border-bottom: 0px none rgb(0, 0, 238);
+        border-left: 0px none rgb(0, 0, 238);
+        margin: 30px;
+        padding: 0px;
+        max-height: none;
+        min-height: 0px;
+        max-width: none;
+        min-width: 0px;
+      }
+
+
   }
+  
+  /* Estilo de la sección derecha */
+  .right-box {
+    width: 20%;
+    float: right;
+    background-color: #cccccc;
+    padding: 20px;
+  }
+  .container::after {
+    content: "";
+    display: table;
+    clear: both;
 }
