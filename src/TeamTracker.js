@@ -1,29 +1,18 @@
 // TeamTracker.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import Select from 'react-select';
+import { getAllPokemonMoves, getMoveDetails } from './Services/API';
 
-const TeamTracker = ({ team, onRemovePokemon }) => {
+const TeamTracker = ({ team, onRemovePokemon, onAddMove }) => {
     const [selectedTeamPokemon, setSelectedTeamPokemon] = useState(null);
+    const [moveOptions, setMoveOptions] = useState([]);
+    const [showMoveSelector, setShowMoveSelector] = useState(false);
 
-    // Lista fija de tipos de ataque a considerar
+    // Lista fija de tipos para el resumen de debilidades
     const attackTypesList = [
-        'normal',
-        'fire',
-        'water',
-        'electric',
-        'grass',
-        'ice',
-        'fighting',
-        'poison',
-        'ground',
-        'flying',
-        'psychic',
-        'bug',
-        'rock',
-        'ghost',
-        'dragon',
-        'dark',
-        'steel',
-        'fairy',
+        'normal', 'fire', 'water', 'electric', 'grass', 'ice',
+        'fighting', 'poison', 'ground', 'flying', 'psychic',
+        'bug', 'rock', 'ghost', 'dragon', 'dark', 'steel', 'fairy'
     ];
 
     const getEffectiveMultiplier = (pokemon, attackType) => {
@@ -40,8 +29,6 @@ const TeamTracker = ({ team, onRemovePokemon }) => {
                 multiplier *= 2;
             } else if (relations.half_damage_from.includes(attackType)) {
                 multiplier *= 0.5;
-            } else {
-                multiplier *= 1;
             }
         });
         return multiplier;
@@ -53,6 +40,72 @@ const TeamTracker = ({ team, onRemovePokemon }) => {
             return mult === 2;
         });
     };
+
+    // Cargar opciones de movimientos al montar
+    useEffect(() => {
+        const fetchMoves = async () => {
+            try {
+                const moves = await getAllPokemonMoves();
+                const options = moves.map((move) => ({ value: move, label: move }));
+                setMoveOptions(options);
+            } catch (error) {
+                console.error('Error fetching moves:', error);
+            }
+        };
+        fetchMoves();
+    }, []);
+
+    // Handler para agregar un movimiento al Pokémon seleccionado
+    const handleMoveSelect = async (selectedMoveOption) => {
+        try {
+            const moveDetails = await getMoveDetails(selectedMoveOption.label);
+            const moveObject = {
+                name: selectedMoveOption.label,
+                type: moveDetails.type,
+                damageClass: moveDetails.damageClass,
+                effectiveAgainst: moveDetails.effectiveAgainst,
+                power: moveDetails.power,         // Daño del movimiento
+                pp: moveDetails.pp,               // Puntos de poder
+                description: moveDetails.description, // Descripción del movimiento
+                accuracy: moveDetails.accuracy,   // Precisión
+            };
+
+            // Si el Pokémon no tiene el array "moves", se inicializa
+            if (!selectedTeamPokemon.moves) {
+                selectedTeamPokemon.moves = [];
+            }
+            selectedTeamPokemon.moves.push(moveObject);
+            // Actualizamos el estado del Pokémon seleccionado para forzar re-render
+            setSelectedTeamPokemon({ ...selectedTeamPokemon });
+            if (onAddMove) {
+                onAddMove(selectedTeamPokemon, moveObject);
+            }
+            setShowMoveSelector(false);
+        } catch (error) {
+            console.error('Error adding move:', error);
+        }
+    };
+
+
+    const handleRemoveMoveFromTeam = (pokemonIndex, moveIndex) => {
+        // Creamos una copia del equipo
+        const updatedTeam = [...team];
+        // Verificamos que el Pokémon tenga movimientos
+        if (updatedTeam[pokemonIndex].moves) {
+            updatedTeam[pokemonIndex].moves = updatedTeam[pokemonIndex].moves.filter(
+                (_, idx) => idx !== moveIndex
+            );
+            // Actualizamos el equipo global llamando a onAddMove (o el callback correspondiente)
+            if (onAddMove) {
+                onAddMove(updatedTeam[pokemonIndex]);
+            }
+            // Si el Pokémon eliminado es el seleccionado, actualizamos su estado local
+            if (selectedTeamPokemon && selectedTeamPokemon.name === updatedTeam[pokemonIndex].name) {
+                setSelectedTeamPokemon({ ...updatedTeam[pokemonIndex] });
+            }
+        }
+    };
+
 
     return (
         <div className="team-tracker">
@@ -81,9 +134,12 @@ const TeamTracker = ({ team, onRemovePokemon }) => {
                                         style={{ width: '48px', verticalAlign: 'middle' }}
                                     />
                                     <div style={{ width: '600px' }}>
-                                        <span style={{ marginLeft: '1px' }}>
+                                        <span style={{ marginLeft: '8px', flexGrow: 0.4 }}>
                                             {pokemon.name} – Tipos:
-                                            <ul className="boxTipo" style={{ display: 'inline-block', marginLeft: '4px' }}>
+                                            <ul
+                                                className="boxTipo"
+                                                style={{ display: 'inline-block', marginLeft: '4px' }}
+                                            >
                                                 {pokemon.types.map((type) => (
                                                     <li key={type} className={`tipo ${type.toLowerCase()}`}>
                                                         {type}
@@ -92,14 +148,15 @@ const TeamTracker = ({ team, onRemovePokemon }) => {
                                             </ul>
                                         </span>
                                     </div>
-
-                                    <button className="btn" onClick={() => onRemovePokemon(index)}>Eliminar</button>
+                                    <button className='btn' onClick={() => onRemovePokemon(index)}>
+                                        Eliminar
+                                    </button>
                                 </li>
                             ))}
                         </ul>
                     </div>
 
-                    {/* Resumen de debilidades del equipo, en columnas según el orden del equipo */}
+                    {/* Resumen de debilidades con movimientos asociados */}
                     <div className="team-summary">
                         <h3>Resumen de debilidades (x2) por Pokémon:</h3>
                         <div className="summary-columns" style={{ display: 'flex' }}>
@@ -126,12 +183,47 @@ const TeamTracker = ({ team, onRemovePokemon }) => {
                                             <li>No x2 Weakness</li>
                                         )}
                                     </ul>
+                                    {/* Sección de movimientos asociados */}
+                                    <div style={{ marginTop: '10px' }}>
+                                        <h5>Movimientos:</h5>
+                                        {pokemon.moves && pokemon.moves.length > 0 ? (
+                                            <ul style={{ listStyle: 'none', padding: 0 }}>
+                                                {pokemon.moves.map((move, idx) => (
+                                                    <li
+                                                        key={idx}
+                                                        style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            marginBottom: '4px',
+                                                        }}
+                                                    >
+                                                        <span>{move.name}</span>
+                                                        <button
+                                                            className="btn tin"
+                                                            onClick={() => handleRemoveMoveFromTeam(index, idx)}
+                                                            style={{
+                                                                marginLeft: '8px',
+                                                                padding: '2px 6px',
+                                                                fontSize: '12px',
+                                                                cursor: 'pointer',
+                                                            }}
+                                                        >
+                                                            Eliminar
+                                                        </button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        ) : (
+                                            <p>No hay movimientos asignados.</p>
+                                        )}
+                                    </div>
                                 </div>
                             ))}
                         </div>
                     </div>
 
-                    {/* Detalles del Pokémon seleccionado al hacer click */}
+                    {/* Detalles del Pokémon seleccionado */}
                     <div className="pokemon-details" style={{ marginTop: '20px' }}>
                         {selectedTeamPokemon ? (
                             <div>
@@ -146,7 +238,7 @@ const TeamTracker = ({ team, onRemovePokemon }) => {
                                 </p>
                                 <ul className="boxTipo">
                                     {selectedTeamPokemon.types.map((type) => (
-                                        <li className={`tipo ${type.toLowerCase()}`} key={type}>
+                                        <li key={type} className={`tipo ${type.toLowerCase()}`}>
                                             {type}
                                         </li>
                                     ))}
@@ -165,11 +257,106 @@ const TeamTracker = ({ team, onRemovePokemon }) => {
                                         <li>No x2 Weakness</li>
                                     )}
                                 </ul>
+
+                                {/* Nueva sección: Lista de Movimientos Asignados con detalles */}
+                                <div style={{ marginTop: '20px' }}>
+                                    <h4>Movimientos Asignados:</h4>
+                                    {selectedTeamPokemon.moves && selectedTeamPokemon.moves.length > 0 ? (
+                                        <ul style={{ listStyle: 'none', padding: 0 }}>
+                                            {selectedTeamPokemon.moves.map((move, i) => (
+                                                <li
+                                                    key={i}
+                                                    style={{
+                                                        border: '1px solid #aaa',
+                                                        margin: '4px',
+                                                        padding: '4px',
+                                                        textAlign: 'left'
+                                                    }}
+                                                >
+                                                    <div style={{ textAlign: 'center' }}>
+                                                        <strong>{move.name}</strong>
+                                                    </div>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '10px' }}>
+                                                        <div>
+                                                            <strong>Tipo:</strong>
+                                                            <br />
+                                                            <ul className="boxTipo" style={{ display: 'inline-block', marginLeft: '4px' }}>
+                                                                <li className={`tipo ${move.type.toLowerCase()}`}>{move.type}</li>
+                                                            </ul>
+                                                        </div>
+                                                        <div>
+                                                            <strong>Clase:</strong>
+                                                            <br />
+                                                            <ul className="boxTipo" style={{ display: 'inline-block', marginLeft: '4px' }}>
+                                                                <li className={`tipo ${move.damageClass.toLowerCase()}`}>{move.damageClass}</li>
+                                                            </ul>
+                                                        </div>
+                                                        <div>
+                                                            <strong>Efectivo contra:</strong>
+                                                            <br />
+                                                            <ul className="boxTipo" style={{ display: 'inline-block', marginLeft: '4px' }}>
+                                                                {move.effectiveAgainst &&
+                                                                    move.effectiveAgainst.doubleDamageTo &&
+                                                                    move.effectiveAgainst.doubleDamageTo.length > 0 ? (
+                                                                    move.effectiveAgainst.doubleDamageTo.map((t) => (
+                                                                        <li key={t} className={`tipo ${t.toLowerCase()}`}>
+                                                                            {t}
+                                                                        </li>
+                                                                    ))
+                                                                ) : (
+                                                                    <li>N/A</li>
+                                                                )}
+                                                            </ul>
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '10px' }}>
+                                                        <div>
+                                                            <strong>Daño:</strong>
+                                                            <br />
+                                                            {move.power !== undefined ? move.power : 'N/A'}
+                                                        </div>
+                                                        <div>
+                                                            <strong>PP:</strong>
+                                                            <br />
+                                                            {move.pp !== undefined ? move.pp : 'N/A'}
+                                                        </div>
+                                                        <div>
+                                                            <strong>Precisión:</strong>
+                                                            <br />
+                                                            {move.accuracy !== null ? move.accuracy : 'N/A'}
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ marginTop: '10px', textAlign: 'center' }}>
+                                                        <strong>Descripción:</strong> {move.description ? move.description : 'N/A'}
+                                                    </div>
+                                                </li>
+
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <p>No hay movimientos asignados.</p>
+                                    )}
+                                    {showMoveSelector ? (
+                                        <div style={{ marginTop: '10px' }}>
+                                            <Select
+                                                options={moveOptions}
+                                                onChange={handleMoveSelect}
+                                                placeholder="Buscar movimiento..."
+                                            />
+                                        </div>
+                                    ) : (
+                                        <button className="btn" onClick={() => setShowMoveSelector(true)}>
+                                            Agregar Movimiento
+                                        </button>
+                                    )}
+                                </div>
+
                             </div>
                         ) : (
                             <p>Haz clic en un Pokémon del equipo para ver sus detalles.</p>
                         )}
                     </div>
+
                 </div>
             )}
         </div>

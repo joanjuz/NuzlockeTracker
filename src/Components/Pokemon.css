@@ -71,6 +71,10 @@
     font-weight: 700;
     /* o 'bold' */
 }
+.tin{
+    height: 25px;
+    width: 110px;
+}
 
 .Seleccionar {
     /* Font & Text */

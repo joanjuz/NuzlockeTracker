@@ -8,6 +8,20 @@
   
   
   }
+  .physical{
+    background-attachment: scroll;
+    background-color: rgb(194, 142, 111);
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(33, 33, 33);
+  }
+  .status{
+    background-attachment: scroll;
+    background-color: rgb(233, 216, 206);
+    background-position: 0% 0%;
+    background-repeat: repeat;
+    color: rgb(33, 33, 33);
+  }
   .none{
     background-attachment: scroll;
     background-color: rgba(28, 102, 129, 0.548);
