@@ -8,7 +8,8 @@
     letter-spacing: normal;
     line-height: 37.5px;
     text-decoration: none solid rgb(145, 145, 145);
-    text-align: left; /* Alinea el texto a la izquierda */
+    text-align: left;
+    /* Alinea el texto a la izquierda */
     text-indent: 0px;
     white-space: normal;
     word-spacing: 0px;
@@ -31,8 +32,46 @@
     display: block;
     clear: none;
     z-index: auto;
-    margin: 25px 0 10px; /* Alinea al centro horizontalmente */
+    margin: 25px 0 10px;
+    /* Alinea al centro horizontalmente */
 }
+
+/* Nueva clase para botones que mantiene el estilo de .Seleccionar */
+.btn {
+    margin-left: 80px;
+    /* Dimensiones más pequeñas */
+    font-family: Flexo-Regular, arial, sans-serif;
+    font-size: 14px;
+    height: 32px;
+    width: 150px;
+
+    /* Color y fondo */
+    background-color: rgb(255, 255, 255);
+    color: rgb(33, 33, 33);
+    border: 2px solid rgb(97, 97, 97);
+
+    /* Borde redondeado */
+    border-radius: 5px;
+
+    /* Otros estilos */
+    padding: 0;
+    cursor: pointer;
+
+    /* Transición para el hover */
+    transition: background-color 0.3s ease;
+}
+
+/* Efecto al pasar el mouse: oscurecer el fondo */
+.btn:hover {
+    background-color: rgb(230, 230, 230);
+}
+
+/* Nueva clase para poner en negrita (esto sobreescribe font-weight) */
+.bold {
+    font-weight: 700;
+    /* o 'bold' */
+}
+
 .Seleccionar {
     /* Font & Text */
     font-family: Flexo-Regular, arial, sans-serif;
@@ -43,7 +82,8 @@
     letter-spacing: normal;
     line-height: 16px;
     text-decoration: none solid rgb(33, 33, 33);
-    text-align: left; /* Alinea el texto a la izquierda */
+    text-align: left;
+    /* Alinea el texto a la izquierda */
     text-indent: 0px;
     white-space: normal;
     word-spacing: 0px;
@@ -63,7 +103,8 @@
     border-right: 3px solid rgb(97, 97, 97);
     border-bottom: 3px solid rgb(97, 97, 97);
     border-left: 3px solid rgb(97, 97, 97);
-    margin: 0 0 0 25px; /* Alinea al centro horizontalmente */
+    margin: 0 0 0 25px;
+    /* Alinea al centro horizontalmente */
     padding: 0px;
     min-height: auto;
     min-width: auto;
@@ -90,6 +131,7 @@
     border-bottom-left-radius: 5px;
     border-bottom-right-radius: 5px;
 }
+
 .sprite {
     /* Positioning */
     font-family: Flexo-Regular, arial, sans-serif;
@@ -99,7 +141,8 @@
     top: 12px;
     bottom: 0px;
     right: 0px;
-    left: 30; /* Ajusta el valor según sea necesario para centrar a la izquierda */
+    left: 30;
+    /* Ajusta el valor según sea necesario para centrar a la izquierda */
     margin: 0;
     display: block;
     clear: both;
@@ -122,7 +165,7 @@
 }
 
 
-  .texto {
+.texto {
     /* Font & Text */
     font-family: Flexo-Medium, arial, sans-serif;
     font-size: 20px;
@@ -132,7 +175,8 @@
     letter-spacing: normal;
     line-height: 25px;
     text-decoration: none solid rgb(33, 33, 33);
-    text-align: left; /* Alinea el texto a la izquierda */
+    text-align: left;
+    /* Alinea el texto a la izquierda */
     text-indent: 0px;
     text-transform: none;
     white-space: normal;
@@ -154,7 +198,8 @@
     border-right: 0px none rgb(33, 33, 33);
     border-bottom: 0px none rgb(33, 33, 33);
     border-left: 0px none rgb(33, 33, 33);
-    margin: 25px 0 10px 25px; /* Alinea al centro horizontalmente */
+    margin: 25px 0 10px 25px;
+    /* Alinea al centro horizontalmente */
     padding: 0px;
     max-height: none;
     min-height: 0px;

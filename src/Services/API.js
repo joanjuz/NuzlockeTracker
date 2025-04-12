@@ -97,4 +97,28 @@ const getPokemonWeaknesses = async (pokemonName) => {
   };
   export { getPokemonTypes, getPokemonNames, getPokemonTypeByName, getPokemonWeaknesses, getPokemonSprite, getAllPokemonMoves, getAttackTypeByName, getAttackEffectiveAgainst };
   
+  // utils.js
+export const calcularMultiplicador = async (pokemonName, attackType) => {
+  // Primero obtén la información del Pokémon
+  const response = await axios.get(`https://pokeapi.co/api/v2/pokemon/${pokemonName}`);
+  const pokemonTypes = response.data.types.map((t) => t.type.name);
   
+  // Ahora, para cada tipo del Pokémon, obtenemos los damage relations
+  let multiplicadorFinal = 1;
+  for (const defType of pokemonTypes) {
+    const typeResponse = await axios.get(`https://pokeapi.co/api/v2/type/${defType}`);
+    const relations = typeResponse.data.damage_relations;
+    
+    // Por defecto, se asume 1
+    let multiplicador = 1;
+    if (relations.double_damage_from.find((t) => t.name === attackType)) {
+      multiplicador = 2;
+    } else if (relations.half_damage_from.find((t) => t.name === attackType)) {
+      multiplicador = 0.5;
+    } else if (relations.no_damage_from.find((t) => t.name === attackType)) {
+      multiplicador = 0;
+    }
+    multiplicadorFinal *= multiplicador;
+  }
+  return multiplicadorFinal;
+};

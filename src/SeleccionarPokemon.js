@@ -10,7 +10,7 @@ import {
 import './Components/Pokemon.css'
 import './Components/tipos.css'
 
-function SeleccionarPokemon() {
+function SeleccionarPokemon({ onAddPokemon }) {
   const allPokemonTypes = {
     'normal': 0,
     'fire': 0,
@@ -58,7 +58,7 @@ function SeleccionarPokemon() {
     fetchPokemonData();
   }, []);
 
- 
+
   const handlePokemonSelect = async (pokemonOption) => {
     try {
       const types = await getPokemonTypeByName(pokemonOption.label);
@@ -124,94 +124,110 @@ function SeleccionarPokemon() {
   }));
 
   return (
-      <div>
-          <h2 className='titulo'>Search Pokémon by Name:</h2>
-          <Select
-            className='Seleccionar'
-            options={pokemonOptions}
-            onInputChange={handleInputChange}
-            onChange={handlePokemonSelect}
-            value={selectedPokemon}
-          />
+    <div>
+      <h2 className='titulo'>Search Pokémon by Name:</h2>
+      <Select
+        className='Seleccionar'
+        options={pokemonOptions}
+        onInputChange={handleInputChange}
+        onChange={handlePokemonSelect}
+        value={selectedPokemon}
+      />
 
+      {selectedPokemon && (
+        <div>
+          <img className="sprite" src={pokemonSprite} alt={`Sprite of ${selectedPokemon.label}`} />
+          <ul className='boxTipo'>
+            {pokemonType.map((type) => (
+              <li className={`tipo ${type.toLowerCase()}`} key={type}>{type}</li>
+            ))}
+          </ul>
+
+          <p className='texto'>Weaknesses of {selectedPokemon.label}:</p>
           {selectedPokemon && (
             <div>
-              <img className="sprite" src={pokemonSprite} alt={`Sprite of ${selectedPokemon.label}`} />
-              <ul className='boxTipo'>
-                {pokemonType.map((type) => (
-                  <li className={`tipo ${type.toLowerCase()}`} key={type}>{type}</li>
+              <ul>
+                {pokemonWeaknesses.map((weakness) => (
+                  <li key={Object.keys(weakness)[0]} >
+                    <ul>
+                      {weakness[Object.keys(weakness)[0]].double_damage_from.length > 0 && (
+                        <li>
+                          {weakness[Object.keys(weakness)[0]].double_damage_from
+                            .filter((type) => pokemonTypeCounts[type] === 2)
+                            .map((type) => (
+                              <div className='boxWeak'>
+                                <span className={`tipo ${type.toLowerCase()}`}>
+                                  {pokemonTypeCounts[type] === 2 ? `4x ${type}` : pokemonTypeCounts[type] === 1 ? `2x ${type}` : ''}
+                                </span>
+                              </div>
+                            ))}
+                        </li>
+                      )}
+                      {weakness[Object.keys(weakness)[0]].double_damage_from.length > 0 && (
+                        <li>
+                          {weakness[Object.keys(weakness)[0]].double_damage_from
+                            .filter((type) => pokemonTypeCounts[type] === 1)
+                            .map((type) => (
+                              <div className='boxWeak'>
+                                <span className={`tipo ${type.toLowerCase()}`}>
+                                  {pokemonTypeCounts[type] === 2 ? `4x ${type}` : pokemonTypeCounts[type] === 1 ? `2x ${type}` : ''}
+                                </span>
+                              </div>
+                            ))}
+                        </li>
+                      )}
+
+                      {weakness[Object.keys(weakness)[0]].half_damage_from.length > 0 && (
+                        <li>
+                          {weakness[Object.keys(weakness)[0]].half_damage_from
+                            .filter((type) => pokemonTypeCounts[type] === -1 || pokemonTypeCounts[type] === -2)
+                            .map((type) => (
+                              <div className='boxWeak'>
+                                <span className={`tipo ${type.toLowerCase()}`}>
+                                  {pokemonTypeCounts[type] === -1 ? ` 1/2 ${type}` : pokemonTypeCounts[type] === -2 ? `1/4 ${type}` : ''}
+                                </span>
+                              </div>
+                            ))}
+                        </li>
+                      )}
+
+                      {weakness[Object.keys(weakness)[0]].no_damage_from.length > 0 && (
+                        <li>
+                          {weakness[Object.keys(weakness)[0]].no_damage_from
+                            .map((type) => (
+                              <div className='boxWeak'>
+                                <span className={`tipo none`}>
+                                  {type}
+                                </span>
+                              </div>
+                            ))}
+                        </li>
+                      )}
+                    </ul>
+                  </li>
                 ))}
               </ul>
-
-              <p className='texto'>Weaknesses of {selectedPokemon.label}:</p>
-                {selectedPokemon && (
-                  <div >
-                    <ul>
-                      {pokemonWeaknesses.map((weakness) => (
-                        <li key={Object.keys(weakness)[0]} >
-                          <ul>
-                            {weakness[Object.keys(weakness)[0]].double_damage_from.length > 0 && (
-                              <li>
-                                {weakness[Object.keys(weakness)[0]].double_damage_from
-                                  .filter((type) => pokemonTypeCounts[type] === 2)
-                                  .map((type) => (
-                                    <div className='boxWeak'>
-                                      <span className={`tipo ${type.toLowerCase()}`}>
-                                        {pokemonTypeCounts[type] === 2 ? `4x ${type}` : pokemonTypeCounts[type] === 1 ? `2x ${type}` : ''}
-                                      </span>
-                                    </div>
-                                  ))}
-                              </li>
-                            )}
-                            {weakness[Object.keys(weakness)[0]].double_damage_from.length > 0 && (
-                              <li>
-                                {weakness[Object.keys(weakness)[0]].double_damage_from
-                                  .filter((type) => pokemonTypeCounts[type] === 1)
-                                  .map((type) => (
-                                    <div className='boxWeak'>
-                                      <span className={`tipo ${type.toLowerCase()}`}>
-                                        {pokemonTypeCounts[type] === 2 ? `4x ${type}` : pokemonTypeCounts[type] === 1 ? `2x ${type}` : ''}
-                                      </span>
-                                    </div>
-                                  ))}
-                              </li>
-                            )}
-
-                            {weakness[Object.keys(weakness)[0]].half_damage_from.length > 0 && (
-                              <li>
-                                {weakness[Object.keys(weakness)[0]].half_damage_from
-                                  .filter((type) => pokemonTypeCounts[type] === -1 || pokemonTypeCounts[type] === -2)
-                                  .map((type) => (
-                                    <div className='boxWeak'>
-                                      <span className={`tipo ${type.toLowerCase()}`}>
-                                        {pokemonTypeCounts[type] === -1 ? ` 1/2 ${type}` : pokemonTypeCounts[type] === -2 ? `1/4 ${type}` : ''}
-                                      </span>
-                                    </div>
-                                  ))}
-                              </li>
-                            )}
-
-                            {weakness[Object.keys(weakness)[0]].no_damage_from.length > 0 && (
-                              <li>
-                                {weakness[Object.keys(weakness)[0]].no_damage_from
-                                  .map((type) => (
-                                    <div className='boxWeak'>
-                                      <span className={`tipo none`}>
-                                        {type}
-                                      </span>
-                                    </div>
-                                  ))}
-                              </li>
-                            )}
-                          </ul>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
             </div>
           )}
-        </div>
+          {/* Botón para agregar este Pokémon al equipo */}
+            <button className="btn"
+              onClick={() => {
+                const nuevoPokemon = {
+                  name: selectedPokemon.label,
+                  sprite: pokemonSprite,
+                  types: pokemonType,
+                  weaknesses: pokemonWeaknesses,
+                  // Puedes agregar más datos si lo deseas
+                };
+                onAddPokemon(nuevoPokemon);
+              }}
+            >
+              Agregar al Equipo
+            </button>
+          </div>
+
+      )}
+    </div>
   );
 }
 export default SeleccionarPokemon;
