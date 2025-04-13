@@ -1,6 +1,6 @@
 // valoracion.js
 import React, { useState } from 'react';
-import '.container/Valoracion.css';
+import './Components/valoracion.css';
 
 const attackTypesList = [
   'normal', 'fire', 'water', 'electric', 'grass', 'ice',
