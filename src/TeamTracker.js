@@ -7,8 +7,30 @@ import './Components/TeamTracker.css'
 
 const TeamTracker = ({ team, onRemovePokemon, onAddMove }) => {
     const [selectedTeamPokemon, setSelectedTeamPokemon] = useState(null);
+    const [showMovesDetails, setShowMovesDetails] = useState(true);
+
     const [moveOptions, setMoveOptions] = useState([]);
     const [showMoveSelector, setShowMoveSelector] = useState(false);
+    const typeColors = {
+        fire: '#e25822',
+        water: '#3399ff',
+        grass: '#66cc33',
+        electric: '#ffcc00',
+        ice: '#99d9ea',
+        fighting: '#cc3300',
+        poison: '#9933ff',
+        ground: '#d2b48c',
+        flying: '#6699ff',
+        psychic: '#ff66cc',
+        bug: '#99cc33',
+        rock: '#b3a369',
+        ghost: '#6666cc',
+        dragon: '#6666ff',
+        dark: '#333333',
+        steel: '#99aabb',
+        fairy: '#ff99cc',
+        normal: '#a8a878',
+    };
 
     // Lista fija de tipos para el resumen de debilidades
     const attackTypesList = [
@@ -111,7 +133,7 @@ const TeamTracker = ({ team, onRemovePokemon, onAddMove }) => {
 
     return (
         <div className="team-tracker">
-            <h2>Team Tracker</h2>
+            <h2 className='titulo bold'>Team Tracker</h2>
             {team.length === 0 ? (
                 <p>No hay Pokémon en el equipo.</p>
             ) : (
@@ -160,11 +182,12 @@ const TeamTracker = ({ team, onRemovePokemon, onAddMove }) => {
 
                     {/* Resumen de debilidades con movimientos asociados */}
                     <div className="team-summary">
-                        <h3>Resumen de debilidades (x2) por Pokémon:</h3>
+                        <h3 className='titulo bold'>Resumen de debilidades (x2) por Pokémon:</h3>
                         <div className="summary-columns" style={{ display: 'flex' }}>
                             {team.map((pokemon, index) => (
                                 <div
                                     key={index}
+                                    onClick={() => setSelectedTeamPokemon(pokemon)}
                                     style={{
                                         flex: 1,
                                         border: '1px solid #ccc',
@@ -200,12 +223,21 @@ const TeamTracker = ({ team, onRemovePokemon, onAddMove }) => {
                                                             marginBottom: '4px',
                                                         }}
                                                     >
-                                                        <span>{move.name}</span>
+                                                        <span
+                                                            className={move.type.toLowerCase()} // Se usa la clase correspondiente al tipo
+                                                            style={{
+                                                                width: '100px',
+                                                                display: 'block',
+                                                                textAlign: 'center'
+                                                            }}
+                                                        >
+                                                            {move.name}
+                                                        </span>
                                                         <button
                                                             className="btn tin"
                                                             onClick={() => handleRemoveMoveFromTeam(index, idx)}
                                                             style={{
-                                                                marginLeft: '8px',
+                                                                marginLeft: '10px',
                                                                 padding: '2px 6px',
                                                                 fontSize: '12px',
                                                                 cursor: 'pointer',
@@ -224,7 +256,6 @@ const TeamTracker = ({ team, onRemovePokemon, onAddMove }) => {
                             ))}
                         </div>
                     </div>
-
                     {/* Detalles del Pokémon seleccionado */}
                     <div className="pokemon-details" style={{ marginTop: '20px' }}>
                         {selectedTeamPokemon ? (
@@ -259,100 +290,124 @@ const TeamTracker = ({ team, onRemovePokemon, onAddMove }) => {
                                         <li>No x2 Weakness</li>
                                     )}
                                 </ul>
+                                {/* Botón para ocultar o mostrar la sección de Movimientos */}
+                                <button
+                                    className="btn"
+                                    onClick={() => setShowMovesDetails(!showMovesDetails)}
+                                    style={{ marginTop: '10px' }}
+                                >
+                                    {showMovesDetails ? 'Ocultar Movimientos' : 'Mostrar Movimientos'}
+                                </button>
 
                                 {/* Nueva sección: Lista de Movimientos Asignados con detalles */}
-                                <div style={{ marginTop: '20px' }}>
-                                    <h4>Movimientos Asignados:</h4>
-                                    {selectedTeamPokemon.moves && selectedTeamPokemon.moves.length > 0 ? (
-                                        <ul style={{ listStyle: 'none', padding: 0 }}>
-                                            {selectedTeamPokemon.moves.map((move, i) => (
-                                                <li
-                                                    key={i}
-                                                    style={{
-                                                        border: '1px solid #aaa',
-                                                        margin: '4px',
-                                                        padding: '4px',
-                                                        textAlign: 'left'
-                                                    }}
-                                                >
-                                                    <div style={{ textAlign: 'center' }}>
-                                                        <strong>{move.name}</strong>
-                                                    </div>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '10px' }}>
-                                                        <div>
-                                                            <strong>Tipo:</strong>
-                                                            <br />
-                                                            <ul className="boxTipo" style={{ display: 'inline-block', marginLeft: '4px' }}>
-                                                                <li className={`tipo ${move.type.toLowerCase()}`}>{move.type}</li>
-                                                            </ul>
+                                {showMovesDetails && (
+                                    <div style={{ marginTop: '20px' }}>
+                                        <h4>Movimientos Asignados:</h4>
+                                        {selectedTeamPokemon.moves && selectedTeamPokemon.moves.length > 0 ? (
+                                            <ul style={{ listStyle: 'none', padding: 0 }}>
+                                                {selectedTeamPokemon.moves.map((move, i) => (
+                                                    <li
+                                                        key={i}
+                                                        style={{
+                                                            border: '1px solid #aaa',
+                                                            margin: '4px',
+                                                            padding: '4px',
+                                                            textAlign: 'left'
+                                                        }}
+                                                    >
+                                                        <div style={{ textAlign: 'center' }}>
+                                                            <strong>{move.name}</strong>
                                                         </div>
-                                                        <div>
-                                                            <strong>Clase:</strong>
-                                                            <br />
-                                                            <ul className="boxTipo" style={{ display: 'inline-block', marginLeft: '4px' }}>
-                                                                <li className={`tipo ${move.damageClass.toLowerCase()}`}>{move.damageClass}</li>
-                                                            </ul>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '10px' }}>
+                                                            <div>
+                                                                <strong>Tipo:</strong>
+                                                                <br />
+                                                                <ul className="boxTipo" style={{ display: 'inline-block', marginLeft: '4px' }}>
+                                                                    <li className={`tipo ${move.type.toLowerCase()}`}>
+                                                                        {move.type}
+                                                                    </li>
+                                                                </ul>
+                                                            </div>
+                                                            <div>
+                                                                <strong>Clase:</strong>
+                                                                <br />
+                                                                <ul className="boxTipo" style={{ display: 'inline-block', marginLeft: '4px' }}>
+                                                                    <li className={`tipo ${move.damageClass.toLowerCase()}`}>
+                                                                        {move.damageClass}
+                                                                    </li>
+                                                                </ul>
+                                                            </div>
+                                                            <div>
+                                                                <strong>Efectivo contra:</strong>
+                                                                <br />
+                                                                <ul className="boxTipo" style={{ display: 'inline-block', marginLeft: '4px' }}>
+                                                                    {move.effectiveAgainst &&
+                                                                        move.effectiveAgainst.doubleDamageTo &&
+                                                                        move.effectiveAgainst.doubleDamageTo.length > 0 ? (
+                                                                        move.effectiveAgainst.doubleDamageTo.map((t) => (
+                                                                            <li key={t} className={`tipo ${t.toLowerCase()}`}>
+                                                                                {t}
+                                                                            </li>
+                                                                        ))
+                                                                    ) : (
+                                                                        <li>N/A</li>
+                                                                    )}
+                                                                </ul>
+                                                            </div>
                                                         </div>
-                                                        <div>
-                                                            <strong>Efectivo contra:</strong>
-                                                            <br />
-                                                            <ul className="boxTipo" style={{ display: 'inline-block', marginLeft: '4px' }}>
-                                                                {move.effectiveAgainst &&
-                                                                    move.effectiveAgainst.doubleDamageTo &&
-                                                                    move.effectiveAgainst.doubleDamageTo.length > 0 ? (
-                                                                    move.effectiveAgainst.doubleDamageTo.map((t) => (
-                                                                        <li key={t} className={`tipo ${t.toLowerCase()}`}>
-                                                                            {t}
-                                                                        </li>
-                                                                    ))
-                                                                ) : (
-                                                                    <li>N/A</li>
-                                                                )}
-                                                            </ul>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '10px' }}>
+                                                            <div>
+                                                                <strong>Daño:</strong>
+                                                                <br />
+                                                                {move.power !== undefined ? move.power : 'N/A'}
+                                                            </div>
+                                                            <div>
+                                                                <strong>PP:</strong>
+                                                                <br />
+                                                                {move.pp !== undefined ? move.pp : 'N/A'}
+                                                            </div>
+                                                            <div>
+                                                                <strong>Precisión:</strong>
+                                                                <br />
+                                                                {move.accuracy !== null ? move.accuracy : 'N/A'}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '10px' }}>
-                                                        <div>
-                                                            <strong>Daño:</strong>
-                                                            <br />
-                                                            {move.power !== undefined ? move.power : 'N/A'}
+                                                        <div style={{ marginTop: '10px', textAlign: 'center' }}>
+                                                            <strong>Descripción:</strong> {move.description ? move.description : 'N/A'}
                                                         </div>
-                                                        <div>
-                                                            <strong>PP:</strong>
-                                                            <br />
-                                                            {move.pp !== undefined ? move.pp : 'N/A'}
-                                                        </div>
-                                                        <div>
-                                                            <strong>Precisión:</strong>
-                                                            <br />
-                                                            {move.accuracy !== null ? move.accuracy : 'N/A'}
-                                                        </div>
-                                                    </div>
-                                                    <div style={{ marginTop: '10px', textAlign: 'center' }}>
-                                                        <strong>Descripción:</strong> {move.description ? move.description : 'N/A'}
-                                                    </div>
-                                                </li>
-
-                                            ))}
-                                        </ul>
-                                    ) : (
-                                        <p>No hay movimientos asignados.</p>
-                                    )}
-                                    {showMoveSelector ? (
-                                        <div style={{ marginTop: '10px' }}>
-                                            <Select
-                                                options={moveOptions}
-                                                onChange={handleMoveSelect}
-                                                placeholder="Buscar movimiento..."
-                                            />
-                                        </div>
-                                    ) : (
-                                        <button className="btn" onClick={() => setShowMoveSelector(true)}>
-                                            Agregar Movimiento
-                                        </button>
-                                    )}
-                                </div>
-
+                                                        <button
+                                                            className="btn tin"
+                                                            onClick={() => handleRemoveMoveFromTeam(i)}
+                                                            style={{
+                                                                marginTop: '4px',
+                                                                padding: '2px 6px',
+                                                                fontSize: '12px',
+                                                                cursor: 'pointer'
+                                                            }}
+                                                        >
+                                                            Eliminar
+                                                        </button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        ) : (
+                                            <p>No hay movimientos asignados.</p>
+                                        )}
+                                        {showMoveSelector ? (
+                                            <div style={{ marginTop: '10px' }}>
+                                                <Select
+                                                    options={moveOptions}
+                                                    onChange={handleMoveSelect}
+                                                    placeholder="Buscar movimiento..."
+                                                />
+                                            </div>
+                                        ) : (
+                                            <button className="btn" onClick={() => setShowMoveSelector(true)}>
+                                                Agregar Movimiento
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             <p>Haz clic en un Pokémon del equipo para ver sus detalles.</p>

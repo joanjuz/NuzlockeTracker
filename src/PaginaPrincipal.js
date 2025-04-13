@@ -1,6 +1,5 @@
 // PaginaPrincipal.js
 import React, { useState } from 'react';
-import SeleccionarAtaque from './SeleccionarAtaque';
 import SeleccionarPokemon from './SeleccionarPokemon';
 import TeamTracker from './TeamTracker';
 
@@ -57,13 +56,13 @@ const PaginaPrincipal = () => {
       <div style={{ display: 'flex' }}>
         {/* Visualización de los equipos */}
         <div style={{ marginTop: '20px', flex: 1, marginRight: '30px' }}>
-          <h2>Mi Equipo:</h2>
+          <h2 className='titulo bold'>Mi Equipo:</h2>
           <TeamTracker team={miEquipo} onRemovePokemon={(index) => eliminarPokemonDelTeam(index, "miEquipo")}
             onAddMove={addMoveToPokemon}
           />
         </div>
         <div style={{ marginTop: '20px', flex: 1, marginRight:'20px'}}>
-          <h2>Equipo Rival:</h2>
+          <h2 className='titulo bold'>Equipo Rival:</h2>
           <TeamTracker team={rivalTeam} onRemovePokemon={(index) => eliminarPokemonDelTeam(index, "rivalTeam")}
             onAddMove={addMoveToPokemon}
           />
