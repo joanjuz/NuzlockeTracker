@@ -1,0 +1,32 @@
+/* header.css */
+header {
+    background-color: #ffffff;          /* Fondo blanco */
+    padding: 15px 20px;                 /* Espaciado interno */
+    border-radius: 4px;                 /* Bordes ligeramente redondeados */
+    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);  /* Sombra sutil */
+    text-align: center;                 /* Texto centrado */
+    margin-bottom: 20px;                /* Separación inferior */
+  }
+  
+  /* Estilo para los botones dentro del header */
+  header button {
+    background-color: #ffffff;
+    border: 1px solid #ccc;
+    padding: 8px 16px;
+    margin: 0 5px;
+    border-radius: 4px;
+    font-size: 1em;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  /* Hover para que se oscurezca ligeramente */
+  header button:hover {
+    background-color: #f0f0f0;
+  }
+  
+  /* Eliminar outline cuando se hace clic */
+  header button:focus {
+    outline: none;
+  }
+  
