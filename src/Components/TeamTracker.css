@@ -1,0 +1,236 @@
+/* TeamTracker.css */
+
+/* Contenedor general del TeamTracker */
+.team-tracker {
+    padding: 20px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    font-family: 'Arial', sans-serif;
+  }
+  
+  /* Encabezado principal */
+  .team-tracker h2 {
+    color: #333;
+    margin-bottom: 15px;
+    text-align: center;
+  }
+  
+  /* Contenedor principal para el equipo */
+  .team-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+  
+  /* Sección de listado de Pokémon */
+  .team-list {
+    width: 100%;
+    margin-bottom: 20px;
+  }
+  
+  .team-list h3 {
+    font-size: 1.2em;
+    margin-bottom: 10px;
+    color: #555;
+  }
+  
+  /* Listado de Pokémon */
+  .team-list ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .team-list li {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    background-color: #fff;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .team-list li:hover {
+    background-color: #f0f0f0;
+  }
+  
+  .team-list li img {
+    border-radius: 50%;
+    margin-right: 10px;
+  }
+  
+
+  
+  .team-list button.btn:hover {
+    background-color: #c0392b;
+  }
+  
+  /* Sección de Resumen del equipo: Debilidades y Movimientos */
+  .team-summary {
+    width: 100%;
+    margin-top: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  
+  .team-summary h3 {
+    font-size: 1.2em;
+    margin-bottom: 15px;
+    color: #333;
+    text-align: center;
+  }
+  
+  /* Columnas para el resumen de cada Pokémon */
+  .summary-columns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+  }
+  
+  .summary-columns > div {
+    flex: 1;
+    min-width: 220px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 10px;
+    background-color: #fafafa;
+    text-align: center;
+  }
+  
+  /* Encabezados internos de cada columna */
+  .summary-columns h4 {
+    margin-bottom: 10px;
+    font-size: 1.1em;
+    color: #444;
+  }
+  
+  /* Listas internas sin viñetas para debilidades y movimientos */
+  .summary-columns ul,
+  .move-summary ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .summary-columns li,
+  .move-summary li {
+    margin-bottom: 8px;
+  }
+  
+  /* Botón para eliminar movimiento */
+  .btnEliminarMovimiento {
+    background-color: #e74c3c;
+    border: none;
+    color: #fff;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .btnEliminarMovimiento:hover {
+    background-color: #c0392b;
+  }
+  
+  /* Estilos para la sección de Movimientos en la columna de cada Pokémon */
+  .move-summary {
+    margin-top: 15px;
+    text-align: left;
+  }
+  
+  .move-summary h5 {
+    font-size: 1em;
+    margin-bottom: 8px;
+    color: #333;
+  }
+  
+  /* Ejemplo de estilos para boxTipo y tipo (para mostrar tipos de Pokémon o movimientos) */
+  .boxTipo {
+    display: inline-block;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .tipo {
+    display: inline-block;
+    padding: 2px 6px;
+    margin: 2px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    color: #fff;
+  }
+  
+  /* Colores para tipos: puedes ajustar o extender según tus preferencias */
+  .tipo.fire {
+    background-color: #e25822;
+  }
+  .tipo.water {
+    background-color: #3399ff;
+  }
+  .tipo.grass {
+    background-color: #66cc33;
+  }
+  .tipo.electric {
+    background-color: #ffcc00;
+  }
+  .tipo.ice {
+    background-color: #99d9ea;
+  }
+  .tipo.fighting {
+    background-color: #cc3300;
+  }
+  .tipo.poison {
+    background-color: #9933ff;
+  }
+  .tipo.ground {
+    background-color: #d2b48c;
+  }
+  .tipo.flying {
+    background-color: #6699ff;
+  }
+  .tipo.psychic {
+    background-color: #ff66cc;
+  }
+  .tipo.bug {
+    background-color: #99cc33;
+  }
+  .tipo.rock {
+    background-color: #b3a369;
+  }
+  .tipo.ghost {
+    background-color: #6666cc;
+  }
+  .tipo.dragon {
+    background-color: #6666ff;
+  }
+  .tipo.dark {
+    background-color: #333333;
+  }
+  .tipo.steel {
+    background-color: #99aabb;
+  }
+  .tipo.fairy {
+    background-color: #ff99cc;
+  }
+  .tipo.normal {
+    background-color: #a8a878;
+  }
+  
+  /* Opcional: Estilos para damage classes */
+  .tipo.physical {
+    background-color: #d35400;
+  }
+  .tipo.special {
+    background-color: #8e44ad;
+  }
+  .tipo.status {
+    background-color: #2ecc71;
+  }
+  

@@ -35,9 +35,9 @@ const PaginaPrincipal = () => {
   return (
     <div style={{ padding: '20px' }}>
       <h1 className='titulo bold'>Tracker Pokémon</h1>
-      <div style={{ display: 'flex', fontSize: '0.8em', padding: '10px', gap: '10px' }}>
+      <div style={{ display: 'flex', fontSize: '1.2em', padding: '10px', gap: '10px' }}>
         <div style={{ flex: 1 }}>
-          <h2 className="titulo bold" style={{ fontSize: '1.2em', margin: '5px 0' }}>
+          <h2 className="titulo bold" style={{ fontSize: '1.4em', margin: '5px 0' }}>
             Agregar a Mi Equipo
           </h2>
           <SeleccionarPokemon
@@ -45,7 +45,7 @@ const PaginaPrincipal = () => {
           />
         </div>
         <div style={{ flex: 1 }}>
-          <h2 className="titulo bold" style={{ fontSize: '1.2em', margin: '5px 0' }}>
+          <h2 className="titulo bold" style={{ fontSize: '1.4em', margin: '5px 0' }}>
             Agregar al Equipo Rival
           </h2>
           <SeleccionarPokemon
@@ -56,13 +56,13 @@ const PaginaPrincipal = () => {
 
       <div style={{ display: 'flex' }}>
         {/* Visualización de los equipos */}
-        <div style={{ marginTop: '20px', flex: 1 }}>
+        <div style={{ marginTop: '20px', flex: 1, marginRight: '30px' }}>
           <h2>Mi Equipo:</h2>
           <TeamTracker team={miEquipo} onRemovePokemon={(index) => eliminarPokemonDelTeam(index, "miEquipo")}
             onAddMove={addMoveToPokemon}
           />
         </div>
-        <div style={{ marginTop: '20px', flex: 1 }}>
+        <div style={{ marginTop: '20px', flex: 1, marginRight:'20px'}}>
           <h2>Equipo Rival:</h2>
           <TeamTracker team={rivalTeam} onRemovePokemon={(index) => eliminarPokemonDelTeam(index, "rivalTeam")}
             onAddMove={addMoveToPokemon}

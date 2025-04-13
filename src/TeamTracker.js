@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import Select from 'react-select';
 import { getAllPokemonMoves, getMoveDetails } from './Services/API';
+import './Components/TeamTracker.css'
+
 
 const TeamTracker = ({ team, onRemovePokemon, onAddMove }) => {
     const [selectedTeamPokemon, setSelectedTeamPokemon] = useState(null);

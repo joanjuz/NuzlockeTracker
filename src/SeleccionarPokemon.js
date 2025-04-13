@@ -143,7 +143,7 @@ function SeleccionarPokemon({ onAddPokemon }) {
             ))}
           </ul>
 
-          <p className='texto'>Weaknesses of {selectedPokemon.label}:</p>
+          <p className='texto'>Debilidades:</p>
           {selectedPokemon && (
             <div>
               <ul>
