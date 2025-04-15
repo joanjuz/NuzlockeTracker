@@ -1,6 +1,7 @@
 // API.js
 import axios from 'axios';
 
+
 const baseUrl = 'https://pokeapi.co/api/v2/';
 
 const getPokemonTypes = async () => {
@@ -130,6 +131,16 @@ const getMoveDetails = async (moveName) => {
 
 
 
+// API.js (agregar al final o donde correspondan las funciones)
+const getAllItems = async () => {
+  try {
+    const response = await axios.get(`${baseUrl}item/?limit=100000`);
+    return response.data.results.map((item) => item.name);
+  } catch (error) {
+    throw new Error('Error fetching items');
+  }
+};
+
 export { 
   getPokemonTypes, 
   getPokemonNames, 
@@ -139,5 +150,7 @@ export {
   getAllPokemonMoves, 
   getAttackTypeByName, 
   getAttackEffectiveAgainst,
-  getMoveDetails 
+  getMoveDetails,
+  getAllItems  // Asegúrate de exportar la nueva función.
 };
+

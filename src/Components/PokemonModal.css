@@ -1,0 +1,51 @@
+/* PokemonModal.css */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 999;
+  }
+  
+  .modal-container {
+    background: #fff;
+    padding: 20px 30px;
+    border-radius: 8px;
+    width: 400px;
+    max-width: 90%;
+    max-height: 80vh; /* altura máxima */
+    overflow-y: auto; /* scroll vertical si excede */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  
+  
+  .modal-form .form-group {
+    margin-bottom: 15px;
+  }
+  
+  .modal-form label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+  }
+  
+  .modal-form input,
+  .modal-form select {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+  
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 20px;
+  }
+  
+  

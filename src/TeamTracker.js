@@ -61,7 +61,7 @@ const TeamTracker = ({ team, onRemovePokemon, onAddMove }) => {
     const getX2Weaknesses = (pokemon) => {
         return attackTypesList.filter((attackType) => {
             const mult = getEffectiveMultiplier(pokemon, attackType);
-            return mult === 2;
+            return mult >= 2;
         });
     };
 

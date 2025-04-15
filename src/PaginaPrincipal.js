@@ -4,6 +4,8 @@ import Header from './Header';
 import SeleccionarPokemon from './SeleccionarPokemon';
 import TeamTracker from './TeamTracker';
 import Valoracion from './valoracion.js';
+import GenerarTxt from './GenerarTxt.js';
+import ImportarTxt from './ImportarTxt.js'; // Asegúrate de tener este componente
 
 const PaginaPrincipal = () => {
   const [activeTab, setActiveTab] = useState("agregar");
@@ -31,9 +33,17 @@ const PaginaPrincipal = () => {
     setRivalTeam([...rivalTeam]);
   };
 
+  // Callback para importar Pokémon desde un archivo TXT
+  const handleImportPokemons = (importedPokemons) => {
+    // Por ejemplo, se agregan al equipo propio (miEquipo)
+    setMiEquipo((prevTeam) => [...prevTeam, ...importedPokemons]);
+    // Cambia a la vista de equipo tras la importación
+    setActiveTab("equipo");
+  };
+
   return (
     <div style={{ padding: '20px' }}>
-      <h1 className='titulo bold'>Tracker Pokémon</h1>
+      <h1 className="titulo bold">Tracker Pokémon</h1>
       <Header activeTab={activeTab} setActiveTab={setActiveTab} />
 
       {activeTab === "agregar" && (
@@ -42,17 +52,13 @@ const PaginaPrincipal = () => {
             <h2 className="titulo bold" style={{ fontSize: '1.4em', margin: '5px 0' }}>
               Agregar a Mi Equipo
             </h2>
-            <SeleccionarPokemon
-              onAddPokemon={(pokemon) => agregarPokemonAlTeam(pokemon, "miEquipo")}
-            />
+            <SeleccionarPokemon onAddPokemon={(pokemon) => agregarPokemonAlTeam(pokemon, "miEquipo")} />
           </div>
           <div style={{ flex: 1 }}>
             <h2 className="titulo bold" style={{ fontSize: '1.4em', margin: '5px 0' }}>
               Agregar al Equipo Rival
             </h2>
-            <SeleccionarPokemon
-              onAddPokemon={(pokemon) => agregarPokemonAlTeam(pokemon, "rivalTeam")}
-            />
+            <SeleccionarPokemon onAddPokemon={(pokemon) => agregarPokemonAlTeam(pokemon, "rivalTeam")} />
           </div>
         </div>
       )}
@@ -60,17 +66,17 @@ const PaginaPrincipal = () => {
       {activeTab === "equipo" && (
         <div style={{ display: 'flex' }}>
           <div style={{ marginTop: '20px', flex: 1, marginRight: '30px' }}>
-            <h2 className='titulo bold'>Mi Equipo:</h2>
-            <TeamTracker 
-              team={miEquipo} 
+            <h2 className="titulo bold">Mi Equipo:</h2>
+            <TeamTracker
+              team={miEquipo}
               onRemovePokemon={(index) => eliminarPokemonDelTeam(index, "miEquipo")}
               onAddMove={addMoveToPokemon}
             />
           </div>
-          <div style={{ marginTop: '20px', flex: 1, marginRight:'20px' }}>
-            <h2 className='titulo bold'>Equipo Rival:</h2>
-            <TeamTracker 
-              team={rivalTeam} 
+          <div style={{ marginTop: '20px', flex: 1, marginRight: '20px' }}>
+            <h2 className="titulo bold">Equipo Rival:</h2>
+            <TeamTracker
+              team={rivalTeam}
               onRemovePokemon={(index) => eliminarPokemonDelTeam(index, "rivalTeam")}
               onAddMove={addMoveToPokemon}
             />
@@ -81,6 +87,18 @@ const PaginaPrincipal = () => {
       {activeTab === "valoracion" && (
         <div style={{ marginTop: '20px' }}>
           <Valoracion team={miEquipo} />
+        </div>
+      )}
+
+      {activeTab === "generacion" && (
+        <div style={{ marginTop: '20px' }}>
+          <GenerarTxt team={miEquipo} />
+        </div>
+      )}
+
+      {activeTab === "importar" && (
+        <div style={{ marginTop: '20px' }}>
+          <ImportarTxt onImportPokemons={handleImportPokemons} />
         </div>
       )}
     </div>
