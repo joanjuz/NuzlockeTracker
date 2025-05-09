@@ -232,4 +232,18 @@
   .tipo.status {
     background-color: #2ecc71;
   }
-  
+  /* 💡 Colores por estado */
+[data-estado="activo"] {
+  background-color: #e6ffe6; /* verde claro */
+  border-left: 5px solid #2ecc71;
+}
+
+[data-estado="caja"] {
+  background-color: #eef5ff; /* azul claro */
+  border-left: 5px solid #3498db;
+}
+
+[data-estado="cementerio"] {
+  background-color: #ffe6e6; /* rojo claro */
+  border-left: 5px solid #e74c3c;
+}

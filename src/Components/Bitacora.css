@@ -1,0 +1,14 @@
+.bitacora-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  
+  .bitacora-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 1.1em;
+  }
+  

@@ -1,4 +1,3 @@
-// Header.js
 import React from 'react';
 import './Components/Header.css';
 
@@ -19,21 +18,37 @@ const Header = ({ activeTab, setActiveTab }) => {
       >
         Ver Equipo
       </button>
+      
+      <button
+        className="btn"
+        onClick={() => setActiveTab("valoracion")}
+        style={{ fontWeight: activeTab === "valoracion" ? 'bold' : 'normal' }}
+      >
+        Valoración
+      </button>
+      <button
+        className="btn"
+        onClick={() => setActiveTab("bitacora")}
+        style={{ marginRight: '10px', fontWeight: activeTab === "bitacora" ? 'bold' : 'normal' }}
+      >
+        Bitácora
+      </button>
       <button
         className="btn"
         onClick={() => setActiveTab("importar")}
-        style={{ fontWeight: activeTab === "importar" ? 'bold' : 'normal' }}
+        style={{ marginRight: '10px', fontWeight: activeTab === "importar" ? 'bold' : 'normal' }}
       >
+        
         Importar TXT
       </button>
       <button
         className="btn"
         onClick={() => setActiveTab("generacion")}
-        style={{ fontWeight: activeTab === "generacion" ? 'bold' : 'normal' }}
+        style={{ marginRight: '10px', fontWeight: activeTab === "generacion" ? 'bold' : 'normal' }}
       >
         Generar txt
       </button>
-
+      
     </header>
   );
 };
