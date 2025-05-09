@@ -86,10 +86,3 @@ IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
 - Inspirado en los desafíos Nuzlocke
 
 ---
-
-## 📌 Próximas mejoras
-
-- 🔄 Sincronización en la nube (Firebase/IndexedDB)
-- 📈 Estadísticas por región y tipo
-- 🖼️ Personalización visual (temas, sprites opcionales)
-- 🌙 Modo oscuro
