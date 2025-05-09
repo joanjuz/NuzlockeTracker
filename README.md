@@ -1,44 +1,45 @@
-🕹️ NuzTracker
-NuzTracker es una aplicación web interactiva para gestionar equipos de Pokémon en desafíos tipo Nuzlocke. Permite añadir, editar y visualizar Pokémon con sus habilidades, tipos, debilidades, movimientos y estados (activo, caja o cementerio). También ofrece valoración estratégica del equipo, bitácora de progreso, e importación/exportación desde archivos .txt estilo Showdown.
+# 🕹️ NuzTracker
 
-🚀 Funcionalidades principales
-✅ Gestión de equipo: añade Pokémon con sus movimientos, habilidades y nivel.
+**NuzTracker** es una aplicación web interactiva para gestionar equipos de Pokémon en desafíos tipo *Nuzlocke*. Permite añadir, editar y visualizar Pokémon con sus habilidades, tipos, debilidades, movimientos y estados (activo, caja o cementerio). También ofrece valoración estratégica del equipo, bitácora de progreso, e importación/exportación desde archivos `.txt` estilo Showdown.
 
-🔄 Cambio de estado: marca un Pokémon como activo, en la caja o fallecido.
+---
 
-📊 Valoración del equipo: cobertura ofensiva, debilidades, STAB, resistencias e inmunidades.
+## 🚀 Funcionalidades principales
 
-📘 Bitácora de aventura: marca medallas, miembros del Alto Mando derrotados y rutas de captura por juego.
+- ✅ **Gestión de equipo**: añade Pokémon con sus movimientos, habilidades y nivel.
+- 🔄 **Cambio de estado**: marca un Pokémon como activo, en la caja o fallecido.
+- 📊 **Valoración del equipo**: cobertura ofensiva, debilidades, STAB, resistencias e inmunidades.
+- 📘 **Bitácora de aventura**: marca medallas, miembros del Alto Mando derrotados y rutas de captura por juego.
+- 📥 **Importación desde Showdown.txt**: analiza y convierte archivos `.txt` al equipo actual.
+- 📤 **Exportación a Showdown.txt**: genera archivos `.txt` del equipo actual.
+- 💾 **Guardado automático en localStorage**: persistencia entre sesiones.
+- 🌐 **Integración con PokéAPI**: para obtener sprites, tipos, habilidades, debilidades y movimientos.
 
-📥 Importación desde Showdown.txt: analiza y convierte archivos .txt al equipo actual.
+---
 
-📤 Exportación a Showdown.txt: genera archivos .txt del equipo actual.
+## 🖥️ Tecnologías utilizadas
 
-💾 Guardado automático en localStorage: persistencia entre sesiones.
+- ⚛️ **React** (con `useState`, `useEffect`)
+- 🖌️ **CSS modularizado** para estilos por componente
+- 🔧 **React Select** para campos de selección dinámica
+- 📦 **PokéAPI** para datos en tiempo real
 
-🌐 Integración con PokéAPI: para obtener sprites, tipos, habilidades, debilidades y movimientos.
+---
 
-🖥️ Tecnologías utilizadas
-⚛️ React (con useState, useEffect)
+## 📦 Instalación
 
-🖌️ CSS modularizado para estilos por componente
-
-🔧 React Select para campos de selección dinámica
-
-📦 PokéAPI para datos en tiempo real
-
-📦 Instalación
-bash
-Copiar
-Editar
+```bash
 git clone https://github.com/tu-usuario/nuztracker.git
 cd nuztracker
 npm install
 npm start
-📁 Estructura del proyecto
-css
-Copiar
-Editar
+```
+
+---
+
+## 📁 Estructura del proyecto
+
+```
 src/
 ├── Components/
 │   ├── TeamTracker.js
@@ -54,12 +55,15 @@ src/
 ├── App.js
 ├── index.js
 └── README.md
-📄 Formato del archivo TXT (Showdown)
-Importa/Exporta archivos .txt siguiendo el formato de Pokémon Showdown. Cada Pokémon debe estar separado por una línea vacía y debe incluir datos como:
+```
 
-scss
-Copiar
-Editar
+---
+
+## 📄 Formato del archivo TXT (Showdown)
+
+**Importa/Exporta archivos `.txt`** siguiendo el formato de Pokémon Showdown. Cada Pokémon debe estar separado por una línea vacía y debe incluir datos como:
+
+```
 Apodo (Pikachu) (M) @ Light Ball
 Ability: Static
 Level: 50
@@ -71,18 +75,21 @@ IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
 - Iron Tail
 - Quick Attack
 - Volt Tackle
-📝 Créditos
-Desarrollado por [Tu nombre o usuario]
+```
 
-Datos y recursos provienen de https://pokeapi.co
+---
 
-Inspirado en los desafíos Nuzlocke
+## 📝 Créditos
 
-📌 Próximas mejoras
-🔄 Sincronización en la nube (Firebase/IndexedDB)
+- Desarrollado por [Tu nombre o usuario]
+- Datos y recursos provienen de [https://pokeapi.co](https://pokeapi.co)
+- Inspirado en los desafíos Nuzlocke
 
-📈 Estadísticas por región y tipo
+---
 
-🖼️ Personalización visual (temas, sprites opcionales)
+## 📌 Próximas mejoras
 
-🌙 Modo oscuro
+- 🔄 Sincronización en la nube (Firebase/IndexedDB)
+- 📈 Estadísticas por región y tipo
+- 🖼️ Personalización visual (temas, sprites opcionales)
+- 🌙 Modo oscuro
