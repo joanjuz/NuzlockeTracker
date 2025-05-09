@@ -81,7 +81,7 @@ IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
 
 ## 📝 Créditos
 
-- Desarrollado por [Tu nombre o usuario]
+- Desarrollado por [joanjuz]
 - Datos y recursos provienen de [https://pokeapi.co](https://pokeapi.co)
 - Inspirado en los desafíos Nuzlocke
 
