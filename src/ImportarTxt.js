@@ -160,10 +160,18 @@ const ImportarTxt = ({ onImportPokemons }) => {
 
     return (
         <div className="importar-txt-container">
-            <h2 className="titulo bold">Importar TXT</h2>
-            <input type="file" accept=".txt" onChange={handleFileChange} />
+            <label className="btn-min" style={{ cursor: 'pointer' }}>
+                Seleccionar archivo
+                <input
+                    type="file"
+                    accept=".txt"
+                    onChange={handleFileChange}
+                    style={{ display: 'none' }}
+                />
+            </label>
             {error && <p className="error">{error}</p>}
         </div>
+
     );
 };
 

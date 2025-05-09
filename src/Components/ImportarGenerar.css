@@ -1,0 +1,47 @@
+/* Components/ImportarGenerar.css */
+.importar-generar-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 40px;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin: 30px auto;
+    max-width: 800px;
+    flex-wrap: wrap;
+  }
+  
+  .importar-section,
+  .generar-section {
+    flex: 1 1 300px;
+    padding: 20px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    text-align: center;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  
+  .importar-section input[type="file"] {
+    margin-top: 10px;
+  }
+  
+  .generar-btn {
+    padding: 10px 20px;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .generar-btn:hover {
+    background-color: #2980b9;
+  }
+  .titulo.bold {
+    margin-bottom: 20px; /* Aumenta el espacio debajo del título */
+  }
+  
+  

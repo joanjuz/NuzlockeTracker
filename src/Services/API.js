@@ -140,6 +140,58 @@ const getAllItems = async () => {
     throw new Error('Error fetching items');
   }
 };
+export async function getGameVersions() {
+  const res = await fetch("https://pokeapi.co/api/v2/version/");
+  const data = await res.json();
+  return data.results; // [{ name, url }]
+}
+
+export async function getAllLocationAreas() {
+  const res = await fetch("https://pokeapi.co/api/v2/location-area?limit=1000");
+  const data = await res.json();
+  return data.results; // [{ name, url }]
+}
+export async function getRutasPorJuego(nombreVersion) {
+  try {
+    // Paso 1: obtener la lista de versiones
+    const versionesRes = await fetch('https://pokeapi.co/api/v2/version');
+    const versionesData = await versionesRes.json();
+    const versionMatch = versionesData.results.find(v => v.name === nombreVersion);
+
+    if (!versionMatch) throw new Error(`Versión no encontrada: ${nombreVersion}`);
+
+    // Paso 2: obtener versión → version_group
+    const versionDetalle = await fetch(versionMatch.url);
+    const versionDetalleData = await versionDetalle.json();
+    const versionGroupUrl = versionDetalleData.version_group.url;
+
+    // Paso 3: obtener grupo de versión → regiones
+    const grupoRes = await fetch(versionGroupUrl);
+    const grupoData = await grupoRes.json();
+    const regiones = grupoData.regions;
+
+    if (!regiones.length) throw new Error('No se encontraron regiones asociadas.');
+
+    // Paso 4: obtener las ubicaciones (locations) de cada región
+    let rutas = [];
+    for (const region of regiones) {
+      const regionRes = await fetch(region.url);
+      const regionData = await regionRes.json();
+
+      const locations = regionData.locations.map(loc => loc.name);
+      rutas.push(...locations);
+    }
+
+    // Devolver rutas únicas ordenadas
+    const rutasUnicas = Array.from(new Set(rutas)).sort();
+    return rutasUnicas;
+  } catch (error) {
+    console.error('Error al obtener rutas por juego:', error);
+    return [];
+  }
+}
+
+
 
 export { 
   getPokemonTypes, 

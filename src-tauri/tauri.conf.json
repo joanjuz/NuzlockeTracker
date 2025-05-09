@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "PokeApp",
-  "version": "0.1.0",
-  "identifier": "com.pokeapp.jisus",
+  "productName": "NuzTracker",
+  "version": "0.5.0",
+  "identifier": "com.NuzTracker.dev",
   "build": {
     "frontendDist": "../build",
     "devUrl": "http://localhost:3000",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "PokeApp",
+        "title": "NuzTracker",
         "width": 800,
         "height": 600,
         "resizable": true,

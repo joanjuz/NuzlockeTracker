@@ -3,9 +3,9 @@ import Header from './Header';
 import SeleccionarPokemon from './SeleccionarPokemon';
 import TeamTracker from './TeamTracker';
 import Valoracion from './valoracion.js';
-import GenerarTxt from './GenerarTxt.js';
 import BitacoraAventura from './BitacoraAventura';
-import ImportarTxt from './ImportarTxt.js';
+import './Components/Apps.css';
+import ImportarGenerar from './ImportarGenerar.js';
 
 const PaginaPrincipal = () => {
   const [activeTab, setActiveTab] = useState(() => {
@@ -103,35 +103,62 @@ const PaginaPrincipal = () => {
     setActiveTab("agregar");
     alert("Progreso borrado.");
   };
-  const exportarEquipo = () => {
+  const exportarSesion = () => {
     const equipo = JSON.parse(localStorage.getItem("miEquipo")) || [];
-    const blob = new Blob([JSON.stringify(equipo, null, 2)], { type: 'application/json' });
+    const rutasCapturadas = JSON.parse(localStorage.getItem("rutasCapturadas")) || {};
+    const medallas = JSON.parse(localStorage.getItem("medallas")) || Array(8).fill(false);
+    const altoMando = JSON.parse(localStorage.getItem("altoMando")) || Array(4).fill(false);
+    const juegoSeleccionado = localStorage.getItem("juegoSeleccionado") || "";
+
+    const sesion = {
+      juegoSeleccionado,
+      medallas,
+      altoMando,
+      rutasCapturadas,
+      equipo
+    };
+
+    const blob = new Blob([JSON.stringify(sesion, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'mi_equipo_pokemon.json';
+    link.download = 'sesion_pokemon.json';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  const importarEquipoDesdeArchivo = (e) => {
+  const importarSesionDesdeArchivo = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
-        const equipoImportado = JSON.parse(event.target.result);
-        if (Array.isArray(equipoImportado)) {
-          localStorage.setItem("miEquipo", JSON.stringify(equipoImportado));
-          setMiEquipo(equipoImportado);
-          alert("Equipo importado correctamente.");
+        const sesionImportada = JSON.parse(event.target.result);
+
+        if (
+          sesionImportada &&
+          typeof sesionImportada === 'object' &&
+          Array.isArray(sesionImportada.equipo)
+        ) {
+          // Restaurar datos
+          localStorage.setItem("miEquipo", JSON.stringify(sesionImportada.equipo));
+          localStorage.setItem("rutasCapturadas", JSON.stringify(sesionImportada.rutasCapturadas || {}));
+          localStorage.setItem("medallas", JSON.stringify(sesionImportada.medallas || Array(8).fill(false)));
+          localStorage.setItem("altoMando", JSON.stringify(sesionImportada.altoMando || Array(4).fill(false)));
+          localStorage.setItem("juegoSeleccionado", sesionImportada.juegoSeleccionado || "");
+
+          // Actualizar estados si están disponibles
+          setMiEquipo(sesionImportada.equipo || []);
           setActiveTab("equipo");
+
+          alert("Sesión importada correctamente.");
         } else {
           alert("El archivo no es válido.");
         }
       } catch (err) {
+        console.error("❌ Error al leer archivo:", err);
         alert("Error al leer el archivo JSON.");
       }
     };
@@ -139,44 +166,12 @@ const PaginaPrincipal = () => {
   };
 
 
+
   return (
     <div style={{ padding: '20px' }}>
-      <h1 className="titulo bold">Tracker Pokémon</h1>
+      <h1 className="titulo-nuztracker">NuzTracker</h1>
+
       <Header activeTab={activeTab} setActiveTab={setActiveTab} />
-
-      <div style={{ marginTop: '10px' }}>
-        <button className="btn danger" onClick={borrarSavefile}>
-          Borrar Savefile
-        </button>
-
-        <button className="btn" onClick={exportarEquipo} style={{ marginLeft: '10px' }}>
-          Descargar Equipo
-        </button>
-
-        <label className="btn" style={{
-          marginLeft: '10px',
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '28px',
-          padding: '0 12px',
-          fontSize: '14px',
-          cursor: 'pointer'
-        }}>
-          Importar Equipo 
-          <input
-            type="file"
-            accept="application/json"
-            onChange={importarEquipoDesdeArchivo}
-            style={{
-              display: 'none'
-            }}
-          />
-        </label>
-
-      </div>
-
-
 
       {activeTab === "agregar" && (
         <div style={{ display: 'flex', fontSize: '1.2em', padding: '10px', gap: '10px' }}>
@@ -184,13 +179,32 @@ const PaginaPrincipal = () => {
             <h2 className="titulo bold" style={{ fontSize: '1.4em', margin: '5px 0' }}>
               Agregar a Mi Equipo
             </h2>
-            <SeleccionarPokemon onAddPokemon={(pokemon) => agregarPokemonAlTeam(pokemon, "miEquipo")} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <h2 className="titulo bold" style={{ fontSize: '1.4em', margin: '5px 0' }}>
-              Agregar al Equipo Rival
-            </h2>
-            <SeleccionarPokemon onAddPokemon={(pokemon) => agregarPokemonAlTeam(pokemon, "rivalTeam")} />
+
+            <div className="botonera-sesion-minimal">
+              <button className="btn-min" onClick={borrarSavefile}>
+                Borrar
+              </button>
+
+              <button className="btn-min" onClick={exportarSesion}>
+                Exportar
+              </button>
+
+              <label className="btn-min importar">
+                Importar
+                <input
+                  type="file"
+                  accept="application/json"
+                  onChange={importarSesionDesdeArchivo}
+                  style={{ display: 'none' }}
+                />
+              </label>
+            </div>
+
+
+
+            <div className="centrado">
+              <SeleccionarPokemon onAddPokemon={(pokemon) => agregarPokemonAlTeam(pokemon, "miEquipo")} />
+            </div>
           </div>
         </div>
       )}
@@ -204,7 +218,6 @@ const PaginaPrincipal = () => {
       {activeTab === "equipo" && (
         <div style={{ display: 'flex' }}>
           <div style={{ marginTop: '20px', flex: 1, marginRight: '30px' }}>
-            <h2 className="titulo bold">Mi Equipo:</h2>
             <TeamTracker
               team={miEquipo}
               onRemovePokemon={(index) => eliminarPokemonDelTeam(index, "miEquipo")}
@@ -212,15 +225,7 @@ const PaginaPrincipal = () => {
               onChangeEstado={(index, teamType, nuevoEstado) => cambiarEstadoPokemon(index, teamType, nuevoEstado)}
             />
           </div>
-          <div style={{ marginTop: '20px', flex: 1, marginRight: '20px' }}>
-            <h2 className="titulo bold">Equipo Rival:</h2>
-            <TeamTracker
-              team={rivalTeam}
-              onRemovePokemon={(index) => eliminarPokemonDelTeam(index, "rivalTeam")}
-              onAddMove={addMoveToPokemon}
-              onChangeEstado={(index, teamType, nuevoEstado) => cambiarEstadoPokemon(index, teamType, nuevoEstado)}
-            />
-          </div>
+
         </div>
       )}
 
@@ -230,17 +235,13 @@ const PaginaPrincipal = () => {
         </div>
       )}
 
-      {activeTab === "generacion" && (
-        <div style={{ marginTop: '20px' }}>
-          <GenerarTxt team={miEquipo} />
-        </div>
+      {activeTab === "archivo" && (
+        <ImportarGenerar
+          team={miEquipo}
+          onImportPokemons={handleImportPokemons}
+        />
       )}
 
-      {activeTab === "importar" && (
-        <div style={{ marginTop: '20px' }}>
-          <ImportarTxt onImportPokemons={handleImportPokemons} />
-        </div>
-      )}
     </div>
   );
 };

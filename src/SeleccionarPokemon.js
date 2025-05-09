@@ -142,7 +142,7 @@ function SeleccionarPokemon({ onAddPokemon }) {
 
   return (
     <div>
-      <h2 className='titulo'>Search Pokémon by Name:</h2>
+      <h2 className='titulo centrado'>Busca un pokémon  por el nombre:</h2>
       <Select
         className='Seleccionar'
         options={pokemonOptions}

@@ -1,5 +1,6 @@
 .titulo {
     /* Font & Text */
+    
     font-family: Flexo-Regular, arial, sans-serif;
     font-size: 25px;
     font-style: normal;
@@ -69,6 +70,7 @@
 /* Nueva clase para poner en negrita (esto sobreescribe font-weight) */
 .bold {
     font-weight: 700;
+  text-align: center;
     /* o 'bold' */
 }
 .tin{

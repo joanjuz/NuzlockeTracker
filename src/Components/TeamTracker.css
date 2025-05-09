@@ -247,3 +247,24 @@
   background-color: #ffe6e6; /* rojo claro */
   border-left: 5px solid #e74c3c;
 }
+.botones-estado {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+}
+.team-wrapper {
+  display: flex;
+  justify-content: center;
+  padding: 30px 15px;
+  background-color: #f0f2f5; /* fondo de página suave */
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+.team-tracker {
+  max-width: 1000px;
+  width: 100%;
+}
+

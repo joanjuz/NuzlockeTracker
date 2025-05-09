@@ -9,7 +9,7 @@ const Header = ({ activeTab, setActiveTab }) => {
         onClick={() => setActiveTab("agregar")}
         style={{ marginRight: '10px', fontWeight: activeTab === "agregar" ? 'bold' : 'normal' }}
       >
-        Agregar Pokémon
+        Agregar
       </button>
       <button
         className="btn"
@@ -18,7 +18,7 @@ const Header = ({ activeTab, setActiveTab }) => {
       >
         Ver Equipo
       </button>
-      
+
       <button
         className="btn"
         onClick={() => setActiveTab("valoracion")}
@@ -35,20 +35,13 @@ const Header = ({ activeTab, setActiveTab }) => {
       </button>
       <button
         className="btn"
-        onClick={() => setActiveTab("importar")}
-        style={{ marginRight: '10px', fontWeight: activeTab === "importar" ? 'bold' : 'normal' }}
+        onClick={() => setActiveTab("archivo")}
+        style={{ fontWeight: activeTab === "archivo" ? 'bold' : 'normal' }}
       >
-        
-        Importar TXT
+        Showdown
       </button>
-      <button
-        className="btn"
-        onClick={() => setActiveTab("generacion")}
-        style={{ marginRight: '10px', fontWeight: activeTab === "generacion" ? 'bold' : 'normal' }}
-      >
-        Generar txt
-      </button>
-      
+
+
     </header>
   );
 };

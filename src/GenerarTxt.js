@@ -1,7 +1,7 @@
 // GenerarTxt.js
 import React from 'react';
 
-const GenerarTxt = ({ team }) => {
+const GenerarTxt = ({ team, showPreview = true }) => {
   const generateTextContent = () => {
     return team
       .map((pokemon) => {
@@ -63,15 +63,14 @@ const GenerarTxt = ({ team }) => {
 
   return (
     <div className="generar-txt-container">
-      <h2 className="titulo bold">Generar TXT del Equipo</h2>
       {team.length === 0 ? (
         <p>No tienes Pokémon en tu equipo.</p>
       ) : (
         <div>
-          <pre className="txt-preview">
-            {generateTextContent()}
-          </pre>
-          <button className="btn generar-btn" onClick={handleGenerateTxt}>
+          {showPreview && (
+            <pre className="txt-preview">{generateTextContent()}</pre>
+          )}
+          <button className="btn-min" onClick={handleGenerateTxt}>
             Generar txt
           </button>
         </div>
