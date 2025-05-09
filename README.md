@@ -1,70 +1,88 @@
-# Getting Started with Create React App
+🕹️ NuzTracker
+NuzTracker es una aplicación web interactiva para gestionar equipos de Pokémon en desafíos tipo Nuzlocke. Permite añadir, editar y visualizar Pokémon con sus habilidades, tipos, debilidades, movimientos y estados (activo, caja o cementerio). También ofrece valoración estratégica del equipo, bitácora de progreso, e importación/exportación desde archivos .txt estilo Showdown.
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+🚀 Funcionalidades principales
+✅ Gestión de equipo: añade Pokémon con sus movimientos, habilidades y nivel.
 
-## Available Scripts
+🔄 Cambio de estado: marca un Pokémon como activo, en la caja o fallecido.
 
-In the project directory, you can run:
+📊 Valoración del equipo: cobertura ofensiva, debilidades, STAB, resistencias e inmunidades.
 
-### `npm start`
+📘 Bitácora de aventura: marca medallas, miembros del Alto Mando derrotados y rutas de captura por juego.
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+📥 Importación desde Showdown.txt: analiza y convierte archivos .txt al equipo actual.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+📤 Exportación a Showdown.txt: genera archivos .txt del equipo actual.
 
-### `npm test`
+💾 Guardado automático en localStorage: persistencia entre sesiones.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+🌐 Integración con PokéAPI: para obtener sprites, tipos, habilidades, debilidades y movimientos.
 
-### `npm run build`
+🖥️ Tecnologías utilizadas
+⚛️ React (con useState, useEffect)
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+🖌️ CSS modularizado para estilos por componente
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+🔧 React Select para campos de selección dinámica
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+📦 PokéAPI para datos en tiempo real
 
-### `npm run eject`
+📦 Instalación
+bash
+Copiar
+Editar
+git clone https://github.com/tu-usuario/nuztracker.git
+cd nuztracker
+npm install
+npm start
+📁 Estructura del proyecto
+css
+Copiar
+Editar
+src/
+├── Components/
+│   ├── TeamTracker.js
+│   ├── Valoracion.js
+│   ├── BitacoraAventura.js
+│   ├── PokemonModal.js
+│   ├── ImportarTxt.js
+│   ├── GenerarTxt.js
+│   ├── Header.js
+│   └── styles (TeamTracker.css, Bitacora.css, etc.)
+├── Services/
+│   └── API.js
+├── App.js
+├── index.js
+└── README.md
+📄 Formato del archivo TXT (Showdown)
+Importa/Exporta archivos .txt siguiendo el formato de Pokémon Showdown. Cada Pokémon debe estar separado por una línea vacía y debe incluir datos como:
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+scss
+Copiar
+Editar
+Apodo (Pikachu) (M) @ Light Ball
+Ability: Static
+Level: 50
+Happiness: 255
+EVs: 252 Atk / 4 Def / 252 Spe
+Jolly Nature
+IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
+- Thunderbolt
+- Iron Tail
+- Quick Attack
+- Volt Tackle
+📝 Créditos
+Desarrollado por [Tu nombre o usuario]
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+Datos y recursos provienen de https://pokeapi.co
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+Inspirado en los desafíos Nuzlocke
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+📌 Próximas mejoras
+🔄 Sincronización en la nube (Firebase/IndexedDB)
 
-## Learn More
+📈 Estadísticas por región y tipo
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+🖼️ Personalización visual (temas, sprites opcionales)
 
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+🌙 Modo oscuro
