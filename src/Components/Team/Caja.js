@@ -4,15 +4,19 @@ import SpriteYTipos from '../UI/SpriteYTipos';
 import './Caja.css';
 
 const Caja = ({ team, onChangeEstado, onRemovePokemon }) => {
+  const activos = team.filter(p => p.estado === 'activo');
+  const enCaja = team.filter(p => p.estado === 'caja');
+  const muertos = team.filter(p => p.estado === 'muertos');
+
   const renderBotonesEstado = (pokemon, index) => {
     const estadoActual = pokemon.estado;
-    const estados = ['activo', 'caja', 'cementerio'];
+    const estados = ['activo', 'caja', 'muertos'];
     const disponibles = estados.filter(e => e !== estadoActual);
 
     const getLabel = (estado) => {
-      if (estado === 'activo') return 'Activo';
-      if (estado === 'caja') return 'Caja';
-      if (estado === 'cementerio') return 'Cementerio';
+      if (estado === 'activo') return 'Mover a Activo';
+      if (estado === 'caja') return 'Mover a Caja';
+      if (estado === 'muertos') return 'Mover a Muertos';
       return '';
     };
 
@@ -21,10 +25,11 @@ const Caja = ({ team, onChangeEstado, onRemovePokemon }) => {
         {disponibles.map((estado, idx) => (
           <button
             key={idx}
-            className={`btn ${estado === 'cementerio' ? 'rojo' :
-                estado === 'activo' ? 'verde' :
-                  estado === 'caja' ? 'azul' : ''
-              }`}
+            className={`btn ${
+              estado === 'muertos' ? 'rojo' :
+              estado === 'activo' ? 'verde' :
+              estado === 'caja' ? 'azul' : ''
+            }`}
             onClick={() => onChangeEstado(index, 'miEquipo', estado)}
           >
             {getLabel(estado)}
@@ -32,7 +37,7 @@ const Caja = ({ team, onChangeEstado, onRemovePokemon }) => {
         ))}
         <button
           className="btn gris"
-          onClick={() => onRemovePokemon(index, 'miEquipo')}
+          onClick={() => onRemovePokemon(index)}
         >
           Eliminar
         </button>
@@ -40,14 +45,14 @@ const Caja = ({ team, onChangeEstado, onRemovePokemon }) => {
     );
   };
 
-  return (
-    <div className="caja-container">
-      <h2 className="titulo">Gestión de Pokémon</h2>
+  const renderGrid = (lista, titulo) => (
+    <div className="bloque-caja">
+      <h3 className="titulo" style={{ marginTop: '32px' }}>{titulo}</h3>
       <div
         className="grid-caja"
         style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px' }}
       >
-        {team.map((pokemon, index) => (
+        {lista.map((pokemon, index) => (
           <div
             key={index}
             className="card-caja"
@@ -60,13 +65,20 @@ const Caja = ({ team, onChangeEstado, onRemovePokemon }) => {
           >
             <SpriteYTipos sprite={pokemon.sprite} types={pokemon.types} />
             <p><strong>{pokemon.nickname || pokemon.name}</strong></p>
-            <p style={{ fontSize: '0.85em', color: '#555' }}>
-              <em>{pokemon.estado}</em>
-            </p>
-            {renderBotonesEstado(pokemon, index)}
+            <p style={{ fontSize: '0.85em', color: '#555' }}><em>{pokemon.estado}</em></p>
+            {renderBotonesEstado(pokemon, team.indexOf(pokemon))}
           </div>
         ))}
       </div>
+    </div>
+  );
+
+  return (
+    <div className="caja-container">
+      <h2 className="titulo">Gestión de Pokémon</h2>
+      {renderGrid(activos, 'Pokémon Activos')}
+      {renderGrid(enCaja, 'Pokémon en Caja')}
+      {muertos.length > 0 && renderGrid(muertos, 'Pokémon Muertos')}
     </div>
   );
 };

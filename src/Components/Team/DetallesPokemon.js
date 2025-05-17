@@ -41,7 +41,7 @@ const DetallesPokemon = ({
         onClick={() => setShowMovesDetails(!showMovesDetails)}
         style={{ marginTop: '10px' }}
       >
-        {showMovesDetails ? 'Ocultar Movimientos' : 'Mostrar Movimientos'}
+        {showMovesDetails ? 'Ocultar' : 'Mostrar'}
       </button>
 
       {showMovesDetails && (

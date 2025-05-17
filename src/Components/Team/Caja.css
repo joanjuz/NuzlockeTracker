@@ -42,14 +42,14 @@
   font-size: 0.9rem;
   border: none;
   border-radius: 5px;
-  background-color: #3498db;
+  background-color: #818486;
   color: white;
   cursor: pointer;
   transition: background-color 0.2s;
 }
 
 .btn:hover {
-  background-color: #2980b9;
+  background-color: #2d3031;
 }
 
 .btn.rojo {
@@ -59,7 +59,13 @@
   background-color: #076907;
 }
 .btn.verde:hover {
-  background-color: #105210;
+  background-color: #0a3b0a;
+}
+.btn.azul {
+  background-color: #361fa0;
+}
+.btn.azul:hover {
+  background-color: #0e062e;
 }
 .btn.rojo:hover {
   background-color: #c0392b;
