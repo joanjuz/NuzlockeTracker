@@ -1,12 +1,13 @@
 // TeamTracker.js
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import useTeamTrackerLogic from './useTeamTrackerLogic';
-import PokemonCard from './PokemonCard';
-import ResumenDebilidades from './ResumenDebilidades';
+import SpriteYTipos from '../UI/SpriteYTipos';
 import DetallesPokemon from './DetallesPokemon';
+import ResumenDebilidades from './ResumenDebilidades';
+import { getNextEvolution } from '../../Services/API';
 import './TeamTracker.css';
 
-const TeamTracker = ({ team, onRemovePokemon, onAddMove, onChangeEstado }) => {
+const TeamTracker = ({ team, onAddMove }) => {
   const {
     selectedTeamPokemon,
     setSelectedTeamPokemon,
@@ -15,68 +16,76 @@ const TeamTracker = ({ team, onRemovePokemon, onAddMove, onChangeEstado }) => {
     setShowMoveSelector,
     showMovesDetails,
     setShowMovesDetails,
-    mostrarLista,
-    setMostrarLista,
     getX2Weaknesses,
-    dividirPorEstado,
     handleMoveSelect,
     handleRemoveMoveFromTeam,
+    evolucionarPokemon
   } = useTeamTrackerLogic(team, onAddMove);
 
-  const renderListado = (lista, estadoActual) => (
-    <ul>
-      {lista.map((pokemon) => {
-        const realIndex = team.findIndex(p => p.nickname === pokemon.nickname && p.name === pokemon.name);
-        return (
-          <PokemonCard
-            key={realIndex}
-            pokemon={pokemon}
-            realIndex={realIndex}
-            estadoActual={estadoActual}
-            onChangeEstado={onChangeEstado}
-            onRemovePokemon={onRemovePokemon}
-            onClick={() => setSelectedTeamPokemon(pokemon)}
-          />
-        );
-      })}
-    </ul>
-  );
+  const activos = team.filter(p => p.estado === 'activo');
+  const [evolucionesDisponibles, setEvolucionesDisponibles] = useState({});
+
+  useEffect(() => {
+    const cargarEvoluciones = async () => {
+      const result = {};
+      for (let pokemon of activos) {
+        const evo = await getNextEvolution(pokemon.name);
+        if (evo) result[pokemon.name] = evo;
+      }
+      setEvolucionesDisponibles(result);
+    };
+    cargarEvoluciones();
+  }, [team]);
+
+  const mostrarRequisitos = (evo) => {
+    if (!evo) return null;
+    const detalles = [];
+    if (evo.min_level) detalles.push(`Nivel ${evo.min_level}`);
+    if (evo.item) detalles.push(`Usar ${evo.item}`);
+    if (!evo.min_level && !evo.item && evo.trigger) detalles.push(`Por ${evo.trigger}`);
+    return detalles.join(' / ');
+  };
 
   return (
     <div className="team-wrapper">
       <div className="team-tracker">
-        <h2 className="titulo bold">Team Tracker</h2>
-        <button
-          className="btn"
-          onClick={() => setMostrarLista(prev => !prev)}
-          style={{ marginBottom: '10px' }}
-        >
-          {mostrarLista ? 'Ocultar Lista' : 'Mostrar Lista'}
-        </button>
-
-        {mostrarLista && (
-          <div className="leyenda-estado" style={{ marginBottom: '10px', fontWeight: 'bold' }}>
-            <span style={{ color: '#2ecc71' }}>🟢 Activo</span> |{' '}
-            <span style={{ color: '#3498db' }}>📦 Caja</span> |{' '}
-            <span style={{ color: '#e74c3c' }}>☠ Cementerio</span>
-          </div>
-        )}
-
-        {mostrarLista && (
-          <>
-            <h3>Equipo Activo</h3>
-            {renderListado(dividirPorEstado('activo'), 'activo')}
-
-            <h3>Caja</h3>
-            {renderListado(dividirPorEstado('caja'), 'caja')}
-
-            <h3>Cementerio</h3>
-            {renderListado(dividirPorEstado('cementerio'), 'cementerio')}
-          </>
-        )}
+        <h2 className="titulo bold">Mi Equipo</h2>
+        <div className="grid-activos" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+          {activos.map((pokemon, index) => {
+            const evo = evolucionesDisponibles[pokemon.name];
+            return (
+              <div
+                key={index}
+                className="card-activo"
+                onClick={() => setSelectedTeamPokemon(pokemon)}
+                style={{ cursor: 'pointer', padding: '10px', border: '1px solid #ccc', borderRadius: '8px', textAlign: 'center' }}
+              >
+                <SpriteYTipos sprite={pokemon.sprite} types={pokemon.types} />
+                <p><strong>{pokemon.nickname || pokemon.name}</strong></p>
+                {evo && (
+                  <>
+                    <p style={{ fontSize: '0.85em', marginBottom: '4px' }}>
+                      Evoluciona a <strong>{evo.name}</strong>
+                      <br /><span style={{ color: '#888' }}>{mostrarRequisitos(evo)}</span>
+                    </p>
+                    <button
+                      className="btn evolucionar"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        evolucionarPokemon(team.indexOf(pokemon));
+                      }}
+                    >
+                      Evolucionar
+                    </button>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
 
         <ResumenDebilidades
-          activos={dividirPorEstado('activo')}
+          activos={activos}
           getX2Weaknesses={getX2Weaknesses}
           onSeleccionar={setSelectedTeamPokemon}
         />
@@ -91,8 +100,8 @@ const TeamTracker = ({ team, onRemovePokemon, onAddMove, onChangeEstado }) => {
             setShowMoveSelector={setShowMoveSelector}
             moveOptions={moveOptions}
             handleMoveSelect={handleMoveSelect}
-            handleRemoveMove={(index) =>
-              handleRemoveMoveFromTeam(team.indexOf(selectedTeamPokemon), index)
+            handleRemoveMove={(i) =>
+              handleRemoveMoveFromTeam(team.indexOf(selectedTeamPokemon), i)
             }
           />
         )}

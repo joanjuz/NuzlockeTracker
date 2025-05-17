@@ -35,9 +35,17 @@ const SeleccionarPokemon = ({ onAddPokemon }) => {
 
       {error && <p style={{ color: 'red' }}>{error}</p>}
 
-      <SpriteYTipos sprite={sprite} types={types} />
-      <DebilidadesResumen pokemonTypeCounts={pokemonTypeCounts} />
-      <BotonAgregar disabled={!selectedPokemon || !sprite} onClick={() => setShowModal(true)} />
+      {selectedPokemon && (
+        <>
+          <SpriteYTipos sprite={sprite} types={types} />
+          <DebilidadesResumen pokemonTypeCounts={pokemonTypeCounts} />
+          <BotonAgregar
+            disabled={!sprite}
+            onClick={() => setShowModal(true)}
+          />
+        </>
+      )}
+
       <ModalIntegracion
         showModal={showModal}
         setShowModal={setShowModal}

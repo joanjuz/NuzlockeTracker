@@ -62,6 +62,47 @@
     margin-right: 10px;
   }
   
+.card-activo {
+  position: relative;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  text-align: center;
+  transition: transform 0.2s;
+}
+
+.card-activo:hover {
+  transform: scale(1.02);
+}
+
+/* Ocultar el botón por defecto */
+.btn.evolucionar {
+  background-color: transparent;
+  color: #c0c0c0;
+  font-size: 0.85rem;
+  padding: 4px 6px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.3s ease, transform 0.3s ease, border-bottom 0.2s ease;
+  display: block;
+  margin: 6px auto 0 auto; /* centrar horizontalmente */
+}
+
+/* Mostrar el botón al hacer hover en la tarjeta */
+.card-activo:hover .btn.evolucionar {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Estilo en hover del botón */
+.btn.evolucionar:hover {
+  border-bottom: 1px solid #e0e0e0;
+  color: #fffdfd;
+}
+
 
   
   .team-list button.btn:hover {

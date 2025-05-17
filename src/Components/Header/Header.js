@@ -20,6 +20,13 @@ const Header = ({ activeTab, setActiveTab }) => {
       </button>
       <button
         className="btn"
+        onClick={() => setActiveTab("caja")}
+        style={{ fontWeight: activeTab === "caja" ? 'bold' : 'normal' }}
+      >
+        Caja
+      </button>
+      <button
+        className="btn"
         onClick={() => setActiveTab("valoracion")}
         style={{ fontWeight: activeTab === "valoracion" ? 'bold' : 'normal' }}
       >
@@ -32,6 +39,7 @@ const Header = ({ activeTab, setActiveTab }) => {
       >
         Bitácora
       </button>
+      
       <button
         className="btn"
         onClick={() => setActiveTab("archivo")}

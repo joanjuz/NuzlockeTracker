@@ -7,6 +7,8 @@ import TabValoracion from './TabValoracion';
 import TabBitacora from './TabBitacora';
 import ImportarGenerar from '../Showdown/ImportarGenerar';
 import useSesionManager from './useSesionManager';
+import Caja from '../Team/Caja.js'; // Ajusta el path si está en otra carpeta
+
 import '../Pages/Apps.css';
 
 const PaginaPrincipal = () => {
@@ -55,6 +57,16 @@ const PaginaPrincipal = () => {
       {activeTab === 'archivo' && (
         <ImportarGenerar team={miEquipo} onImportPokemons={handleImportPokemons} />
       )}
+      {activeTab === 'caja' && (
+        <Caja
+          team={miEquipo}
+          onChangeEstado={cambiarEstadoPokemon}
+          onRemovePokemon={eliminarPokemonDelTeam}
+        />
+
+      )}
+
+
     </div>
   );
 };

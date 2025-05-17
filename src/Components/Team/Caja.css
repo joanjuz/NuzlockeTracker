@@ -1,0 +1,80 @@
+.caja-container {
+  padding: 20px;
+  background-color: #fdfdfd;
+  border-radius: 12px;
+}
+
+.titulo {
+  font-size: 1.8rem;
+  margin-bottom: 20px;
+  text-align: center;
+  color: #2c3e50;
+}
+
+.grid-caja {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+}
+
+.card-caja {
+  background: #ffffff;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s;
+}
+
+.card-caja:hover {
+  transform: scale(1.02);
+}
+
+.acciones-caja {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.btn {
+  padding: 6px 10px;
+  font-size: 0.9rem;
+  border: none;
+  border-radius: 5px;
+  background-color: #818486;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn:hover {
+  background-color: #2d3031;
+}
+
+.btn.rojo {
+  background-color: #e74c3c;
+}
+.btn.verde {
+  background-color: #076907;
+}
+.btn.verde:hover {
+  background-color: #0a3b0a;
+}
+.btn.azul {
+  background-color: #361fa0;
+}
+.btn.azul:hover {
+  background-color: #0e062e;
+}
+.btn.rojo:hover {
+  background-color: #c0392b;
+}
+
+.btn.gris {
+  background-color: #7f8c8d;
+}
+
+.btn.gris:hover {
+  background-color: #636e72;
+}

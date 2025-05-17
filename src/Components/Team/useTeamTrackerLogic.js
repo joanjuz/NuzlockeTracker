@@ -1,6 +1,6 @@
 // useTeamTrackerLogic.js
 import { useState, useEffect } from 'react';
-import { getAllPokemonMoves, getMoveDetails } from '../../Services/API';
+import { getAllPokemonMoves, getMoveDetails, getNextEvolution, getPokemonSprite, getPokemonTypeByName, getPokemonWeaknesses } from '../../Services/API';
 
 const useTeamTrackerLogic = (team, onAddMove) => {
   const [selectedTeamPokemon, setSelectedTeamPokemon] = useState(null);
@@ -79,6 +79,25 @@ const useTeamTrackerLogic = (team, onAddMove) => {
     }
   };
 
+  const evolucionarPokemon = async (index) => {
+    const actual = team[index];
+    const evolucion = await getNextEvolution(actual.name);
+    if (!evolucion) return;
+
+    const nuevoPokemon = {
+      ...actual,
+      name: evolucion.name,
+      nickname: actual.nickname === actual.name ? evolucion.name : actual.nickname,
+      sprite: await getPokemonSprite(evolucion.name),
+      types: await getPokemonTypeByName(evolucion.name),
+      weaknesses: await getPokemonWeaknesses(evolucion.name),
+    };
+
+    team[index] = nuevoPokemon;
+    if (onAddMove) onAddMove(nuevoPokemon);
+    setSelectedTeamPokemon(null);
+  };
+
   return {
     selectedTeamPokemon,
     setSelectedTeamPokemon,
@@ -94,6 +113,7 @@ const useTeamTrackerLogic = (team, onAddMove) => {
     dividirPorEstado,
     handleMoveSelect,
     handleRemoveMoveFromTeam,
+    evolucionarPokemon,
   };
 };
 
