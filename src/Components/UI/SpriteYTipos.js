@@ -7,7 +7,9 @@ const SpriteYTipos = ({ sprite, types }) => {
 
   return (
     <div style={{ textAlign: 'center' }}>
-      <img src={sprite} alt="Sprite" style={{ width: '96px', marginBottom: '8px' }} />
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
+        <img src={sprite} alt="Sprite" style={{ width: '150px' }} />
+      </div>
       <div className="boxTipo">
         {types.map((type) => (
           <span key={type} className={`tipo ${type.toLowerCase()}`}>{type}</span>
