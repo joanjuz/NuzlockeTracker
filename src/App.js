@@ -1,7 +1,6 @@
 // App.js
-
 import React from 'react';
-import PaginaPrincipal from './PaginaPrincipal';
+import PaginaPrincipal from './Components/Pages/PaginaPrincipal.js';
 
 const App = () => {
   return (

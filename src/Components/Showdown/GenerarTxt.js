@@ -1,4 +1,3 @@
-// GenerarTxt.js
 import React from 'react';
 
 const GenerarTxt = ({ team, showPreview = true }) => {
@@ -6,11 +5,19 @@ const GenerarTxt = ({ team, showPreview = true }) => {
     return team
       .map((pokemon) => {
         // Apodo: si se definió nickname, se usa; de lo contrario se usa el nombre
-        const apodo = pokemon.nickname && pokemon.nickname.trim() !== "" ? pokemon.nickname : pokemon.name;
+        const apodo = pokemon.nickname && pokemon.nickname.trim() !== "" 
+          ? pokemon.nickname 
+          : pokemon.name;
         // Especie: se toma de pokemon.species, sino se usa el nombre
-        const species = pokemon.species && pokemon.species.trim() !== "" ? pokemon.species : pokemon.name;
-        const gender = pokemon.gender && pokemon.gender.trim() !== "" ? pokemon.gender : "N/A";
-        const item = pokemon.item && pokemon.item.trim() !== "" ? pokemon.item : "N/A";
+        const species = pokemon.species && pokemon.species.trim() !== "" 
+          ? pokemon.species 
+          : pokemon.name;
+        const gender = pokemon.gender && pokemon.gender.trim() !== "" 
+          ? pokemon.gender 
+          : "N/A";
+        const item = pokemon.item && pokemon.item.trim() !== "" 
+          ? pokemon.item 
+          : "N/A";
 
         // Primera línea: "Apodo (Especie) (Género) @ Item"
         const headerLine = `${apodo} (${species}) (${gender}) @ ${item}`;

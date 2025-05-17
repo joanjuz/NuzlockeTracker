@@ -1,8 +1,7 @@
-// PokemonModal.js
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import './Components/PokemonModal.css';
 import Select from 'react-select';
+import '../Modals/PokemonModal.css';
 
 const PokemonModal = ({ pokemon, onSave, onClose }) => {
   const [nickname, setNickname] = useState('');
@@ -20,20 +19,17 @@ const PokemonModal = ({ pokemon, onSave, onClose }) => {
         console.error('Error fetching abilities:', error);
       }
     };
-
     fetchAbilities();
   }, []);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     const finalNickname = nickname.trim() !== '' ? nickname.trim() : pokemon.name;
-
     const updatedPokemon = {
       ...pokemon,
       nickname: finalNickname,
       ability,
     };
-
     onSave(updatedPokemon);
   };
 
@@ -74,10 +70,14 @@ const PokemonModal = ({ pokemon, onSave, onClose }) => {
               isClearable
             />
           </div>
-
           <div className="modal-actions">
             <button type="submit" className="btn">Guardar</button>
-            <button type="button" className="btn" onClick={handleModalClose} style={{ marginLeft: '10px' }}>
+            <button 
+              type="button" 
+              className="btn" 
+              onClick={handleModalClose} 
+              style={{ marginLeft: '10px' }}
+            >
               Cancelar
             </button>
           </div>

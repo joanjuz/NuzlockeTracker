@@ -1,5 +1,5 @@
 import React from 'react';
-import './Components/valoracion.css';
+import './Valoracion.css';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 const habilidadesInmunes = {

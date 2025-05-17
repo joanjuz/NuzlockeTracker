@@ -1,5 +1,5 @@
 import React from 'react';
-import './Components/Header.css';
+import './Header.css';
 
 const Header = ({ activeTab, setActiveTab }) => {
   return (
@@ -18,7 +18,6 @@ const Header = ({ activeTab, setActiveTab }) => {
       >
         Ver Equipo
       </button>
-
       <button
         className="btn"
         onClick={() => setActiveTab("valoracion")}
@@ -40,8 +39,6 @@ const Header = ({ activeTab, setActiveTab }) => {
       >
         Showdown
       </button>
-
-
     </header>
   );
 };
