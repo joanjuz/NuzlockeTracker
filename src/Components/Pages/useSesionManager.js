@@ -37,7 +37,7 @@ const useSesionManager = () => {
     }
   };
 
-  const eliminarPokemonDelTeam = (index, teamType) => {
+  const eliminarPokemonDelTeam = (index, teamType = 'miEquipo') => {
   if (teamType === 'miEquipo') {
     setMiEquipo(prev => prev.filter((_, i) => i !== index));
   } else if (teamType === 'rivalTeam') {

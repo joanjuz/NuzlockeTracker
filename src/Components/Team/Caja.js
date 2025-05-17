@@ -46,13 +46,20 @@ const Caja = ({ team, onChangeEstado, onRemovePokemon }) => {
   };
 
   const renderGrid = (lista, titulo) => (
-    <div className="bloque-caja">
-      <h3 className="titulo" style={{ marginTop: '32px' }}>{titulo}</h3>
-      <div
-        className="grid-caja"
-        style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px' }}
-      >
-        {lista.map((pokemon, index) => (
+  <div className="bloque-caja">
+    <h3 className="titulo" style={{ marginTop: '32px' }}>{titulo}</h3>
+    <div
+      className="grid-caja"
+      style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px' }}
+    >
+      {lista.map((pokemon, index) => {
+        const realIndex = team.findIndex(p =>
+          p.name === pokemon.name &&
+          p.nickname === pokemon.nickname &&
+          p.estado === pokemon.estado
+        );
+
+        return (
           <div
             key={index}
             className="card-caja"
@@ -66,12 +73,13 @@ const Caja = ({ team, onChangeEstado, onRemovePokemon }) => {
             <SpriteYTipos sprite={pokemon.sprite} types={pokemon.types} />
             <p><strong>{pokemon.nickname || pokemon.name}</strong></p>
             <p style={{ fontSize: '0.85em', color: '#555' }}><em>{pokemon.estado}</em></p>
-            {renderBotonesEstado(pokemon, team.indexOf(pokemon))}
+            {renderBotonesEstado(pokemon, realIndex)}
           </div>
-        ))}
-      </div>
+        );
+      })}
     </div>
-  );
+  </div>
+);
 
   return (
     <div className="caja-container">
