@@ -77,6 +77,12 @@
     height: 25px;
     width: 110px;
 }
+.selector-container {
+  text-align: center;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
 
 .Seleccionar {
     /* Font & Text */

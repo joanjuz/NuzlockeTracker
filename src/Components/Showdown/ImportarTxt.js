@@ -5,7 +5,7 @@ import {
     getPokemonTypeByName,
     getPokemonWeaknesses,
     getMoveDetails
-} from './Services/API';
+} from '../../Services/API';
 
 const ImportarTxt = ({ onImportPokemons }) => {
     const [error, setError] = useState("");
