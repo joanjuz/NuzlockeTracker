@@ -29,13 +29,16 @@ const useSesionManager = () => {
   }, [miEquipo, rivalTeam, cargaInicialCompleta]);
 
   const agregarPokemonAlTeam = (pokemon, teamType) => {
-    const pokemonConEstado = { ...pokemon, estado: 'activo' };
-    if (teamType === 'miEquipo') {
-      setMiEquipo(prev => [...prev, pokemonConEstado]);
-    } else if (teamType === 'rivalTeam') {
-      setRivalTeam(prev => [...prev, pokemonConEstado]);
-    }
-  };
+  if (teamType === 'miEquipo') {
+    setMiEquipo(prev => {
+      const estado = prev.filter(p => p.estado === 'activo').length >= 6 ? 'caja' : 'activo';
+      return [...prev, { ...pokemon, estado }];
+    });
+  } else if (teamType === 'rivalTeam') {
+    setRivalTeam(prev => [...prev, { ...pokemon, estado: 'activo' }]);
+  }
+};
+
 
   const eliminarPokemonDelTeam = (index, teamType = 'miEquipo') => {
     if (teamType === 'miEquipo') {

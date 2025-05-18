@@ -14,16 +14,57 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.2s ease, transform 0.2s ease;
   position: relative;
+  cursor: default;
 }
 
 .pokeball-slot.hover {
   background-color: var(--primary);
 }
 
+.pokeball-slot.clickable {
+  cursor: pointer;
+}
+.pokeball-slot.clicked {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.4);
+  transform: scale(0.95);
+}
+
+.pokeball-slot .sprite {
+  max-width: 90%;
+  max-height: 90%;
+  object-fit: contain;
+}
 .pokeball-slot img {
   max-width: 90%;
   max-height: 90%;
   object-fit: contain;
 }
+
+.circle-placeholder {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: var(--border);
+  opacity: 0.4;
+}
+.grave-slot {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background-color: #3b1a1a; /* rojo oscuro sutil */
+  border: 2px solid #661919;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  margin-left: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.grave-slot.grave-hover {
+  background-color: #822222;
+  box-shadow: 0 0 8px 2px rgba(255, 0, 0, 0.4);
+  transform: scale(1.05);
+}
+

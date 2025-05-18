@@ -6,6 +6,7 @@ import {
     getPokemonWeaknesses,
     getMoveDetails
 } from '../../Services/API';
+import './ImportarTxt.css';
 
 const ImportarTxt = ({ onImportPokemons }) => {
     const [error, setError] = useState("");

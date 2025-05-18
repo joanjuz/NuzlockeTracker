@@ -3,7 +3,7 @@ import PaginaPrincipal from './Components/Pages/PaginaPrincipal.js';
 import './Components/theme.css';
 
 const App = () => {
-  const [theme, setTheme] = useState('light');
+  const [theme, setTheme] = useState('dark');
 
   useEffect(() => {
     document.body.setAttribute('data-theme', theme);

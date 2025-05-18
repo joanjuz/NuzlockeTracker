@@ -1,8 +1,9 @@
 import React from 'react';
 import PokeballSlot from './PokeballSlot';
 import DraggablePokemon from './DraggablePokemon';
-import ZonaDrop from './ZonaDrop'; // nuevo componente externo
+import ZonaDrop from './ZonaDrop';
 import './Caja.css';
+import GraveSlot from './GraveSlot';
 
 const Caja = ({ team, setTeam }) => {
   const activos = team.filter(p => p.estado === 'activo');
@@ -15,33 +16,56 @@ const Caja = ({ team, setTeam }) => {
     setTeam(updated);
   };
 
-  const handleDropToSlot = (draggedPokemon, slotIndex) => {
-  const nuevoTeam = [...team];
-  const anterior = team.filter(p => p.estado === 'activo')[slotIndex];
-
-  if (anterior) {
-    const idxAnterior = nuevoTeam.findIndex(p =>
-      p.name === anterior.name &&
-      p.nickname === anterior.nickname
+  const moverAPokemonACaja = (pokemon) => {
+    const nuevoTeam = [...team];
+    const idx = nuevoTeam.findIndex(p =>
+      p.name === pokemon.name &&
+      p.nickname === pokemon.nickname
     );
-    if (idxAnterior !== -1) {
-      nuevoTeam[idxAnterior].estado = 'caja';
+    if (idx !== -1) {
+      nuevoTeam[idx].estado = 'caja';
+      setTeam(nuevoTeam);
     }
-  }
-
-  const idxDrag = nuevoTeam.findIndex(p =>
-    p.name === draggedPokemon.name &&
-    p.nickname === draggedPokemon.nickname
+  };
+  const moverAPokemonAlCementerio = (pokemon) => {
+  const nuevoTeam = [...team];
+  const idx = nuevoTeam.findIndex(p =>
+    p.name === pokemon.name &&
+    p.nickname === pokemon.nickname
   );
-
-  if (idxDrag !== -1) {
-    nuevoTeam[idxDrag].estado = 'activo';
-    setTeam(nuevoTeam); // Este `setTeam` viene de props, asegúrate que esté disponible
-  } else {
-    console.warn('❗ No se encontró el Pokémon arrastrado en el equipo');
+  if (idx !== -1) {
+    nuevoTeam[idx].estado = 'muertos';
+    setTeam(nuevoTeam);
   }
 };
 
+
+  const handleDropToSlot = (draggedPokemon, slotIndex) => {
+    const nuevoTeam = [...team];
+    const anterior = team.filter(p => p.estado === 'activo')[slotIndex];
+
+    if (anterior) {
+      const idxAnterior = nuevoTeam.findIndex(p =>
+        p.name === anterior.name &&
+        p.nickname === anterior.nickname
+      );
+      if (idxAnterior !== -1) {
+        nuevoTeam[idxAnterior].estado = 'caja';
+      }
+    }
+
+    const idxDrag = nuevoTeam.findIndex(p =>
+      p.name === draggedPokemon.name &&
+      p.nickname === draggedPokemon.nickname
+    );
+
+    if (idxDrag !== -1) {
+      nuevoTeam[idxDrag].estado = 'activo';
+      setTeam(nuevoTeam);
+    } else {
+      console.warn('❗ No se encontró el Pokémon arrastrado en el equipo');
+    }
+  };
 
   return (
     <div className="caja-container">
@@ -53,9 +77,11 @@ const Caja = ({ team, setTeam }) => {
             key={i}
             index={i}
             pokemon={activos[i] || null}
-            onDrop={(pokemon) => handleDropToSlot(pokemon, i)}
+            onDrop={handleDropToSlot}
+            onClick={moverAPokemonACaja}
           />
         ))}
+        <GraveSlot onDropToGrave={moverAPokemonAlCementerio} />
       </div>
 
       <ZonaDrop

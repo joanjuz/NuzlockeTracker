@@ -8,7 +8,7 @@ const BotonAgregar = ({ disabled, onClick }) => (
       disabled={disabled}
       onClick={onClick}
     >
-      Agregar al equipo
+      Agregar
     </button>
   </div>
 );

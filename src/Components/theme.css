@@ -94,3 +94,50 @@ button:hover {
   width: 24px;
   height: 24px;
 }
+[data-theme='light'] {
+  --background: #fdfdfd;
+  --card-bg: #ffffff;
+  --text: #222;
+  --border: #ccc;
+  --shadow: rgba(0, 0, 0, 0.1);
+  --accent-bg: #dff0d8;
+  --accent-border: #2ecc71;
+  --primary: #3498db;
+}
+
+[data-theme='dark'] {
+  --background: #121212;
+  --card-bg: #1e1e1e;
+  --text: #e0e0e0;
+  --border: #444;
+  --shadow: rgba(255, 255, 255, 0.05);
+  --accent-bg: #27472f;
+  --accent-border: #27ae60;
+  --primary: #2980b9;
+}
+[data-theme='light'] {
+  --background: #ffffff;
+  --card-bg: #f9f9f9;
+  --text: #222;
+  --border: #ccc;
+  --shadow: rgba(0, 0, 0, 0.1);
+  --primary: #3498db;
+  --primary-hover: #2980b9;
+}
+
+[data-theme='dark'] {
+  --background: #121212;
+  --card-bg: #1f1f1f;
+  --text: #f0f0f0;
+  --border: #444;
+  --shadow: rgba(255, 255, 255, 0.05);
+  --primary: #3498db;
+  --primary-hover: #1e6fa8;
+}
+[data-theme='dark'] {
+  --background: #121212;
+  --card-bg: #1e1e1e;
+  --text: #e0e0e0;
+  --border: #444;
+  --primary: #3498db;
+}
