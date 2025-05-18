@@ -27,9 +27,8 @@ const ZonaDrop = ({ titulo, lista, estado, team, setTeam, onDelete }) => {
       <div className="grid-caja">
         {lista.map((pokemon, i) => (
           <DraggablePokemon
-            key={i}
+            key={pokemon.name + pokemon.nickname}
             pokemon={pokemon}
-            index={team.indexOf(pokemon)}
             onDelete={onDelete}
           />
         ))}

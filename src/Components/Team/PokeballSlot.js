@@ -7,7 +7,9 @@ const PokeballSlot = ({ index, pokemon, onDrop, onClick }) => {
 
   const [{ isOver }, drop] = useDrop({
     accept: 'POKEMON',
-    drop: (draggedPokemon) => onDrop(draggedPokemon, index),
+    drop: (draggedPokemon) => {
+      onDrop(draggedPokemon, index);
+    },
     collect: (monitor) => ({
       isOver: !!monitor.isOver(),
     }),
@@ -17,7 +19,7 @@ const PokeballSlot = ({ index, pokemon, onDrop, onClick }) => {
     if (pokemon && onClick) {
       setClicked(true);
       onClick(pokemon);
-      setTimeout(() => setClicked(false), 200); // animación breve
+      setTimeout(() => setClicked(false), 200);
     }
   };
 

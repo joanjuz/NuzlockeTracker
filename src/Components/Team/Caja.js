@@ -1,69 +1,65 @@
 import React from 'react';
 import PokeballSlot from './PokeballSlot';
-import DraggablePokemon from './DraggablePokemon';
 import ZonaDrop from './ZonaDrop';
-import './Caja.css';
 import GraveSlot from './GraveSlot';
+import './Caja.css';
 
 const Caja = ({ team, setTeam }) => {
   const activos = team.filter(p => p.estado === 'activo');
   const enCaja = team.filter(p => p.estado === 'caja');
   const muertos = team.filter(p => p.estado === 'muertos');
 
-  const handleDelete = (index) => {
-    const updated = [...team];
-    updated.splice(index, 1);
+  const handleDelete = (pokeToDelete) => {
+    const updated = team.filter(p =>
+      !(p.name === pokeToDelete.name && p.nickname === pokeToDelete.nickname)
+    );
     setTeam(updated);
   };
 
   const moverAPokemonACaja = (pokemon) => {
     const nuevoTeam = [...team];
     const idx = nuevoTeam.findIndex(p =>
-      p.name === pokemon.name &&
-      p.nickname === pokemon.nickname
+      p.name === pokemon.name && p.nickname === pokemon.nickname
     );
     if (idx !== -1) {
       nuevoTeam[idx].estado = 'caja';
       setTeam(nuevoTeam);
     }
   };
-  const moverAPokemonAlCementerio = (pokemon) => {
-  const nuevoTeam = [...team];
-  const idx = nuevoTeam.findIndex(p =>
-    p.name === pokemon.name &&
-    p.nickname === pokemon.nickname
-  );
-  if (idx !== -1) {
-    nuevoTeam[idx].estado = 'muertos';
-    setTeam(nuevoTeam);
-  }
-};
 
+  const moverAPokemonAlCementerio = (pokemon) => {
+    const nuevoTeam = [...team];
+    const idx = nuevoTeam.findIndex(p =>
+      p.name === pokemon.name && p.nickname === pokemon.nickname
+    );
+    if (idx !== -1) {
+      nuevoTeam[idx].estado = 'muertos';
+      setTeam(nuevoTeam);
+    }
+  };
 
   const handleDropToSlot = (draggedPokemon, slotIndex) => {
     const nuevoTeam = [...team];
-    const anterior = team.filter(p => p.estado === 'activo')[slotIndex];
 
-    if (anterior) {
-      const idxAnterior = nuevoTeam.findIndex(p =>
-        p.name === anterior.name &&
-        p.nickname === anterior.nickname
-      );
-      if (idxAnterior !== -1) {
-        nuevoTeam[idxAnterior].estado = 'caja';
-      }
+    // Ver si ya hay un Pokémon en ese slot activo
+    const activosIndices = team
+      .map((p, i) => (p.estado === 'activo' ? i : -1))
+      .filter(i => i !== -1);
+
+    const idxAnterior = activosIndices[slotIndex];
+    if (idxAnterior !== undefined) {
+      nuevoTeam[idxAnterior].estado = 'caja';
     }
 
     const idxDrag = nuevoTeam.findIndex(p =>
-      p.name === draggedPokemon.name &&
-      p.nickname === draggedPokemon.nickname
+      p.name === draggedPokemon.name && p.nickname === draggedPokemon.nickname
     );
 
     if (idxDrag !== -1) {
       nuevoTeam[idxDrag].estado = 'activo';
       setTeam(nuevoTeam);
     } else {
-      console.warn('❗ No se encontró el Pokémon arrastrado en el equipo');
+      console.warn('❗ No se encontró el Pokémon arrastrado:', draggedPokemon);
     }
   };
 

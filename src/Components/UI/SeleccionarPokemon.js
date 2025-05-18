@@ -15,6 +15,7 @@ const SeleccionarPokemon = ({ onAddPokemon }) => {
     sprite,
     types,
     weaknesses,
+    baseStats,
     pokemonTypeCounts,
     error,
     showModal,
@@ -51,6 +52,7 @@ const SeleccionarPokemon = ({ onAddPokemon }) => {
         sprite={sprite}
         types={types}
         weaknesses={weaknesses}
+        baseStats={baseStats} 
         onAddPokemon={onAddPokemon}
       />
     </div>

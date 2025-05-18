@@ -1,29 +1,61 @@
-// DraggablePokemon.js
 import React from 'react';
 import { useDrag } from 'react-dnd';
-import SpriteYTipos from '../UI/SpriteYTipos';
 import './DraggablePokemon.css';
 
-const DraggablePokemon = ({ pokemon, index, onDelete }) => {
-  const [{ isDragging }, drag] = useDrag({
+const DraggablePokemon = ({ pokemon, onDelete }) => {
+  const [{ isDragging }, drag] = useDrag(() => ({
     type: 'POKEMON',
-    item: { ...pokemon, index },
+    item: { ...pokemon },
     collect: (monitor) => ({
-      isDragging: monitor.isDragging(),
+      isDragging: !!monitor.isDragging(),
     }),
-  });
+  }));
+
+  const statLabels = {
+    hp: "HP",
+    attack: "Atk",
+    defense: "Def",
+    "special-attack": "SpA",
+    "special-defense": "SpD",
+    speed: "Spe"
+  };
 
   return (
-    <div ref={drag} className={`card card-caja ${isDragging ? 'dragging' : ''}`}>
-      <button className="btn-x" onClick={() => onDelete(index)} title="Eliminar">
-        <svg width="14" height="14" viewBox="0 0 24 24">
-          <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" strokeWidth="2" />
-          <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" strokeWidth="2" />
-        </svg>
-      </button>
-      <SpriteYTipos sprite={pokemon.sprite} types={pokemon.types} />
-      <p><strong>{pokemon.nickname || pokemon.name}</strong></p>
-      <p className="estado-texto"><em>{pokemon.estado}</em></p>
+    <div
+      ref={drag}
+      className={`draggable-card ${isDragging ? 'dragging' : ''}`}
+    >
+      <div className="sprite-stats">
+        <div className="header">
+          <div className="types">
+            {pokemon.types.map((type) => (
+              <span key={type} className={`tipo-tag ${type}`}>
+                {type}
+              </span>
+            ))}
+          </div>
+          <button className="close-btn" onClick={() => onDelete(pokemon)}>
+            ×
+          </button>
+        </div>
+        <img className="sprite-img" src={pokemon.sprite} alt={pokemon.name} />
+        <h4>{pokemon.nickname || pokemon.name}</h4>
+        {pokemon.baseStats ? (
+          <div className="stats-list">
+            {Object.entries(pokemon.baseStats).map(([stat, value]) => (
+              <div className="stat-row" key={stat}>
+                <span className="stat-label">{statLabels[stat] || stat}</span>
+                <div className="stat-bar-container">
+                  <div className="stat-bar" style={{ width: `${value / 2}%` }} />
+                </div>
+                <span className="stat-value">{value}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="stats-placeholder">Cargando stats...</p>
+        )}
+      </div>
     </div>
   );
 };

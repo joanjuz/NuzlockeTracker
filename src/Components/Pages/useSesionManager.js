@@ -1,5 +1,6 @@
 // useSesionManager.js
 import { useState, useEffect } from 'react';
+import { getBaseStats } from '../../Services/API';
 
 const useSesionManager = () => {
   const [activeTab, setActiveTab] = useState(() => {
@@ -29,15 +30,15 @@ const useSesionManager = () => {
   }, [miEquipo, rivalTeam, cargaInicialCompleta]);
 
   const agregarPokemonAlTeam = (pokemon, teamType) => {
-  if (teamType === 'miEquipo') {
-    setMiEquipo(prev => {
-      const estado = prev.filter(p => p.estado === 'activo').length >= 6 ? 'caja' : 'activo';
-      return [...prev, { ...pokemon, estado }];
-    });
-  } else if (teamType === 'rivalTeam') {
-    setRivalTeam(prev => [...prev, { ...pokemon, estado: 'activo' }]);
-  }
-};
+    if (teamType === 'miEquipo') {
+      setMiEquipo(prev => {
+        const estado = prev.filter(p => p.estado === 'activo').length >= 6 ? 'caja' : 'activo';
+        return [...prev, { ...pokemon, estado }];
+      });
+    } else if (teamType === 'rivalTeam') {
+      setRivalTeam(prev => [...prev, { ...pokemon, estado: 'activo' }]);
+    }
+  };
 
 
   const eliminarPokemonDelTeam = (index, teamType = 'miEquipo') => {
@@ -145,9 +146,29 @@ const useSesionManager = () => {
           localStorage.setItem('altoMando', JSON.stringify(sesionImportada.altoMando || Array(4).fill(false)));
           localStorage.setItem('juegoSeleccionado', sesionImportada.juegoSeleccionado || '');
 
-          setMiEquipo(sesionImportada.equipo || []);
-          setActiveTab('equipo');
-          alert('Sesión importada correctamente.');
+          const actualizarStats = async (equipo) => {
+            return await Promise.all(
+              equipo.map(async (p) => {
+                if (!p.baseStats) {
+                  try {
+                    const baseStats = await getBaseStats(p.name);
+                    return { ...p, baseStats };
+                  } catch (err) {
+                    console.warn(`❗ Error al obtener baseStats de ${p.name}:`, err);
+                    return p;
+                  }
+                }
+                return p;
+              })
+            );
+          };
+
+          actualizarStats(sesionImportada.equipo || []).then((equipoConStats) => {
+            setMiEquipo(equipoConStats);
+            setActiveTab('equipo');
+            alert('Sesión importada correctamente.');
+          });
+
         } else {
           alert('El archivo no es válido.');
         }

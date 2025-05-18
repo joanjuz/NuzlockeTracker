@@ -1,7 +1,7 @@
 import React from 'react';
 import PokemonModal from '../Modals/PokemonModal';
 
-const ModalIntegracion = ({ showModal, setShowModal, selectedPokemon, sprite, types, weaknesses, onAddPokemon }) => {
+const ModalIntegracion = ({ showModal, setShowModal, selectedPokemon, sprite, types, weaknesses, baseStats, onAddPokemon }) => {
   if (!showModal) return null;
 
   const cerrar = () => setShowModal(false);
@@ -17,7 +17,8 @@ const ModalIntegracion = ({ showModal, setShowModal, selectedPokemon, sprite, ty
         name: selectedPokemon.value,
         sprite,
         types,
-        weaknesses
+        weaknesses,
+        baseStats
       }}
       onSave={agregar}
       onClose={cerrar}
