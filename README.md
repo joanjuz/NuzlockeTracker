@@ -1,32 +1,55 @@
-# 🕹️ NuzTracker
+# NuzTracker
 
-**NuzTracker** es una aplicación web interactiva para gestionar equipos de Pokémon en desafíos tipo *Nuzlocke*. Permite añadir, editar y visualizar Pokémon con sus habilidades, tipos, debilidades, movimientos y estados (activo, caja o cementerio). También ofrece valoración estratégica del equipo, bitácora de progreso, e importación/exportación desde archivos `.txt` estilo Showdown.
-
----
-
-## 🚀 Funcionalidades principales
-
-- ✅ **Gestión de equipo**: añade Pokémon con sus movimientos, habilidades y nivel.
-- 🔄 **Cambio de estado**: marca un Pokémon como activo, en la caja o fallecido.
-- 📊 **Valoración del equipo**: cobertura ofensiva, debilidades, STAB, resistencias e inmunidades.
-- 📘 **Bitácora de aventura**: marca medallas, miembros del Alto Mando derrotados y rutas de captura por juego.
-- 📥 **Importación desde Showdown.txt**: analiza y convierte archivos `.txt` al equipo actual.
-- 📤 **Exportación a Showdown.txt**: genera archivos `.txt` del equipo actual.
-- 💾 **Guardado automático en localStorage**: persistencia entre sesiones.
-- 🌐 **Integración con PokéAPI**: para obtener sprites, tipos, habilidades, debilidades y movimientos.
+**NuzTracker** es una aplicación web interactiva para organizar y llevar el control de tu equipo Pokémon, útil especialmente para retos como Nuzlocke. Permite importar equipos desde archivos TXT, personalizar cada Pokémon, registrar rutas de captura, y gestionar evoluciones.
 
 ---
 
-## 🖥️ Tecnologías utilizadas
+## 🧩 Funcionalidades principales
 
-- ⚛️ **React** (con `useState`, `useEffect`)
-- 🖌️ **CSS modularizado** para estilos por componente
-- 🔧 **React Select** para campos de selección dinámica
-- 📦 **PokéAPI** para datos en tiempo real
+### 1. **Gestión del equipo**
+- Agrega Pokémon personalizados con apodo, habilidad, tipos, etc.
+- Visualización clara del equipo activo.
+- División del equipo en:
+  - **Activos**
+  - **Caja**
+  - **Muertos**
+- Cambia el estado de un Pokémon (activo, caja o muerto).
+- Elimina Pokémon si lo deseas.
+
+### 2. **Movimientos**
+- Asigna movimientos personalizados a cada Pokémon.
+- Visualiza su tipo y daño.
+- Elimina movimientos con facilidad.
+
+### 3. **Importar desde Showdown (TXT)**
+- Carga un archivo `.txt` en formato de exportación de Pokémon Showdown.
+- Los Pokémon se cargarán automáticamente con sus datos y movimientos.
+- Se realiza una actualización automática de tipos y debilidades usando la PokéAPI.
+
+### 4. **Generar archivo Showdown**
+- Genera y descarga el archivo `.txt` de tu equipo actual en formato Showdown compatible.
+
+### 5. **Bitácora de aventura**
+- Marca las medallas obtenidas y miembros del Alto Mando vencidos.
+- Registra qué rutas ya han sido usadas para capturar Pokémon.
+
+### 6. **Sistema de evolución**
+- Se muestra la evolución siguiente (si existe) del Pokémon activo.
+- Aparece el botón **Evolucionar** si se cumplen las condiciones.
+- Se indican los requisitos para evolucionar: nivel, ítem, etc.
+- Al evolucionar, el Pokémon se reemplaza automáticamente por su forma evolucionada con datos actualizados.
 
 ---
 
-## 📦 Instalación
+## 🛠️ Tecnologías utilizadas
+- **React** + Hooks
+- **PokéAPI REST** para obtener información de Pokémon
+- **React Select** para campos desplegables mejorados
+- **CSS personalizado** para interfaz tipo Pokédex
+
+---
+
+## 📦 Instalación y ejecución local
 
 ```bash
 git clone https://github.com/tu-usuario/nuztracker.git
@@ -37,52 +60,10 @@ npm start
 
 ---
 
-## 📁 Estructura del proyecto
-
-```
-src/
-├── Components/
-│   ├── TeamTracker.js
-│   ├── Valoracion.js
-│   ├── BitacoraAventura.js
-│   ├── PokemonModal.js
-│   ├── ImportarTxt.js
-│   ├── GenerarTxt.js
-│   ├── Header.js
-│   └── styles (TeamTracker.css, Bitacora.css, etc.)
-├── Services/
-│   └── API.js
-├── App.js
-├── index.js
-└── README.md
-```
-
+## 🚧 Pendiente / Futuras mejoras
+- Soporte para múltiples versiones de evolución.
+- Control de niveles y experiencia.
 ---
 
-## 📄 Formato del archivo TXT (Showdown)
-
-**Importa/Exporta archivos `.txt`** siguiendo el formato de Pokémon Showdown. Cada Pokémon debe estar separado por una línea vacía y debe incluir datos como:
-
-```
-Apodo (Pikachu) (M) @ Light Ball
-Ability: Static
-Level: 50
-Happiness: 255
-EVs: 252 Atk / 4 Def / 252 Spe
-Jolly Nature
-IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
-- Thunderbolt
-- Iron Tail
-- Quick Attack
-- Volt Tackle
-```
-
----
-
-## 📝 Créditos
-
-- Desarrollado por [joanjuz]
-- Datos y recursos provienen de [https://pokeapi.co](https://pokeapi.co)
-- Inspirado en los desafíos Nuzlocke
-
----
+## 🧠 Autor
+Desarrollado por joanjuz.
