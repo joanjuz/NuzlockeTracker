@@ -1,8 +1,6 @@
-// ModalIntegracion.js
 import React from 'react';
 import PokemonModal from '../Modals/PokemonModal';
-import './Pokemon.css'
-import './tipos.css'
+
 const ModalIntegracion = ({ showModal, setShowModal, selectedPokemon, sprite, types, weaknesses, onAddPokemon }) => {
   if (!showModal) return null;
 
@@ -15,7 +13,12 @@ const ModalIntegracion = ({ showModal, setShowModal, selectedPokemon, sprite, ty
 
   return (
     <PokemonModal
-      pokemon={{ name: selectedPokemon.value, sprite, types, weaknesses }}
+      pokemon={{
+        name: selectedPokemon.value,
+        sprite,
+        types,
+        weaknesses
+      }}
       onSave={agregar}
       onClose={cerrar}
     />

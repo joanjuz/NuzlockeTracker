@@ -1,0 +1,31 @@
+/* DraggablePokemon.css */
+.card-caja {
+  position: relative;
+  background-color: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+  transition: background-color 0.3s;
+}
+
+.card-caja.dragging {
+  opacity: 0.5;
+  transform: scale(0.98);
+}
+
+.btn-x {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  visibility: hidden;
+  cursor: pointer;
+  padding: 0;
+}
+
+.card-caja:hover .btn-x {
+  visibility: visible;
+}

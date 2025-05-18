@@ -16,6 +16,7 @@ const PaginaPrincipal = () => {
     activeTab,
     setActiveTab,
     miEquipo,
+    setMiEquipo,
     rivalTeam,
     agregarPokemonAlTeam,
     eliminarPokemonDelTeam,
@@ -60,6 +61,7 @@ const PaginaPrincipal = () => {
       {activeTab === 'caja' && (
         <Caja
           team={miEquipo}
+          setTeam={setMiEquipo}
           onChangeEstado={cambiarEstadoPokemon}
           onRemovePokemon={eliminarPokemonDelTeam}
         />

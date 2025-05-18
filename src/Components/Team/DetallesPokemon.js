@@ -74,7 +74,7 @@ const DetallesPokemon = ({
             <Select options={moveOptions} onChange={handleMoveSelect} placeholder="Buscar movimiento..." />
           ) : (
             <button className="btn" onClick={() => setShowMoveSelector(true)}>
-              Agregar Movimiento
+              Agregar
             </button>
           )}
         </div>

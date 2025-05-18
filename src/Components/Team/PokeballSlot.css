@@ -1,0 +1,29 @@
+.pokeball-slots {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.pokeball-slot {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background-color: var(--card-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+  position: relative;
+}
+
+.pokeball-slot.hover {
+  background-color: var(--primary);
+}
+
+.pokeball-slot img {
+  max-width: 90%;
+  max-height: 90%;
+  object-fit: contain;
+}

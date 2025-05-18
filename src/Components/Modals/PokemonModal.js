@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Select from 'react-select';
-import '../Modals/PokemonModal.css';
+import './PokemonModal.css';
 
 const PokemonModal = ({ pokemon, onSave, onClose }) => {
   const [nickname, setNickname] = useState('');
-  const [level, setLevel] = useState('');
   const [ability, setAbility] = useState('');
   const [abilityOptions, setAbilityOptions] = useState([]);
 
@@ -38,16 +37,9 @@ const PokemonModal = ({ pokemon, onSave, onClose }) => {
   };
 
   return (
-    <div
-      className="modal-overlay"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          handleModalClose();
-        }
-      }}
-    >
-      <div className="modal-container" style={{ maxWidth: '400px' }}>
-        <h2>Información del Pokémon</h2>
+    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && handleModalClose()}>
+      <div className="modal-container">
+        <h2 className="modal-title">Información del Pokémon</h2>
         <form onSubmit={handleSubmit} className="modal-form">
           <div className="form-group">
             <label>Apodo:</label>
@@ -68,16 +60,13 @@ const PokemonModal = ({ pokemon, onSave, onClose }) => {
               }
               placeholder="Seleccione habilidad..."
               isClearable
+              className="react-select-container"
+              classNamePrefix="react-select"
             />
           </div>
           <div className="modal-actions">
             <button type="submit" className="btn">Guardar</button>
-            <button 
-              type="button" 
-              className="btn" 
-              onClick={handleModalClose} 
-              style={{ marginLeft: '10px' }}
-            >
+            <button type="button" className="btn btn-cancel" onClick={handleModalClose}>
               Cancelar
             </button>
           </div>

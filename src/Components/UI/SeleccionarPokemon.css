@@ -1,0 +1,57 @@
+.selector-container {
+  text-align: center;
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.selector-title {
+  margin-bottom: 10px;
+  font-size: 1.2rem;
+  color: var(--text);
+}
+
+.error-msg {
+  color: red;
+  margin-top: 8px;
+}
+
+/* Estilo base para react-select */
+.react-select-container {
+  margin-bottom: 12px;
+  font-size: 0.95rem;
+}
+
+/* Estilo para modo claro/oscuro usando prefix */
+.react-select__control {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+}
+
+.react-select__control--is-focused {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+.react-select__menu {
+  background-color: var(--card-bg);
+  color: var(--text);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.react-select__option {
+  background-color: transparent;
+  color: var(--text);
+}
+
+.react-select__option--is-focused {
+  background-color: var(--primary);
+  color: white;
+}
+
+.react-select__single-value {
+  color: var(--text);
+}

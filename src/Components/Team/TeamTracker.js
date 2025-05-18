@@ -56,15 +56,16 @@ const TeamTracker = ({ team, onAddMove }) => {
             return (
               <div
                 key={index}
-                className="card-activo"
+                className="card"
                 onClick={() => setSelectedTeamPokemon(pokemon)}
-                style={{ cursor: 'pointer', padding: '10px', border: '1px solid #ccc', borderRadius: '8px', textAlign: 'center' }}
+                style={{ cursor: 'pointer' }}
               >
+
                 <SpriteYTipos sprite={pokemon.sprite} types={pokemon.types} />
                 <p><strong>{pokemon.nickname || pokemon.name}</strong></p>
                 {evo && (
                   <>
-                    <p style={{ fontSize: '0.85em', marginBottom: '4px' }}>
+                    <p className="texto-evolucion">
                       Evoluciona a <strong>{evo.name}</strong>
                       <br /><span style={{ color: '#888' }}>{mostrarRequisitos(evo)}</span>
                     </p>

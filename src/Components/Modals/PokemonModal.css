@@ -1,51 +1,115 @@
-/* PokemonModal.css */
 .modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 999;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-container {
+  background-color: var(--card-bg);
+  color: var(--text);
+  padding: 24px;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.modal-title {
+  margin-top: 0;
+  margin-bottom: 20px;
+  text-align: center;
+  font-size: 1.4rem;
+}
+
+.modal-form .form-group {
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+.modal-form label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: bold;
+  color: var(--text);
+}
+
+.modal-form input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background-color: var(--background);
+  color: var(--text);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.btn {
+  background-color: var(--primary);
+  color: white;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.btn:hover {
+  background-color: #3f80d0;
+}
+
+.btn-cancel {
+  background-color: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.btn-cancel:hover {
+  background-color: var(--border);
+}
+
+/* react-select override */
+.react-select__control {
+  background-color: var(--background);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.react-select__menu {
+  background-color: var(--card-bg);
+  color: var(--text);
+}
+
+.react-select__option {
+  background-color: transparent;
+  color: var(--text);
+}
+
+.react-select__option--is-focused {
+  background-color: var(--primary);
+  color: white;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
-  
-  .modal-container {
-    background: #fff;
-    padding: 20px 30px;
-    border-radius: 8px;
-    width: 400px;
-    max-width: 90%;
-    max-height: 80vh; /* altura máxima */
-    overflow-y: auto; /* scroll vertical si excede */
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
-  
-  
-  .modal-form .form-group {
-    margin-bottom: 15px;
-  }
-  
-  .modal-form label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: bold;
-  }
-  
-  .modal-form input,
-  .modal-form select {
-    width: 100%;
-    padding: 6px 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-  }
-  
-  .modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 20px;
-  }
-  
-  
+}

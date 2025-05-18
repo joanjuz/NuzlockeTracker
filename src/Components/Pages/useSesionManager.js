@@ -38,12 +38,12 @@ const useSesionManager = () => {
   };
 
   const eliminarPokemonDelTeam = (index, teamType = 'miEquipo') => {
-  if (teamType === 'miEquipo') {
-    setMiEquipo(prev => prev.filter((_, i) => i !== index));
-  } else if (teamType === 'rivalTeam') {
-    setRivalTeam(prev => prev.filter((_, i) => i !== index));
-  }
-};
+    if (teamType === 'miEquipo') {
+      setMiEquipo(prev => prev.filter((_, i) => i !== index));
+    } else if (teamType === 'rivalTeam') {
+      setRivalTeam(prev => prev.filter((_, i) => i !== index));
+    }
+  };
 
 
   const addMoveToPokemon = (pokemonActualizado) => {
@@ -120,7 +120,7 @@ const useSesionManager = () => {
     link.click();
     document.body.removeChild(link);
   };
-  
+
 
   const importarSesionDesdeArchivo = (e) => {
     const file = e.target.files[0];
@@ -160,6 +160,7 @@ const useSesionManager = () => {
     activeTab,
     setActiveTab,
     miEquipo,
+    setMiEquipo,
     rivalTeam,
     agregarPokemonAlTeam,
     eliminarPokemonDelTeam,
@@ -170,6 +171,7 @@ const useSesionManager = () => {
     exportarSesion,
     importarSesionDesdeArchivo,
   };
+
 };
 
 export default useSesionManager;
