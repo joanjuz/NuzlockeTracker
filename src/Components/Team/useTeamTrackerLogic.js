@@ -1,6 +1,6 @@
 // useTeamTrackerLogic.js
 import { useState, useEffect } from 'react';
-import { getAllPokemonMoves, getMoveDetails, getNextEvolution, getPokemonSprite, getPokemonTypeByName, getPokemonWeaknesses } from '../../Services/API';
+import { getAllPokemonMoves, getMoveDetails, getNextEvolution, getPokemonSprite, getPokemonTypeByName, getPokemonWeaknesses, getBaseStats } from '../../Services/API';
 
 const useTeamTrackerLogic = (team, onAddMove) => {
   const [selectedTeamPokemon, setSelectedTeamPokemon] = useState(null);
@@ -91,6 +91,7 @@ const useTeamTrackerLogic = (team, onAddMove) => {
       sprite: await getPokemonSprite(evolucion.name),
       types: await getPokemonTypeByName(evolucion.name),
       weaknesses: await getPokemonWeaknesses(evolucion.name),
+      baseStats: await getBaseStats(evolucion.name),
     };
 
     team[index] = nuevoPokemon;

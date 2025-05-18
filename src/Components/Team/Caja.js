@@ -88,6 +88,18 @@ const Caja = ({ team, setTeam }) => {
         setTeam={setTeam}
         onDelete={handleDelete}
       />
+      {activos.length > 0 && (
+        <ZonaDrop
+          titulo="Pokémon Activos (Vista)"
+          lista={activos}
+          estado="activo"
+          team={team}
+          setTeam={() => { }} // no modificar
+          onDelete={() => { }} // prevenir eliminación
+          soloLectura={true} // si decides usar una prop para evitar acciones
+        />
+      )}
+
 
       {muertos.length > 0 && (
         <ZonaDrop

@@ -100,3 +100,13 @@
   width: 28px;
   text-align: right;
 }
+.close-btn {
+  line-height: 1;
+  padding: 0;
+  margin-left: auto;
+}
+
+.close-btn:hover {
+  color: black;        /* No cambia a azul */
+  font-weight: bold;   /* Solo se pone en negrita */
+}
