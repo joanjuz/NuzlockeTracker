@@ -1,0 +1,41 @@
+/* Colores por tipo de Pokémon */
+.tipo.normal     { background-color: #A8A878; color: #fff; }
+.tipo.fire       { background-color: #F08030; color: #fff; }
+.tipo.water      { background-color: #6890F0; color: #fff; }
+.tipo.electric   { background-color: #F8D030; color: #000; }
+.tipo.grass      { background-color: #78C850; color: #fff; }
+.tipo.ice        { background-color: #98D8D8; color: #000; }
+.tipo.fighting   { background-color: #C03028; color: #fff; }
+.tipo.poison     { background-color: #A040A0; color: #fff; }
+.tipo.ground     { background-color: #E0C068; color: #000; }
+.tipo.flying     { background-color: #A890F0; color: #000; }
+.tipo.psychic    { background-color: #F85888; color: #fff; }
+.tipo.bug        { background-color: #A8B820; color: #000; }
+.tipo.rock       { background-color: #B8A038; color: #fff; }
+.tipo.ghost      { background-color: #705898; color: #fff; }
+.tipo.dragon     { background-color: #7038F8; color: #fff; }
+.tipo.dark       { background-color: #705848; color: #fff; }
+.tipo.steel      { background-color: #B8B8D0; color: #000; }
+.tipo.fairy      { background-color: #EE99AC; color: #000; }
+
+/* Sombra de barra si se usa --tipo-color */
+:root {
+  --normal-color: #A8A878;
+  --fire-color: #F08030;
+  --water-color: #6890F0;
+  --electric-color: #F8D030;
+  --grass-color: #78C850;
+  --ice-color: #98D8D8;
+  --fighting-color: #C03028;
+  --poison-color: #A040A0;
+  --ground-color: #E0C068;
+  --flying-color: #A890F0;
+  --psychic-color: #F85888;
+  --bug-color: #A8B820;
+  --rock-color: #B8A038;
+  --ghost-color: #705898;
+  --dragon-color: #7038F8;
+  --dark-color: #705848;
+  --steel-color: #B8B8D0;
+  --fairy-color: #EE99AC;
+}

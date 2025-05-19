@@ -4,29 +4,15 @@ import {
   getPokemonNames,
   getPokemonSprite,
   getPokemonTypeByName,
-  getPokemonWeaknesses
+  getPokemonWeaknesses,
+  getBaseStats // <-- Asegúrate de importar esta función
 } from '../../Services/API';
 
 const useSeleccionarPokemon = () => {
   const allPokemonTypes = {
-    'normal': 0,
-    'fire': 0,
-    'water': 0,
-    'electric': 0,
-    'grass': 0,
-    'ice': 0,
-    'fighting': 0,
-    'poison': 0,
-    'ground': 0,
-    'flying': 0,
-    'psychic': 0,
-    'bug': 0,
-    'rock': 0,
-    'ghost': 0,
-    'dragon': 0,
-    'dark': 0,
-    'steel': 0,
-    'fairy': 0
+    'normal': 0, 'fire': 0, 'water': 0, 'electric': 0, 'grass': 0, 'ice': 0,
+    'fighting': 0, 'poison': 0, 'ground': 0, 'flying': 0, 'psychic': 0,
+    'bug': 0, 'rock': 0, 'ghost': 0, 'dragon': 0, 'dark': 0, 'steel': 0, 'fairy': 0
   };
 
   const [pokemonOptions, setPokemonOptions] = useState([]);
@@ -34,6 +20,7 @@ const useSeleccionarPokemon = () => {
   const [sprite, setSprite] = useState(null);
   const [types, setTypes] = useState([]);
   const [weaknesses, setWeaknesses] = useState([]);
+  const [baseStats, setBaseStats] = useState(null); // <-- nuevo estado
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [pokemonTypeCounts, setPokemonTypeCounts] = useState(allPokemonTypes);
@@ -56,6 +43,7 @@ const useSeleccionarPokemon = () => {
       setSprite(null);
       setTypes([]);
       setWeaknesses([]);
+      setBaseStats(null); // limpiar también los stats
       return;
     }
 
@@ -65,23 +53,22 @@ const useSeleccionarPokemon = () => {
         const spriteData = await getPokemonSprite(name);
         const typesData = await getPokemonTypeByName(name);
         const weaknessesData = await getPokemonWeaknesses(name);
+        const statsData = await getBaseStats(name); // <-- obtener stats
 
         setSprite(spriteData);
         setTypes(typesData);
         setWeaknesses(weaknessesData);
+        setBaseStats(statsData); // <-- guardar stats
         setError(null);
 
         const updatedCounts = { ...allPokemonTypes };
-
         weaknessesData.forEach((weakness) => {
           const key = Object.keys(weakness)[0];
           const rel = weakness[key];
-
           rel.double_damage_from.forEach(t => updatedCounts[t] += 1);
           rel.half_damage_from.forEach(t => updatedCounts[t] -= 1);
           rel.no_damage_from.forEach(t => updatedCounts[t] -= 5);
         });
-
         setPokemonTypeCounts(updatedCounts);
       } catch (err) {
         console.error("Error fetching Pokémon data:", err);
@@ -99,6 +86,7 @@ const useSeleccionarPokemon = () => {
     sprite,
     types,
     weaknesses,
+    baseStats, // ✅ exponerlo
     pokemonTypeCounts,
     setPokemonTypeCounts,
     error,

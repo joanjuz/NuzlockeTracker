@@ -1,0 +1,125 @@
+/* ResumenDebilidades.css */
+.team-summary {
+  background-color: var(--card-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px var(--shadow);
+}
+
+.summary-columns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.resumen-card {
+  flex: 1;
+  min-width: 220px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  background-color: var(--card-bg);
+  color: var(--text);
+  text-align: center;
+  transition: background-color 0.3s, color 0.3s;
+  cursor: pointer;
+}
+
+.resumen-card:hover {
+  box-shadow: 0 4px 10px var(--shadow);
+}
+
+.move-summary {
+  margin-top: 12px;
+}
+
+.move-summary h5 {
+  font-size: 1em;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+.resumen-card h4,
+.resumen-card p,
+.resumen-card ul,
+.resumen-card li {
+  color: var(--text);
+}
+
+.resumen-card p {
+  font-size: 0.9em;
+}
+
+.resumen-card li {
+  font-size: 0.85em;
+}
+/* Asegura fondo oscuro en modo oscuro y fondo claro en modo claro */
+.resumen-card {
+  background-color: var(--card-bg) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Refuerza todos los textos internos */
+.resumen-card h4,
+.resumen-card h5,
+.resumen-card p,
+.resumen-card span,
+.resumen-card li {
+  color: var(--text) !important;
+}
+
+/* Opcional: mejora la visual de h4 */
+.resumen-card h4 {
+  font-size: 1.1em;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+/* Efecto hover coherente */
+.resumen-card:hover {
+  box-shadow: 0 4px 10px var(--shadow);
+}
+/* Centra nombre del Pokémon */
+.resumen-card h4 {
+  text-align: center;
+  font-size: 1.1em;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+/* Centra el título de movimientos */
+.titulo-movimiento {
+  text-align: center;
+  font-weight: bold;
+  color: var(--text);
+  margin: 12px 0 8px 0;
+}
+
+/* Centra los movimientos */
+.move-summary ul {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-left: 0;
+}
+
+/* Centra el texto cuando no hay movimientos */
+.move-summary p {
+  text-align: center;
+}
+.texto-evolucion {
+  font-size: 0.85em;
+  margin-bottom: 4px;
+  color: var(--text);
+}
+.texto-evolucion span {
+  color: #aaa;
+  font-size: 0.8em;
+}

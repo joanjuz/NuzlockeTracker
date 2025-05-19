@@ -1,52 +1,27 @@
 import React from 'react';
 import './Header.css';
 
+const tabs = [
+  { id: 'agregar', label: 'Agregar' },
+  { id: 'equipo', label: 'Ver Equipo' },
+  { id: 'caja', label: 'Caja' },
+  { id: 'valoracion', label: 'Valoración' },
+  { id: 'bitacora', label: 'Bitácora' },
+  { id: 'archivo', label: 'Showdown' },
+];
+
 const Header = ({ activeTab, setActiveTab }) => {
   return (
-    <header>
-      <button
-        className="btn"
-        onClick={() => setActiveTab("agregar")}
-        style={{ marginRight: '10px', fontWeight: activeTab === "agregar" ? 'bold' : 'normal' }}
-      >
-        Agregar
-      </button>
-      <button
-        className="btn"
-        onClick={() => setActiveTab("equipo")}
-        style={{ marginRight: '10px', fontWeight: activeTab === "equipo" ? 'bold' : 'normal' }}
-      >
-        Ver Equipo
-      </button>
-      <button
-        className="btn"
-        onClick={() => setActiveTab("caja")}
-        style={{ fontWeight: activeTab === "caja" ? 'bold' : 'normal' }}
-      >
-        Caja
-      </button>
-      <button
-        className="btn"
-        onClick={() => setActiveTab("valoracion")}
-        style={{ fontWeight: activeTab === "valoracion" ? 'bold' : 'normal' }}
-      >
-        Valoración
-      </button>
-      <button
-        className="btn"
-        onClick={() => setActiveTab("bitacora")}
-        style={{ marginRight: '10px', fontWeight: activeTab === "bitacora" ? 'bold' : 'normal' }}
-      >
-        Bitácora
-      </button>
-      
-      <button
-        className="btn"
-        onClick={() => setActiveTab("archivo")}
-        style={{ fontWeight: activeTab === "archivo" ? 'bold' : 'normal' }}
-      >
-        Showdown
-      </button>
+    <header className="main-header">
+      {tabs.map(({ id, label }) => (
+        <button
+          key={id}
+          className={`tab-btn ${activeTab === id ? 'active' : ''}`}
+          onClick={() => setActiveTab(id)}
+        >
+          {label}
+        </button>
+      ))}
     </header>
   );
 };

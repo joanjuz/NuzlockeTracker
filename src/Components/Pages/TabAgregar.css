@@ -1,0 +1,50 @@
+.tab-agregar {
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+}
+
+.agregar-contenido {
+  width: 100%;
+  max-width: 800px;
+}
+
+.titulo-seccion {
+  font-size: 1.6em;
+  margin-bottom: 16px;
+  color: var(--text);
+  text-align: center;
+}
+
+.botonera-sesion {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.btn-sesion {
+  background-color: transparent;
+  color: var(--text);
+  border: 2px solid var(--border);
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+}
+
+.btn-sesion:hover {
+  background-color: var(--primary);
+  color: white;
+}
+
+.btn-sesion.importar input {
+  display: none;
+}
+
+.selector-centrado {
+  display: flex;
+  justify-content: center;
+}

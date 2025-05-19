@@ -27,7 +27,7 @@ const BitacoraAventura = () => {
 
   return (
     <div className="bitacora-contenedor">
-      <h2 className="titulo bold">Bitácora de Aventura</h2>
+      <h2 className="titulo bold">Bitácora</h2>
       <MedallasPanel medallas={medallas} toggleMedalla={toggleMedalla} />
       <AltoMandoPanel altoMando={altoMando} toggleAltoMando={toggleAltoMando} />
       <SelectorJuego

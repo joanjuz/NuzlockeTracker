@@ -4,8 +4,10 @@ import {
     getPokemonSprite,
     getPokemonTypeByName,
     getPokemonWeaknesses,
+    getBaseStats,
     getMoveDetails
 } from '../../Services/API';
+import './ImportarTxt.css';
 
 const ImportarTxt = ({ onImportPokemons }) => {
     const [error, setError] = useState("");
@@ -17,6 +19,7 @@ const ImportarTxt = ({ onImportPokemons }) => {
             const sprite = await getPokemonSprite(pokemon.name);
             const types = await getPokemonTypeByName(pokemon.name);
             const weaknesses = await getPokemonWeaknesses(pokemon.name);
+            const stats = await getBaseStats(pokemon.name); // nuevo método en la API
 
             // Actualizamos la información de cada movimiento (si es que tiene nombre)
             // Dentro de updatePokemonData
@@ -47,7 +50,15 @@ const ImportarTxt = ({ onImportPokemons }) => {
             );
 
 
-            return { ...pokemon, sprite, types, weaknesses, moves: updatedMoves };
+            return {
+                ...pokemon,
+                sprite,
+                types,
+                weaknesses,
+                baseStats: stats,
+                moves: updatedMoves
+            };
+
         } catch (err) {
             console.error("Error updating data for", pokemon.name, err);
             return pokemon;

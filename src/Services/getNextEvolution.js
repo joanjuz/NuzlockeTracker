@@ -8,30 +8,27 @@ export const getNextEvolution = async (pokemonName) => {
     const evoChainUrl = speciesData.data.evolution_chain.url;
     const evoChainData = await axios.get(evoChainUrl);
 
-    const findEvolution = (chain, target, condition = null) => {
+    const findEvolutions = (chain, target) => {
       if (chain.species.name === target.toLowerCase()) {
-        if (chain.evolves_to.length > 0) {
-          const next = chain.evolves_to[0];
-          const evoSpecies = next.species.name;
+        return chain.evolves_to.map(next => {
           const evoDetails = next.evolution_details?.[0] || {};
           return {
-            name: evoSpecies,
+            name: next.species.name,
             min_level: evoDetails.min_level || null,
             trigger: evoDetails.trigger?.name || null,
             item: evoDetails.item?.name || null
           };
-        }
-        return null;
+        });
       }
       for (let evo of chain.evolves_to) {
-        const result = findEvolution(evo, target);
+        const result = findEvolutions(evo, target);
         if (result) return result;
       }
       return null;
     };
 
-    const evolution = findEvolution(evoChainData.data.chain, pokemonName);
-    return evolution;
+    const evolutions = findEvolutions(evoChainData.data.chain, pokemonName);
+    return evolutions; // Puede ser null o array con 1+ evoluciones
   } catch (error) {
     console.error('Error fetching evolution:', error);
     return null;

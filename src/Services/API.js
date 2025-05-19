@@ -13,6 +13,7 @@ import getGameVersions from './getGameVersions';
 import getAllLocationAreas from './getAllLocationAreas';
 import getRutasPorJuego from './getRutasPorJuego';
 import getNextEvolution from './getNextEvolution';
+import  getBaseStats  from './getBaseStats';
 
 export {
   getPokemonTypes,
@@ -28,5 +29,6 @@ export {
   getGameVersions,
   getAllLocationAreas,
   getNextEvolution,
+  getBaseStats,
   getRutasPorJuego
 };

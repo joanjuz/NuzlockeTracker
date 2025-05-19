@@ -1,201 +1,43 @@
-/* Valoracion.css */
-
 .valoracion {
   padding: 20px;
-  background-color: #fefefe;
+}
+
+.section {
+  margin-top: 24px;
+  padding: 16px;
+  background-color: var(--card-bg);
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.08);
-  font-family: 'Arial', sans-serif;
-  margin-top: 20px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 4px var(--shadow);
 }
 
-/* Encabezado */
-.valoracion h2 {
-  text-align: center;
-  font-size: 1.6em;
-  margin-bottom: 20px;
-}
-
-/* Subtítulos */
-.valoracion h3 {
-  font-size: 1.2em;
-  margin-top: 20px;
-  color: #444;
-}
-
-/* Listas generales */
-.valoracion ul {
-  list-style: none;
-  padding: 0;
-  margin-top: 10px;
-  margin-bottom: 20px;
-}
-
-.valoracion li {
-  margin-bottom: 6px;
-  padding-left: 6px;
-}
-
-/* Iconos destacados */
-.valoracion strong {
-  color: #2c3e50;
-}
-
-/* Secciones específicas */
-.valoracion .section {
-  background-color: #f9f9f9;
-  padding: 15px;
-  border-radius: 6px;
-  border: 1px solid #ddd;
-  margin-bottom: 20px;
-}
-
-/* Colores para íconos clave */
-.valoracion .stab {
-  color: #2ecc71;
+.subtitulo {
+  font-size: 1.1em;
+  margin-bottom: 12px;
   font-weight: bold;
-}
-.valoracion .alerta {
-  color: #e74c3c;
-  font-weight: bold;
-}
-.valoracion .neutro {
-  color: #7f8c8d;
-}
-.valoracion .tipo {
-  display: inline-block;
-  padding: 2px 6px;
-  margin: 2px;
-  border-radius: 4px;
-  font-size: 0.8em;
-  color: #fff;
-  background-color: #888;
-}
-
-/* Títulos compactos para bloques internos */
-.valoracion .subtitulo {
-  font-weight: bold;
-  margin-top: 10px;
-  color: #555;
-}
-:root {
-  --fire-color: #e25822;
-  --water-color: #3399ff;
-  --grass-color: #66cc33;
-  --electric-color: #ffcc00;
-  --ground-color: #d2b48c;
-  --flying-color: #6699ff;
-  --psychic-color: #ff66cc;
-  --bug-color: #99cc33;
-  --rock-color: #b3a369;
-  --ghost-color: #6666cc;
-  --dragon-color: #6666ff;
-  --dark-color: #333333;
-  --steel-color: #99aabb;
-  --fairy-color: #ff99cc;
-  --ice-color: #99d9ea;
-  --poison-color: #9933ff;
-  --fighting-color: #cc3300;
-  --normal-color: #a8a878;
-}
-.tipo-cuadro {
-  display: inline-block;
-  padding: 4px 10px;
-  margin: 2px;
-  border-radius: 6px;
-  font-weight: bold;
-  color: #212121;
-  font-size: 0.85em;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-  text-align: center;
-  min-width: 70px;
-  text-transform: capitalize;
-}
-
-.tipo-cuadro.normal {
-  background: linear-gradient(#a4acaf 50%, #a4acaf 50%);
-}
-.tipo-cuadro.fire {
-  background: linear-gradient(#fd7d24 50%, #fd7d24 50%);
-}
-.tipo-cuadro.water {
-  background: linear-gradient(#4592c4 50%, #4592c4 50%);
-}
-.tipo-cuadro.electric {
-  background: linear-gradient(#eed535 50%, #eed535 50%);
-}
-.tipo-cuadro.grass {
-  background: linear-gradient(#9bcc50 50%, #9bcc50 50%);
-}
-.tipo-cuadro.ice {
-  background: linear-gradient(#51c4e7 50%, #51c4e7 50%);
-}
-.tipo-cuadro.fighting {
-  background: linear-gradient(#d56723 50%, #d56723 50%);
-}
-.tipo-cuadro.poison {
-  background: linear-gradient(#b97fc9 50%, #b97fc9 50%);
-}
-.tipo-cuadro.ground {
-  background: linear-gradient(#f7de3f 50%, #f7de3f 50%);
-}
-.tipo-cuadro.flying {
-  background: linear-gradient(#3dc7ef 50%, #bdb9b8 50%);
-}
-.tipo-cuadro.psychic {
-  background: linear-gradient(#f366b9 50%, #f366b9 50%);
-}
-.tipo-cuadro.bug {
-  background: linear-gradient(#729f3f 50%, #729f3f 50%);
-}
-.tipo-cuadro.rock {
-  background: linear-gradient(#a38c21 50%, #a38c21 50%);
-}
-.tipo-cuadro.ghost {
-  background: linear-gradient(#7b62a3 50%, #7b62a3 50%);
-}
-.tipo-cuadro.dragon {
-  background: linear-gradient(#53a4cf 50%, #f16e57 50%);
-}
-.tipo-cuadro.dark {
-  background: linear-gradient(#707070 50%, #707070 50%);
-}
-.tipo-cuadro.steel {
-  background: linear-gradient(#9eb7b8 50%, #9eb7b8 50%);
-}
-.tipo-cuadro.fairy {
-  background: linear-gradient(#fdb9e9 50%, #fdb9e9 50%);
-}
-.valoracion .section {
-  background-color: #fefefe;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  padding: 15px;
-  margin-bottom: 20px;
-}
-.tipo-resistencias-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 10px;
+  color: var(--text);
 }
 
 .tipo-cuadro {
+  display: inline-block;
+  margin: 4px;
   padding: 6px 10px;
   border-radius: 6px;
+  background-color: var(--tipo-bg, #ddd);
+  color: var(--tipo-text, #000);
   font-size: 0.85em;
-  font-weight: bold;
-  color: #212121;
-  background: linear-gradient(to bottom, #ccc 50%, #ccc 50%);
+  text-transform: capitalize;
   text-align: center;
-  min-width: 70px;
-  position: relative;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.tipo-resistencias-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .tipo-cuadro .contador {
-  font-size: 1.1em;
+  font-size: 1.2em;
   font-weight: bold;
-  color: #111;
 }
-

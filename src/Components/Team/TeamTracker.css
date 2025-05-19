@@ -2,13 +2,14 @@
 
 /* Contenedor general del TeamTracker */
 .team-tracker {
-    padding: 20px;
-    background-color: #f9f9f9;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    font-family: 'Arial', sans-serif;
-  }
-  
+  padding: 20px;
+  background-color: var(--card-bg);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px var(--shadow);
+  font-family: 'Arial', sans-serif;
+  color: var(--text);
+}
+
   /* Encabezado principal */
   .team-tracker h2 {
     margin-bottom: 15px;
@@ -71,9 +72,10 @@
   transition: transform 0.2s;
 }
 
-.card-activo:hover {
+.card:hover {
   transform: scale(1.02);
 }
+
 
 /* Ocultar el botón por defecto */
 .btn.evolucionar {
@@ -110,14 +112,11 @@
   }
   
   /* Sección de Resumen del equipo: Debilidades y Movimientos */
-  .team-summary {
-    width: 100%;
-    margin-top: 20px;
-    background-color: #fff;
-    border-radius: 8px;
-    padding: 15px;
-    box-shadow: 0 2px 4px rgba(194, 0, 0, 0.1);
-  }
+ .team-summary {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
   
   .team-summary h3 {
     font-size: 1.2em;
@@ -127,11 +126,11 @@
   }
   
   /* Columnas para el resumen de cada Pokémon */
-  .summary-columns {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 15px;
-  }
+  .summary-columns > div {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
   
   .summary-columns > div {
     flex: 1;
@@ -299,7 +298,7 @@
   display: flex;
   justify-content: center;
   padding: 30px 15px;
-  background-color: #f0f2f5; /* fondo de página suave */
+  background-color: var(--background);
   min-height: 100vh;
   box-sizing: border-box;
 }
@@ -309,3 +308,56 @@
   width: 100%;
 }
 
+.card .btn.evolucionar {
+  background-color: transparent;
+  color: var(--primary);
+  font-size: 0.85rem;
+  padding: 4px 6px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: 
+    opacity 0.3s ease,
+    transform 0.3s ease,
+    text-decoration 0.3s ease,
+    color 0.3s ease;
+  display: block;
+  margin: 6px auto 0 auto;
+}
+
+.card:hover .btn.evolucionar {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.card .btn.evolucionar:hover {
+  background-color: transparent;
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+
+.card:hover .btn.evolucionar {
+  opacity: 1;
+  transform: translateY(0);
+}
+.card {
+  text-align: center; /* Centra todo el contenido textual */
+}
+
+.card p {
+  margin: 8px 0;
+}
+
+.card strong {
+  display: block;
+  font-size: 1em;
+  font-weight: bold;
+}
+
+.card .btn.evolucionar {
+  margin-top: 6px;
+  display: inline-block;
+}

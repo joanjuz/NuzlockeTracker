@@ -1,22 +1,23 @@
 import React from 'react';
+import './GenerarTxt.css';
 
 const GenerarTxt = ({ team, showPreview = true }) => {
   const generateTextContent = () => {
     return team
       .map((pokemon) => {
         // Apodo: si se definió nickname, se usa; de lo contrario se usa el nombre
-        const apodo = pokemon.nickname && pokemon.nickname.trim() !== "" 
-          ? pokemon.nickname 
+        const apodo = pokemon.nickname && pokemon.nickname.trim() !== ""
+          ? pokemon.nickname
           : pokemon.name;
         // Especie: se toma de pokemon.species, sino se usa el nombre
-        const species = pokemon.species && pokemon.species.trim() !== "" 
-          ? pokemon.species 
+        const species = pokemon.species && pokemon.species.trim() !== ""
+          ? pokemon.species
           : pokemon.name;
-        const gender = pokemon.gender && pokemon.gender.trim() !== "" 
-          ? pokemon.gender 
+        const gender = pokemon.gender && pokemon.gender.trim() !== ""
+          ? pokemon.gender
           : "N/A";
-        const item = pokemon.item && pokemon.item.trim() !== "" 
-          ? pokemon.item 
+        const item = pokemon.item && pokemon.item.trim() !== ""
+          ? pokemon.item
           : "N/A";
 
         // Primera línea: "Apodo (Especie) (Género) @ Item"
@@ -77,7 +78,7 @@ const GenerarTxt = ({ team, showPreview = true }) => {
           {showPreview && (
             <pre className="txt-preview">{generateTextContent()}</pre>
           )}
-          <button className="btn-min" onClick={handleGenerateTxt}>
+          <button className="btn-min importar" onClick={handleGenerateTxt}>
             Generar txt
           </button>
         </div>

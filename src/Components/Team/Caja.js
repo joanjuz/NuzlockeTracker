@@ -1,92 +1,116 @@
-// Caja.js
 import React from 'react';
-import SpriteYTipos from '../UI/SpriteYTipos';
+import PokeballSlot from './PokeballSlot';
+import ZonaDrop from './ZonaDrop';
+import GraveSlot from './GraveSlot';
 import './Caja.css';
 
-const Caja = ({ team, onChangeEstado, onRemovePokemon }) => {
+const Caja = ({ team, setTeam }) => {
   const activos = team.filter(p => p.estado === 'activo');
   const enCaja = team.filter(p => p.estado === 'caja');
   const muertos = team.filter(p => p.estado === 'muertos');
 
-  const renderBotonesEstado = (pokemon, index) => {
-    const estadoActual = pokemon.estado;
-    const estados = ['activo', 'caja', 'muertos'];
-    const disponibles = estados.filter(e => e !== estadoActual);
-
-    const getLabel = (estado) => {
-      if (estado === 'activo') return 'Mover a Activo';
-      if (estado === 'caja') return 'Mover a Caja';
-      if (estado === 'muertos') return 'Mover a Muertos';
-      return '';
-    };
-
-    return (
-      <div className="acciones-caja" style={{ marginTop: '8px' }}>
-        {disponibles.map((estado, idx) => (
-          <button
-            key={idx}
-            className={`btn ${
-              estado === 'muertos' ? 'rojo' :
-              estado === 'activo' ? 'verde' :
-              estado === 'caja' ? 'azul' : ''
-            }`}
-            onClick={() => onChangeEstado(index, 'miEquipo', estado)}
-          >
-            {getLabel(estado)}
-          </button>
-        ))}
-        <button
-          className="btn gris"
-          onClick={() => onRemovePokemon(index)}
-        >
-          Eliminar
-        </button>
-      </div>
+  const handleDelete = (pokeToDelete) => {
+    const updated = team.filter(p =>
+      !(p.name === pokeToDelete.name && p.nickname === pokeToDelete.nickname)
     );
+    setTeam(updated);
   };
 
-  const renderGrid = (lista, titulo) => (
-  <div className="bloque-caja">
-    <h3 className="titulo" style={{ marginTop: '32px' }}>{titulo}</h3>
-    <div
-      className="grid-caja"
-      style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px' }}
-    >
-      {lista.map((pokemon, index) => {
-        const realIndex = team.findIndex(p =>
-          p.name === pokemon.name &&
-          p.nickname === pokemon.nickname &&
-          p.estado === pokemon.estado
-        );
+  const moverAPokemonACaja = (pokemon) => {
+    const nuevoTeam = [...team];
+    const idx = nuevoTeam.findIndex(p =>
+      p.name === pokemon.name && p.nickname === pokemon.nickname
+    );
+    if (idx !== -1) {
+      nuevoTeam[idx].estado = 'caja';
+      setTeam(nuevoTeam);
+    }
+  };
 
-        return (
-          <div
-            key={index}
-            className="card-caja"
-            style={{
-              padding: '10px',
-              border: '1px solid #ccc',
-              borderRadius: '8px',
-              textAlign: 'center',
-            }}
-          >
-            <SpriteYTipos sprite={pokemon.sprite} types={pokemon.types} />
-            <p><strong>{pokemon.nickname || pokemon.name}</strong></p>
-            <p style={{ fontSize: '0.85em', color: '#555' }}><em>{pokemon.estado}</em></p>
-            {renderBotonesEstado(pokemon, realIndex)}
-          </div>
-        );
-      })}
-    </div>
-  </div>
-);
+  const moverAPokemonAlCementerio = (pokemon) => {
+    const nuevoTeam = [...team];
+    const idx = nuevoTeam.findIndex(p =>
+      p.name === pokemon.name && p.nickname === pokemon.nickname
+    );
+    if (idx !== -1) {
+      nuevoTeam[idx].estado = 'muertos';
+      setTeam(nuevoTeam);
+    }
+  };
+
+  const handleDropToSlot = (draggedPokemon, slotIndex) => {
+    const nuevoTeam = [...team];
+
+    // Ver si ya hay un Pokémon en ese slot activo
+    const activosIndices = team
+      .map((p, i) => (p.estado === 'activo' ? i : -1))
+      .filter(i => i !== -1);
+
+    const idxAnterior = activosIndices[slotIndex];
+    if (idxAnterior !== undefined) {
+      nuevoTeam[idxAnterior].estado = 'caja';
+    }
+
+    const idxDrag = nuevoTeam.findIndex(p =>
+      p.name === draggedPokemon.name && p.nickname === draggedPokemon.nickname
+    );
+
+    if (idxDrag !== -1) {
+      nuevoTeam[idxDrag].estado = 'activo';
+      setTeam(nuevoTeam);
+    } else {
+      console.warn('❗ No se encontró el Pokémon arrastrado:', draggedPokemon);
+    }
+  };
 
   return (
     <div className="caja-container">
       <h2 className="titulo">Gestión de Pokémon</h2>
-      {renderGrid(activos, 'Pokémon Activos')}
-      {renderGrid(enCaja, 'Pokémon en Caja')}
-      {muertos.length > 0 && renderGrid(muertos, 'Pokémon Muertos')}
+
+      <div className="pokeball-slots">
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <PokeballSlot
+            key={i}
+            index={i}
+            pokemon={activos[i] || null}
+            onDrop={handleDropToSlot}
+            onClick={moverAPokemonACaja}
+          />
+        ))}
+        <GraveSlot onDropToGrave={moverAPokemonAlCementerio} />
+      </div>
+
+      <ZonaDrop
+        titulo="Pokémon en Caja"
+        lista={enCaja}
+        estado="caja"
+        team={team}
+        setTeam={setTeam}
+        onDelete={handleDelete}
+      />
+      {activos.length > 0 && (
+        <ZonaDrop
+          titulo="Pokémon Activos (Vista)"
+          lista={activos}
+          estado="activo"
+          team={team}
+          setTeam={() => { }} // no modificar
+          onDelete={() => { }} // prevenir eliminación
+          soloLectura={true} // si decides usar una prop para evitar acciones
+        />
+      )}
+
+
+      {muertos.length > 0 && (
+        <ZonaDrop
+          titulo="Pokémon Muertos"
+          lista={muertos}
+          estado="muertos"
+          team={team}
+          setTeam={setTeam}
+          onDelete={handleDelete}
+        />
+      )}
     </div>
   );
 };
