@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import PaginaPrincipal from './Components/Pages/PaginaPrincipal.js';
 import './Components/theme.css';
 
+window.addEventListener("dragover", (e) => e.preventDefault());
+window.addEventListener("drop", (e) => e.preventDefault());
+
 const App = () => {
   const [theme, setTheme] = useState('dark');
 

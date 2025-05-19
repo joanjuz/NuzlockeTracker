@@ -79,9 +79,27 @@ const useTeamTrackerLogic = (team, onAddMove) => {
     }
   };
 
-  const evolucionarPokemon = async (index) => {
+  const evolucionarPokemon = async (index, nombreElegido = null) => {
     const actual = team[index];
-    const evolucion = await getNextEvolution(actual.name);
+    const evoluciones = await getNextEvolution(actual.name);
+    if (!evoluciones || evoluciones.length === 0) return;
+
+    let evolucion;
+
+    if (Array.isArray(evoluciones)) {
+      if (nombreElegido) {
+        evolucion = evoluciones.find(e => e.name === nombreElegido);
+      } else if (evoluciones.length === 1) {
+        evolucion = evoluciones[0];
+      } else {
+        console.warn('Múltiples evoluciones disponibles, pero no se eligió ninguna.');
+        return;
+      }
+    } else {
+      // Para compatibilidad si getNextEvolution devuelve solo un objeto
+      evolucion = evoluciones;
+    }
+
     if (!evolucion) return;
 
     const nuevoPokemon = {
@@ -98,6 +116,7 @@ const useTeamTrackerLogic = (team, onAddMove) => {
     if (onAddMove) onAddMove(nuevoPokemon);
     setSelectedTeamPokemon(null);
   };
+
 
   return {
     selectedTeamPokemon,

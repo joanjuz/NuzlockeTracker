@@ -63,7 +63,28 @@ const TeamTracker = ({ team, onAddMove }) => {
 
                 <SpriteYTipos sprite={pokemon.sprite} types={pokemon.types} />
                 <p><strong>{pokemon.nickname || pokemon.name}</strong></p>
-                {evo && (
+                {Array.isArray(evo) && evo.length > 0 ? (
+                  <>
+                    <p className="texto-evolucion">Puede evolucionar a:</p>
+                    <ul style={{ paddingLeft: '1rem', marginBottom: '0.5rem' }}>
+                      {evo.map((opcion, i) => (
+                        <li key={i}>
+                          <strong>{opcion.name}</strong> - {mostrarRequisitos(opcion)}
+                          <button
+                            className="btn evolucionar"
+                            style={{ marginLeft: '8px' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              evolucionarPokemon(team.indexOf(pokemon), opcion.name);
+                            }}
+                          >
+                            Elegir
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : evo && typeof evo === 'object' && evo.name ? (
                   <>
                     <p className="texto-evolucion">
                       Evoluciona a <strong>{evo.name}</strong>
@@ -73,13 +94,15 @@ const TeamTracker = ({ team, onAddMove }) => {
                       className="btn evolucionar"
                       onClick={(e) => {
                         e.stopPropagation();
-                        evolucionarPokemon(team.indexOf(pokemon));
+                        evolucionarPokemon(team.indexOf(pokemon), evo.name);
                       }}
                     >
                       Evolucionar
                     </button>
                   </>
-                )}
+                ) : null}
+
+
               </div>
             );
           })}

@@ -1,6 +1,7 @@
 // DetallesPokemon.js
 import React from 'react';
 import Select from 'react-select';
+import '../UI/SeleccionarPokemon.css';
 
 const DetallesPokemon = ({
   pokemon,
@@ -71,7 +72,9 @@ const DetallesPokemon = ({
           )}
 
           {showMoveSelector ? (
-            <Select options={moveOptions} onChange={handleMoveSelect} placeholder="Buscar movimiento..." />
+            <Select className="react-select-container"
+              classNamePrefix="react-select"
+              options={moveOptions} onChange={handleMoveSelect} placeholder="Buscar movimiento..." />
           ) : (
             <button className="btn" onClick={() => setShowMoveSelector(true)}>
               Agregar
