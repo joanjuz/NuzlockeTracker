@@ -11,7 +11,7 @@ from http.server import ThreadingHTTPServer
 from tracker.overlay import OverlayManager, DEFAULT, validated_settings
 from tracker.layout_export import blank_sprite
 from tracker.service import TrackerService
-from server import make_handler
+from server import make_handler, RemoteOverlayShare
 
 
 class OverlayTests(unittest.TestCase):
@@ -108,6 +108,69 @@ class OverlayTests(unittest.TestCase):
         saved=self.req('POST','/api/overlay/settings',
                        {**DEFAULT,'font_file':'Mi_Fuente.ttf'},headers)
         self.assertEqual(saved[0],200)
+
+    def test_import_custom_hp_png_and_validate_assets(self):
+        self.assertEqual(self.req('GET','/overlay/hp-image/fill.png')[0],404)
+        self.assertEqual(self.req('GET','/overlay/hp-image/../../state.json')[0],404)
+        raw=blank_sprite(96)
+        value={'kind':'fill','data':base64.b64encode(raw).decode()}
+        self.assertEqual(self.req('POST','/api/overlay/hp-image',value)[0],403)
+        status,body,_=self.req('POST','/api/overlay/hp-image',value,
+                               {'X-Tracker-Token':'test-token'})
+        self.assertEqual(status,200)
+        self.assertEqual(json.loads(body)['kind'],'fill')
+        got=self.req('GET','/overlay/hp-image/fill.png')
+        self.assertEqual(got[0],200)
+        self.assertEqual(got[1][:8],b'\\x89PNG\\r\\n\\x1a\\n')
+        self.assertNotEqual(self.manager.hp_asset_versions()['fill'],'0')
+        self.assertEqual(self.req('POST','/api/overlay/hp-image',
+            {'kind':'../../runtime', 'data':value['data']},
+            {'X-Tracker-Token':'test-token'})[0],400)
+        self.assertEqual(self.req('POST','/api/overlay/hp-image',
+            {'kind':'frame','data':base64.b64encode(b'NOTPNG').decode()},
+            {'X-Tracker-Token':'test-token'})[0],400)
+        config={**DEFAULT,'hp_custom_fill':True}
+        self.assertEqual(self.req('POST','/api/overlay/settings',config,
+            {'X-Tracker-Token':'test-token'})[0],200)
+        saved=OverlayManager(self.service,self.root/'runtime',self.layout)
+        self.assertTrue(saved.get_settings()['hp_custom_fill'])
+        get=self.req('GET','/api/overlay/settings')
+        self.assertIn('hp_asset_versions',json.loads(get[1]))
+
+    def test_remote_server_is_only_readable_overlay(self):
+        read_only=ThreadingHTTPServer(('127.0.0.1',0),
+            make_handler(self.service,'remote-token',overlay=self.manager,remote_only=True))
+        thread=threading.Thread(target=read_only.serve_forever,daemon=True)
+        thread.start()
+        try:
+            conn=http.client.HTTPConnection('127.0.0.1',read_only.server_port)
+            for path in ('/overlay','/overlay.js','/overlay.css','/api/overlay/public',
+                         '/api/overlay/settings','/fonts/Oxanium.ttf'):
+                conn.request('GET',path)
+                response=conn.getresponse()
+                self.assertEqual(response.status,200,path)
+                response.read()
+            for path in ('/api/session','/api/state','/api/command','/ws',
+                         '/overlay/editor','/api/overlay/share'):
+                conn.request('GET',path)
+                response=conn.getresponse()
+                self.assertEqual(response.status,404,path)
+                response.read()
+            conn.request('POST','/api/overlay/settings','{}',
+                         {'X-Tracker-Token':'remote-token'})
+            response=conn.getresponse()
+            self.assertEqual(response.status,403)
+            response.read()
+            conn.close()
+        finally:
+            read_only.shutdown()
+            read_only.server_close()
+            thread.join()
+        share=RemoteOverlayShare(self.service,self.manager)
+        for ip in ('127.0.0.1','0.0.0.0','no-es-ip'):
+            with self.subTest(ip=ip),self.assertRaises(ValueError):
+                share.configure(True,ip)
+        self.assertFalse(share.status()['enabled'])
 
     def test_browser_sources_are_transparent_and_expose_slot_images(self):
         for path in ['/overlay','/overlay/editor','/overlay.js','/overlay.css',
