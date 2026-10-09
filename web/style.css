@@ -60,3 +60,9 @@ h1,h2,h3,.brand{font-weight:700;letter-spacing:.01em}.topbar nav button{font-wei
 .revive-button{border:1px solid var(--red-45);border-radius:999px;padding:7px 18px;color:var(--accent);background:transparent;font-size:12px;font-weight:600}
 .revive-button:hover{background:var(--weak-bg)}.revive-button:disabled{opacity:.5;cursor:wait}
 .inline-help{color:var(--muted);font-size:12px;margin-bottom:18px;max-width:600px}.inline-help summary{cursor:pointer;width:fit-content}.inline-help p{line-height:1.6}
+
+/* Manual Soul Link deaths: one button below each individual route sprite. */
+.route-pokemon-entry{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;gap:3px}
+.route-death{display:block;max-width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);font-size:9px;line-height:1.2;cursor:pointer}
+.route-death:hover,.route-death:focus-visible{color:var(--accent);border-color:var(--accent);background:var(--weak-bg)}
+.route-death-status{color:var(--muted);font-size:9px;line-height:1.2;padding:4px}

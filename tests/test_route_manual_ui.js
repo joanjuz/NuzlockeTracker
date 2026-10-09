@@ -1,0 +1,65 @@
+'use strict';
+// Regression: death belongs to the chosen Pokemon, never to the partner automatically.
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const src = fs.readFileSync(require('node:path').join(__dirname, '../web/app.js'), 'utf8');
+const html = fs.readFileSync(require('node:path').join(__dirname, '../web/index.html'), 'utf8');
+assert.doesNotMatch(html, /Lectura automática de 32 cajas/);
+const start = src.indexOf('function routePokemon(');
+const end = src.indexOf("\n$('route-search').oninput", start);
+assert.ok(start >= 0 && end > start, 'routePokemon y renderPlaces deben existir');
+
+class Node {
+  constructor() { this.children=[]; this.innerHTML='';this.textContent='';this.events={}; }
+  replaceChildren(){this.children=[]}
+  append(child){this.children.push(child)}
+  addEventListener(type,cb){this.events[type]=cb}
+}
+const nodes={};
+const get = id => nodes[id] ??= new Node();
+const mon={origin_version:33,encryption_constant:12,species_id:448,species:'Lucario',nickname:'Goty',met_location_id:8,met_location:'Ruta 1'};
+const ctx={
+  state:{party:[mon,null,null,null,null,null],boxes:{},progress:{deaths:{},missed_routes:[]}},
+  routeCatalog:[{id:8,name:'Ruta 1',ids:[8]}],
+  companionView:false,
+  placeSignature:'',
+  $:get,
+  esc:s=>String(s),
+  normalize:s=>String(s).toLowerCase(),
+  pokemonKey:p=>String(p.origin_version)+':'+String(p.encryption_constant),
+  isDead:p=>Boolean(ctx.state.progress.deaths[ctx.pokemonKey(p)]),
+  sprite:p=>'<span class="dummy-sprite">'+p.nickname+'</span>',
+  document:{createElement:()=>new Node()},
+  command:cmd=>calls.push(cmd),
+  confirm:()=>{throw new Error('No debe pedir confirmación para marcar muerte')},
+};
+const calls=[];
+vm.createContext(ctx);
+vm.runInContext(src.slice(start,end),ctx);
+ctx.renderPlaces();
+assert.match(get('places').children[0].innerHTML, /data-route-death="33:12"/);
+assert.match(get('places').children[0].innerHTML, />Muerte<\/button>/);
+assert.doesNotMatch(get('places').children[0].innerHTML, /☠/);
+assert.match(get('places').children[0].innerHTML, /Goty/);
+const eventStart=src.indexOf("$('places').addEventListener('click'");
+const eventEnd=src.indexOf("\n$('detail-content')",eventStart);
+assert.ok(eventStart>=0&&eventEnd>eventStart);
+vm.runInContext(src.slice(eventStart,eventEnd),ctx);
+const click={target:{closest:selector=>selector==='[data-route-death]'?{dataset:{routeDeath:'33:12'}}:null}};
+get('places').events.click(click);
+assert.deepEqual(JSON.parse(JSON.stringify(calls[0])),{action:'mark_dead',key:'33:12'});
+ctx.state.progress.deaths={'33:12':{pokemon:mon}};
+ctx.placeSignature='';
+ctx.renderPlaces();
+assert.doesNotMatch(get('places').children[0].innerHTML,/data-route-death/);
+assert.match(get('places').children[0].innerHTML,/Muerto/);
+ctx.state.progress.deaths={};
+ctx.companionView=true;
+ctx.placeSignature='';
+ctx.renderPlaces();
+assert.doesNotMatch(get('places').children[0].innerHTML,/data-route-death/);
+assert.match(get('places').children[0].innerHTML,/Solo lectura/);
+get('places').events.click(click);
+assert.equal(calls.length,1, 'Nunca editar manualmente la partida del compañero');
+console.log('Rutas: botón sin icono ni confirmación, muerte individual y compañero de solo lectura OK');

@@ -30,7 +30,8 @@ class DemoService(TrackerService):
         self.update(party=party,stale=stale,connection={'status':'disconnected' if stale else 'connected','message':'DEMO · Datos simulados para auditar la interfaz'},boxes={'1':self.box_data(1)},selected_box=1,scan={'active':False,'completed':0},demo_scenario=name)
     def handle(self,cmd):
         action=cmd['action']
-        if action=='revive':self.revive(cmd)
+        if action=='mark_dead':self.mark_dead(cmd)
+        elif action=='revive':self.revive(cmd)
         elif action=='route_miss':self.set_route_miss(cmd)
         elif action=='demo':self.scenario(cmd['scenario'])
         elif action=='connect':self.scenario('normal')

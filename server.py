@@ -1,16 +1,26 @@
 """Loopback HTTP + WebSocket server, using the Python standard library."""
-import argparse,base64,hashlib,json,secrets,socket,struct,threading,webbrowser
+import argparse,base64,hashlib,json,re,secrets,socket,struct,threading,webbrowser
 from http.server import ThreadingHTTPServer,BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlsplit
 from tracker.service import TrackerService
+from companion.sync import CompanionSync
 ROOT=Path(__file__).resolve().parent
+
+def runtime_directory(root, profile=None):
+    """Separate game state, progress, partner credentials and cache for each local player."""
+    base=Path(root)/'runtime'
+    if profile is None:
+        return base  # Keep existing accounts/credentials in the original location.
+    if not isinstance(profile,str) or not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,31}',profile):
+        raise ValueError('Perfil invalido: usa entre 1 y 32 letras minusculas, numeros, _ o -')
+    return base/'profiles'/profile
 
 def frame(payload,opcode=1):
     raw=payload.encode() if isinstance(payload,str) else payload
     size=len(raw);return bytes([128|opcode])+(bytes([size]) if size<126 else b'\x7e'+struct.pack('!H',size) if size<65536 else b'\x7f'+struct.pack('!Q',size))+raw
 
-def make_handler(service,token):
+def make_handler(service,token,companion=None,profile='principal'):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self,*args):pass
         def allowed(self):
@@ -22,8 +32,11 @@ def make_handler(service,token):
         def do_GET(self):
             if not self.allowed():self.reply(403,{'error':'Origen inválido'});return
             path=urlsplit(self.path).path
-            if path=='/api/session':self.reply(200,{'token':token});return
+            if path=='/api/session':self.reply(200,{'token':token,'profile':profile});return
             if path=='/api/state':self.reply(200,service.snapshot());return
+            if path=='/api/companion':
+                if companion is None:self.reply(404,{'error':'Sin sincronización'});return
+                self.reply(200,companion.status());return
             if path=='/api/analysis':
                 self.reply(200,{k:v for k,v in service.reference.analysis.items() if k!='pokemon'});return
             if path=='/api/routes':self.reply(200,service.reference.routes(service.snapshot()['game']));return
@@ -53,7 +66,7 @@ def make_handler(service,token):
                         if service.snapshot()['revision']==revision:self.connection.sendall(frame(b'',9))
                 except OSError:pass
                 self.close_connection=True;return
-            files={'/fonts/Oxanium.ttf':('web/fonts/Oxanium.ttf','font/ttf'),'/':('web/index.html','text/html; charset=utf-8'),'/app.js':('web/app.js','text/javascript; charset=utf-8'),'/analysis.js':('web/analysis.js','text/javascript; charset=utf-8'),'/style.css':('web/style.css','text/css; charset=utf-8'),'/empty-pokemon.svg':('web/empty-pokemon.svg','image/svg+xml')}
+            files={'/fonts/Oxanium.ttf':('web/fonts/Oxanium.ttf','font/ttf'),'/':('web/index.html','text/html; charset=utf-8'),'/app.js':('web/app.js','text/javascript; charset=utf-8'),'/analysis.js':('web/analysis.js','text/javascript; charset=utf-8'),'/companion.js':('web/companion.js','text/javascript; charset=utf-8'),'/companion.css':('web/companion.css','text/css; charset=utf-8'),'/style.css':('web/style.css','text/css; charset=utf-8'),'/empty-pokemon.svg':('web/empty-pokemon.svg','image/svg+xml')}
             if path in files:
                 name,kind=files[path];self.reply(200,(ROOT/name).read_bytes(),kind);return
             if path.startswith('/sprites/') and path[9:].removesuffix('.png').isdigit() and path.endswith('.png'):
@@ -62,13 +75,26 @@ def make_handler(service,token):
             self.reply(404,{})
         def do_POST(self):
             if not self.allowed() or self.headers.get('X-Tracker-Token')!=token:self.reply(403,{});return
+            if self.path=='/api/companion':
+                if companion is None:self.reply(404,{'error':'Sin sincronización'});return
+                try:
+                    size=int(self.headers.get('Content-Length','0'))
+                    if not 0<size<=4096:raise ValueError('Solicitud demasiado grande')
+                    cmd=json.loads(self.rfile.read(size))
+                    if not isinstance(cmd,dict):raise ValueError('JSON incorrecto')
+                    action=cmd.get('action')
+                    if action not in ('create','join','refresh','leave'):raise ValueError('Acción inválida')
+                    self.reply(200,companion.perform(action,cmd))
+                except (ValueError,TypeError) as exc:self.reply(400,{'error':str(exc)})
+                return
             if self.path!='/api/command':self.reply(404,{});return
             try:
                 size=int(self.headers.get('Content-Length','0'))
                 if not 0<size<=4096:raise ValueError('Tamaño inválido')
                 cmd=json.loads(self.rfile.read(size));action=cmd.get('action')
-                if action not in ('connect','disconnect','box','scan','cancel','demo','route_miss','revive'):raise ValueError('Acción inválida')
+                if action not in ('connect','disconnect','box','scan','cancel','demo','route_miss','revive','mark_dead'):raise ValueError('Acción inválida')
                 if action=='revive':service.validate_revive(cmd)
+                if action=='mark_dead':service.validate_mark_dead(cmd)
                 if action=='route_miss':service.validate_route_miss(cmd)
                 if action=='demo' and (not service.snapshot().get('demo') or cmd.get('scenario') not in ('normal','damage','empty','stale','long')):raise ValueError('Escenario de demostración inválido')
                 if action=='connect':
@@ -84,16 +110,20 @@ def make_handler(service,token):
     return Handler
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--no-browser',action='store_true');parser.add_argument('--demo',action='store_true',help='Interfaz con datos simulados, sin emulador');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--no-browser',action='store_true');parser.add_argument('--demo',action='store_true',help='Interfaz con datos simulados, sin emulador');parser.add_argument('--profile',help='Perfil local independiente (ej. segundo-jugador)');args=parser.parse_args()
+    try:runtime=runtime_directory(ROOT,args.profile)
+    except ValueError as error:parser.error(str(error))
     if args.demo:
         from tracker.demo import DemoService
-        service=DemoService(ROOT/'runtime'/'demo-state.json')
-    else:service=TrackerService(ROOT/'runtime'/'state.json')
-    server=ThreadingHTTPServer(('127.0.0.1',0),make_handler(service,secrets.token_urlsafe(32)))
+        service=DemoService(runtime/'demo-state.json')
+    else:service=TrackerService(runtime/'state.json')
+    companion=CompanionSync(service,runtime)
+    companion.start()
+    server=ThreadingHTTPServer(('127.0.0.1',0),make_handler(service,secrets.token_urlsafe(32),companion,profile=args.profile or 'principal'))
     worker=threading.Thread(target=service.run,daemon=True);worker.start()
-    url=f'http://127.0.0.1:{server.server_port}/';print('Tracker local: '+url+'\nMantén esta ventana abierta. Ctrl+C para cerrar.')
+    url=f'http://127.0.0.1:{server.server_port}/';print('Tracker local: '+url+'\nPerfil: '+(args.profile or 'principal')+'\nMantén esta ventana abierta. Ctrl+C para cerrar.')
     if not args.no_browser:webbrowser.open(url)
     try:server.serve_forever()
     except KeyboardInterrupt:pass
-    finally:service.stop.set();server.server_close()
+    finally:service.stop.set();companion.close();server.server_close()
 if __name__=='__main__':main()

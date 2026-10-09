@@ -13,6 +13,10 @@ Tracker local para **Pokemon Ultra Sol / Ultra Luna 1.0** en Lime3DS.
 - Incluye secciones de rutas, Pokemon debilitados y analisis ofensivo/defensivo.
 - Incluye modo de demostracion sin emulador.
 
+## Sincronización Soul Link (experimental)
+
+Desde los tres puntos (`···`) puedes vincular tu partida de Ultra Sol con la de tu compañero en Ultra Luna, y ver su última sesión en Equipo, Cajas, Rutas, Muertos y Análisis. Requiere desplegar un Cloudflare Worker + D1: instrucciones en [`docs/SOULLINK_COMPANION.md`](docs/SOULLINK_COMPANION.md). No necesita abrir puertos LAN ni exponer tu emulador.
+
 ## Requisitos
 
 - Windows y Python 3 (para lectura de memoria real con Lime3DS).
@@ -52,3 +56,14 @@ Los datos personales y registros locales se guardan en `runtime/`, que no se sub
 ## Fuentes y licencias
 
 Vease `LICENSE.txt` y los avisos de atribucion presentes en `data/` y `web/fonts/`.
+## Dos jugadores Soul Link en una PC
+
+Para ejecutar Ultra Sol y Ultra Luna simultáneamente en la misma computadora, usa `Iniciar.bat` para el primer jugador y `Iniciar_Segundo_Jugador.bat` para el segundo. Los procesos usan distintos puertos locales y carpetas `runtime/`; selecciona el PID de cada Lime3DS en **Conexión** para evitar mezclarlos. Consulta [la guía de dos instancias](docs/SOULLINK_2_INSTANCIAS.md).
+
+## Companion v0.23.0
+
+La sincronización reacciona a cambios en la partida y consulta el estado del compañero cada cinco segundos. Las 32 cajas se leen automáticamente al conectar y se revisan en segundo plano. Se comparte un único enlace de invitación con el Worker y el código (sin credenciales administrativas); la URL pública predeterminada está configurada en `companion/sync.py`. `CREATE_KEY` continúa siendo una clave de administración privada.
+
+## Soul Link Companion v0.23.1
+
+La sección **Rutas** incorpora **Muerte** (sin icono ni confirmación) debajo de cada sprite para registrar manualmente Pokémon en **Muertos**; no mata automáticamente a su pareja Soul Link. **Cajas** conserva la última lectura al desconectar o reiniciar el tracker, diferenciándola de la RAM en vivo. Se retiró el texto de lectura automática, pero el escaneo en segundo plano se mantiene.
