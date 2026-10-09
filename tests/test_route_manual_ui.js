@@ -6,7 +6,7 @@ const vm = require('node:vm');
 const src = fs.readFileSync(require('node:path').join(__dirname, '../web/app.js'), 'utf8');
 const html = fs.readFileSync(require('node:path').join(__dirname, '../web/index.html'), 'utf8');
 assert.doesNotMatch(html, /Lectura automática de 32 cajas/);
-const start = src.indexOf('function routePokemon(');
+const start = src.indexOf('const ORIGIN_TYPES=');
 const end = src.indexOf("\n$('route-search').oninput", start);
 assert.ok(start >= 0 && end > start, 'routePokemon y renderPlaces deben existir');
 
