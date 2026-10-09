@@ -1,5 +1,5 @@
 """Loopback HTTP + WebSocket server, using the Python standard library."""
-import argparse,base64,hashlib,json,secrets,socket,struct,threading,webbrowser
+import argparse,base64,hashlib,json,re,secrets,socket,struct,threading,webbrowser
 from http.server import ThreadingHTTPServer,BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -7,11 +7,20 @@ from tracker.service import TrackerService
 from companion.sync import CompanionSync
 ROOT=Path(__file__).resolve().parent
 
+def runtime_directory(root, profile=None):
+    """Separate game state, progress, partner credentials and cache for each local player."""
+    base=Path(root)/'runtime'
+    if profile is None:
+        return base  # Keep existing accounts/credentials in the original location.
+    if not isinstance(profile,str) or not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,31}',profile):
+        raise ValueError('Perfil invalido: usa entre 1 y 32 letras minusculas, numeros, _ o -')
+    return base/'profiles'/profile
+
 def frame(payload,opcode=1):
     raw=payload.encode() if isinstance(payload,str) else payload
     size=len(raw);return bytes([128|opcode])+(bytes([size]) if size<126 else b'\x7e'+struct.pack('!H',size) if size<65536 else b'\x7f'+struct.pack('!Q',size))+raw
 
-def make_handler(service,token,companion=None):
+def make_handler(service,token,companion=None,profile='principal'):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self,*args):pass
         def allowed(self):
@@ -23,7 +32,7 @@ def make_handler(service,token,companion=None):
         def do_GET(self):
             if not self.allowed():self.reply(403,{'error':'Origen inválido'});return
             path=urlsplit(self.path).path
-            if path=='/api/session':self.reply(200,{'token':token});return
+            if path=='/api/session':self.reply(200,{'token':token,'profile':profile});return
             if path=='/api/state':self.reply(200,service.snapshot());return
             if path=='/api/companion':
                 if companion is None:self.reply(404,{'error':'Sin sincronización'});return
@@ -100,16 +109,18 @@ def make_handler(service,token,companion=None):
     return Handler
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--no-browser',action='store_true');parser.add_argument('--demo',action='store_true',help='Interfaz con datos simulados, sin emulador');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--no-browser',action='store_true');parser.add_argument('--demo',action='store_true',help='Interfaz con datos simulados, sin emulador');parser.add_argument('--profile',help='Perfil local independiente (ej. segundo-jugador)');args=parser.parse_args()
+    try:runtime=runtime_directory(ROOT,args.profile)
+    except ValueError as error:parser.error(str(error))
     if args.demo:
         from tracker.demo import DemoService
-        service=DemoService(ROOT/'runtime'/'demo-state.json')
-    else:service=TrackerService(ROOT/'runtime'/'state.json')
-    companion=CompanionSync(service,ROOT/'runtime')
+        service=DemoService(runtime/'demo-state.json')
+    else:service=TrackerService(runtime/'state.json')
+    companion=CompanionSync(service,runtime)
     companion.start()
-    server=ThreadingHTTPServer(('127.0.0.1',0),make_handler(service,secrets.token_urlsafe(32),companion))
+    server=ThreadingHTTPServer(('127.0.0.1',0),make_handler(service,secrets.token_urlsafe(32),companion,profile=args.profile or 'principal'))
     worker=threading.Thread(target=service.run,daemon=True);worker.start()
-    url=f'http://127.0.0.1:{server.server_port}/';print('Tracker local: '+url+'\nMantén esta ventana abierta. Ctrl+C para cerrar.')
+    url=f'http://127.0.0.1:{server.server_port}/';print('Tracker local: '+url+'\nPerfil: '+(args.profile or 'principal')+'\nMantén esta ventana abierta. Ctrl+C para cerrar.')
     if not args.no_browser:webbrowser.open(url)
     try:server.serve_forever()
     except KeyboardInterrupt:pass

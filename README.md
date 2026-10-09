@@ -56,3 +56,6 @@ Los datos personales y registros locales se guardan en `runtime/`, que no se sub
 ## Fuentes y licencias
 
 Vease `LICENSE.txt` y los avisos de atribucion presentes en `data/` y `web/fonts/`.
+## Dos jugadores Soul Link en una PC
+
+Para ejecutar Ultra Sol y Ultra Luna simultáneamente en la misma computadora, usa `Iniciar.bat` para el primer jugador y `Iniciar_Segundo_Jugador.bat` para el segundo. Los procesos usan distintos puertos locales y carpetas `runtime/`; selecciona el PID de cada Lime3DS en **Conexión** para evitar mezclarlos. Consulta [la guía de dos instancias](docs/SOULLINK_2_INSTANCIAS.md).
