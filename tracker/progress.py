@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 ORIGIN_CATEGORIES = ('route', 'fossil', 'gift', 'egg', 'trade')
-ORIGIN_KEY_PATTERN = re.compile(r'[0-9]{1,3}:[0-9]{1,10}\\Z')
+ORIGIN_KEY_PATTERN = re.compile(r'[0-9]{1,3}:[0-9]{1,10}\Z')
 MAX_ENCOUNTERS = 1200
 # Identity and encounter place only: never persist a full PK7 or expose ROM bytes.
 ENCOUNTER_FIELDS = ('species_id', 'species', 'nickname', 'origin_version',
