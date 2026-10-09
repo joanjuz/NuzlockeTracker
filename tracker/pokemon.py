@@ -40,7 +40,7 @@ def decode_slot(snapshot, index):
                   ev=list(data[30:36]), iv=[(iv >> (j*5)) & 31 for j in range(6)],
                   form=data[29] >> 3, egg=bool(iv & (1 << 30)), checksum_valid=True,
                   level=None, hp=None, max_hp=None, stats=None,
-                  encryption_constant=seed, met_location_id=struct.unpack_from('<H',data,0xDA)[0],
+                  encryption_constant=seed, ot_id=struct.unpack_from('<I',data,0x0C)[0], met_location_id=struct.unpack_from('<H',data,0xDA)[0],
                   egg_location_id=struct.unpack_from('<H',data,0xD8)[0],
                   met_level=data[0xDD]&127, met_date=met_date, origin_version=data[0xDF])
     tail = snapshot[start+472:start+494]
