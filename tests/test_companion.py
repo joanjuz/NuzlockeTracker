@@ -3,12 +3,13 @@ import tempfile
 import threading
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from http.server import ThreadingHTTPServer
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 
 from companion.snapshot import snapshot, viewer_state
-from companion.sync import CompanionSync, validate_worker_url
+from companion.sync import CompanionSync, validate_worker_url, fetch_json
 from server import make_handler
 
 
@@ -62,6 +63,40 @@ class CompanionTests(unittest.TestCase):
                     'https://evil.workers.dev/api','https://evil.workers.dev/?token=x',
                     'https://a.workers.dev@evil.com']:
             with self.assertRaises(ValueError):validate_worker_url(url)
+
+    def test_http_client_uses_compatible_user_agent(self):
+        """Regression: urllib default User-Agent got Cloudflare HTTP 403, while Mozilla/5.0 worked."""
+        requests = []
+
+        class Response:
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+            def read(self, size=None):
+                return b'{"ok":true}'
+
+        def fake_urlopen(request, timeout):
+            requests.append((request, timeout))
+            return Response()
+
+        with patch('companion.sync.urlopen', side_effect=fake_urlopen):
+            self.assertEqual(fetch_json('https://a.b.workers.dev/health'), {'ok': True})
+            self.assertEqual(fetch_json('https://a.b.workers.dev/v1/pairs', 'POST',
+                                        {'name': 'Sol', 'game': 'Ultra Sun 1.0'},
+                                        setup_key='private-test-key'), {'ok': True})
+        self.assertEqual(len(requests), 2)
+        for req, timeout in requests:
+            self.assertEqual(req.get_header('User-agent'), 'Mozilla/5.0')
+            self.assertEqual(req.get_header('Accept'), 'application/json')
+            self.assertEqual(timeout, 8)
+        self.assertEqual(requests[0][0].get_method(), 'GET')
+        self.assertEqual(requests[1][0].get_method(), 'POST')
+        self.assertEqual(requests[1][0].get_header('X-setup-key'), 'private-test-key')
 
     def test_pairing_upload_cache_and_leave(self):
         transport_calls=[]
