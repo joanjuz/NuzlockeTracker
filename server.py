@@ -136,7 +136,7 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None,
                           'woff':'font/woff','woff2':'font/woff2'}.get(extension,'application/octet-stream')
                     self.reply(200,raw,kind);return
                 if path.startswith('/overlay/hp-image/'):
-                    match=re.fullmatch(r'/overlay/hp-image/(fill|frame)\\.png',path)
+                    match=re.fullmatch(r'/overlay/hp-image/(fill|frame)\.png',path)
                     if not match:self.reply(404,{});return
                     raw=overlay.hp_image_bytes(match[1])
                     if raw is None:self.reply(404,{});return
