@@ -49,6 +49,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: PokemonTracker-Windows-x64
-          path: out/PokemonTracker-Windows-x64.zip
+          path: dist/PokemonTracker/
           retention-days: 14
           if-no-files-found: error
