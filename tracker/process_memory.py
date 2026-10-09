@@ -1,4 +1,4 @@
-"""Windows read-only Lime3DS connector. No GDB, injection or memory writes."""
+"""Windows read-only 3DS emulator connector (experimental on Azahar/Citra)."""
 import ctypes as C
 from ctypes import wintypes as W
 import os,struct,time
@@ -36,6 +36,14 @@ def windows_api():
         fn=getattr(api,name);fn.argtypes=args;fn.restype=result
     return api
 
+def supported_emulator(name):
+    """Process-name discovery only; RAM layout must still validate per emulator."""
+    if not isinstance(name, str):
+        return False
+    value = name.lower()
+    return value.endswith('.exe') and value.startswith(('lime3ds', 'azahar', 'citra'))
+
+
 def list_lime_processes(api):
     handle=api.CreateToolhelp32Snapshot(2,0)
     if handle in (None,C.c_void_p(-1).value):raise C.WinError(C.get_last_error())
@@ -45,7 +53,7 @@ def list_lime_processes(api):
         success=api.Process32FirstW(handle,C.byref(entry))
         while success:
             name=entry.szExeFile
-            if name.lower().startswith('lime3ds') and name.lower().endswith('.exe'):entries.append((entry.th32ProcessID,name))
+            if supported_emulator(name):entries.append((entry.th32ProcessID,name))
             success=api.Process32NextW(handle,C.byref(entry))
     finally:api.CloseHandle(handle)
     return entries
@@ -55,8 +63,8 @@ class WindowsProcess:
         self.api=windows_api();processes=list_lime_processes(self.api)
         if pid is not None:
             processes=[p for p in processes if p[0]==pid]
-        if not processes:raise DiscoveryError('No se encontró Lime3DS. Abre el juego y carga tu partida.')
-        if len(processes)>1:raise DiscoveryError('Hay varios Lime3DS abiertos. Introduce el PID: '+', '.join(str(p[0]) for p in processes))
+        if not processes:raise DiscoveryError('No se encontró Lime3DS, Azahar ni Citra. Abre un emulador y carga la partida.')
+        if len(processes)>1:raise DiscoveryError('Hay varios emuladores abiertos. Introduce el PID: '+', '.join(str(p[0]) for p in processes))
         self.pid,self.name=processes[0]
         self.handle=self.api.OpenProcess(0x0400|0x0010,False,self.pid)
         if not self.handle:raise C.WinError(C.get_last_error())
@@ -143,7 +151,7 @@ class LimeProcessMemory:
     def resume(self):pass # No debugger: does not pause or resume the emulator.
     def read(self,address,length):
         if not LINEAR<=address or address+length>LINEAR+256*1024**2 or not 1<=length<=65536:raise ValueError('Lectura fuera de la RAM lineal permitida.')
-        if not self.process.alive():raise DiscoveryError('Lime3DS se cerró.')
+        if not self.process.alive():raise DiscoveryError('El emulador se cerró.')
         # Signature catches a cleared/moved RAM allocation after an internal restart.
         if self.process.read(self.base+getattr(self,'party_address',PARTY)-LINEAR+SIGNATURE_OFFSET,4)!=struct.pack('<I',getattr(self,'party_address',PARTY)+128):
             raise DiscoveryError('Partida reiniciada o RAM trasladada. Esperando para localizarla nuevamente.')

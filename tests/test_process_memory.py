@@ -1,6 +1,6 @@
 import struct,unittest
 from unittest.mock import patch
-from tracker.process_memory import NEEDLE,PARTY,LINEAR,BOX_BASE,BOX_SIZE,validate_anchor,LimeProcessMemory,DiscoveryError,discover_ram
+from tracker.process_memory import NEEDLE,PARTY,LINEAR,BOX_BASE,BOX_SIZE,validate_anchor,LimeProcessMemory,DiscoveryError,discover_ram,supported_emulator
 from tracker.pokemon import crypt
 
 def party_data():
@@ -20,6 +20,12 @@ class FakeProcess:
  def alive(self):return not self.closed
  def close(self):self.closed=True
 class ProcessMemoryTests(unittest.TestCase):
+ def test_process_names_lime_citra_azahar(self):
+  for name in ('lime3ds.exe','Lime3DS-Qt.exe','citra-qt.exe','Citra.exe','Azahar.exe','azahar-qt.exe'):
+   self.assertTrue(supported_emulator(name),name)
+  for name in ('lime3ds.dat','python.exe','citra-helper.dll','not-azahar.exe','azahar.exe.exe.bat'):
+   self.assertFalse(supported_emulator(name),name)
+
  def test_anchor_translation(self):
   p=FakeProcess();self.assertEqual(validate_anchor(p,p.base+PARTY-LINEAR),p.base)
  def test_invalid_signature(self):
