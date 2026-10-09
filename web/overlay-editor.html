@@ -1,0 +1,74 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Editor OBS · Pokémon Tracker</title>
+<script>
+/* Mismo tema que la aplicación principal, incluso al cambiarlo con OBS abierto. */
+(() => {
+  const syncTheme = () => {
+    try {
+      const saved = localStorage.getItem('progressive-theme');
+      document.documentElement.dataset.theme = saved === 'light' || saved === 'dark'
+        ? saved : (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    } catch (_) {
+      document.documentElement.dataset.theme = 'dark';
+    }
+  };
+  syncTheme();
+  window.addEventListener('storage', event => {
+    if (event.key === 'progressive-theme' || event.key === null) syncTheme();
+  });
+})();
+</script>
+<link rel="stylesheet" href="/overlay-editor.css"></head>
+<body><header><div><strong>OBS · Overlay del equipo</strong><p>Organiza las capas como quieras. Cada enlace funciona como Fuente de navegador en OBS.</p></div><span id="status">Cargando…</span></header>
+<main>
+<section class="panel"><h2>Fuentes para OBS</h2><p>Las tres filas son independientes: podrás mover sprites, motes y barras donde quieras. También puedes usar <strong>un único Pokémon</strong> por fuente.</p>
+<div class="share-tools">
+<strong>Dirección para las fuentes</strong>
+<label>Usar enlaces de<select id="link-target"><option value="local">Esta computadora (127.0.0.1)</option><option value="vpn">Compartir por Radmin VPN</option></select></label>
+<label>Mi dirección IPv4 de Radmin VPN<input id="share-ip" type="text" inputmode="decimal" placeholder="Ejemplo: 26.10.20.30" autocomplete="off"></label>
+<div class="share-buttons"><button id="share-enable" type="button">Activar / actualizar IP</button><button id="share-disable" type="button" class="secondary">Desactivar</button></div>
+<p id="share-status" role="status">El acceso remoto está apagado.</p>
+<p>Usa la IP de <strong>tu propia computadora</strong> en Radmin VPN, no la del compañero. Solo se compartirán sprites, motes y PS. No abre los controles del tracker.</p>
+</div>
+<div id="links" class="links"></div>
+<label>Slot independiente (1 a 6)<select id="slot"><option value="">Todos los Pokémon</option><option value="1">Pokémon 1</option><option value="2">Pokémon 2</option><option value="3">Pokémon 3</option><option value="4">Pokémon 4</option><option value="5">Pokémon 5</option><option value="6">Pokémon 6</option></select></label>
+</section>
+<section class="panel"><h2>Composición y sprites</h2><div class="controls">
+<label>Orden de capas<select id="order"><option value="sprites,names,hp">Sprites → motes → vida</option><option value="names,sprites,hp">Motes → sprites → vida</option><option value="hp,sprites,names">Vida → sprites → motes</option><option value="sprites,hp,names">Sprites → vida → motes</option><option value="names,hp,sprites">Motes → vida → sprites</option><option value="hp,names,sprites">Vida → motes → sprites</option></select></label>
+<label>Distribución<select id="direction"><option value="row">En fila</option><option value="column">En columna</option><option value="grid">Cuadrícula 3 × 2</option></select></label>
+<label>Espacio entre Pokémon <input id="gap" type="range" min="0" max="120"><output data-for="gap"></output></label>
+<label>Ancho de posición (px)<input id="slot_width" type="number" min="60" max="480"></label>
+<label>Tamaño de sprite (px)<input id="sprite_size" type="number" min="24" max="360"></label>
+<label class="check">Mostrar ranuras vacías<input id="show_empty" type="checkbox"></label></div></section>
+<section class="panel"><h2>Motes y tipografía</h2><div class="controls">
+<label>Fuente<select id="font"><option>Oxanium</option><option>Arial</option><option>Segoe UI</option><option>Verdana</option><option>Georgia</option><option>monospace</option></select></label>
+<label>Fuente descargada<select id="font_file"><option value="">Usar fuente anterior</option></select></label>
+<label>Importar fuente TTF / OTF / WOFF / WOFF2<input id="upload" type="file" accept=".ttf,.otf,.woff,.woff2"></label>
+<label>Tamaño mote (px)<input id="name_size" type="number" min="9" max="80"></label>
+<label>Grosor del texto<input id="name_weight" type="range" min="400" max="900" step="100"><output data-for="name_weight"></output></label>
+<label>Color de mote<input id="name_color" type="color"></label>
+<label>Contorno del mote<input id="name_outline" type="color"></label></div></section>
+<section class="panel"><h2>Barras de vida</h2><div class="controls">
+<label>Estilo de barra<select id="hp_style"><option value="solid">Color sólido</option><option value="gradient">Degradado</option><option value="striped">Franjas</option></select></label>
+<label>Altura (px)<input id="hp_height" type="number" min="3" max="100"></label>
+<label>Redondeo (px)<input id="hp_radius" type="number" min="0" max="50"></label>
+<label>Fondo<input id="hp_background" type="color"></label>
+<label>Color del borde<input id="hp_border" type="color"></label>
+<label>Grosor borde (px)<input id="hp_border_width" type="number" min="0" max="8"></label>
+<label>PS altos<input id="hp_good" type="color"></label>
+<label>PS medios<input id="hp_mid" type="color"></label>
+<label>PS bajos<input id="hp_low" type="color"></label>
+<label>Umbral rojo (%)<input id="hp_low_threshold" type="number" min="1" max="49"></label>
+<label>Umbral amarillo (%)<input id="hp_mid_threshold" type="number" min="50" max="95"></label>
+<label>Texto de vida<select id="hp_label"><option value="fraction">PS actuales / máximos</option><option value="percent">Porcentaje</option><option value="both">Ambos</option><option value="none">Sin texto</option></select></label>
+<label>Color del texto<input id="hp_text_color" type="color"></label>
+<label>Tamaño del texto<input id="hp_text_size" type="number" min="8" max="48"></label>
+<label class="check">Rellenar hacia la izquierda<input id="hp_reverse" type="checkbox"></label>
+<label class="check">Brillo en el relleno<input id="hp_glow" type="checkbox"></label>
+<label>Importar PNG del relleno<input id="hp_fill_upload" type="file" accept=".png,image/png"></label>
+<label class="check">Usar relleno PNG<input id="hp_custom_fill" type="checkbox"></label>
+<label>Importar PNG del marco<input id="hp_frame_upload" type="file" accept=".png,image/png"></label>
+<label class="check">Usar marco PNG<input id="hp_custom_frame" type="checkbox"></label>
+</div><p>Puedes usar PNG transparentes propios para el marco y el relleno. El relleno se recorta con el porcentaje real de PS sin estirar la imagen. Máximo 2 MB por PNG.</p></section>
+<section class="panel actions-panel"><div class="preview-title"><h2>Personalización</h2><button id="save">Guardar personalización</button><button id="reset" class="secondary">Restablecer</button></div><p>Los cambios se guardan automáticamente. Para ver el resultado, agrega los enlaces como Fuente de navegador en OBS. El modo local funciona mientras Pokémon Tracker esté abierto; para compartir usa la IP VPN.</p></section>
+</main><script src="/overlay-editor.js"></script></body></html>

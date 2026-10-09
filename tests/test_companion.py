@@ -44,6 +44,22 @@ class CompanionTests(unittest.TestCase):
         self.assertIn('33:1234', result['progress']['deaths'])
         self.assertEqual(result['progress']['death_count'],1)
 
+    def test_soullink_reply_is_shared_without_rebroadcasting_private_fields(self):
+        current = state()
+        entry = current['progress']['deaths']['33:1234']
+        entry['source'] = 'soullink-response'
+        entry['private_token'] = 'LEAK_NEVER'
+        shared = snapshot(current)
+        saved = shared['progress']['deaths']['33:1234']
+        self.assertEqual(saved['source'], 'soullink-response')
+        self.assertNotIn('private_token', json.dumps(shared))
+        self.assertEqual(viewer_state(shared)['progress']['deaths']['33:1234']['source'],
+                         'soullink-response')
+        entry['source'] = 'manual'
+        self.assertNotIn('source', snapshot(current)['progress']['deaths']['33:1234'])
+        entry['source'] = 'untrusted'
+        self.assertNotIn('source', snapshot(current)['progress']['deaths']['33:1234'])
+
     def test_viewer_can_render_last_session(self):
         old = snapshot(state('Ultra Moon 1.0'))
         view = viewer_state(old)

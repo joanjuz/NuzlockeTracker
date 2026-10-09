@@ -1,0 +1,94 @@
+@font-face{font-family:Oxanium;src:url('/fonts/Oxanium.ttf')}
+
+/* La interfaz del editor usa la misma paleta que web/style.css.
+   Estos colores NO cambian los colores elegidos para los overlays en OBS. */
+:root,[data-theme="dark"]{
+  color-scheme:dark;
+  --page:#101010;
+  --text:#f5f5f5;
+  --muted:#aaa;
+  --border:#ffffff20;
+  --accent:#f05b65;
+  --surface:#191919;
+  --soft:#ffffff0a;
+  --panel:#ffffff04;
+  --checker-bg:#242424;
+  --checker-tile:#ffffff13;
+  --status-error:#ff9a9a;
+}
+[data-theme="light"]{
+  color-scheme:light;
+  --page:#fff;
+  --text:#191919;
+  --muted:#626262;
+  --border:#00000020;
+  --accent:#be1d28;
+  --surface:#fafafa;
+  --soft:#00000005;
+  --panel:#00000002;
+  --checker-bg:#f0f0f0;
+  --checker-tile:#00000010;
+  --status-error:#be1d28;
+}
+:root{font-family:Oxanium,Segoe UI,sans-serif;background:var(--page);color:var(--text);font-size:14px}
+*{box-sizing:border-box}
+body{margin:0;padding:16px;background:var(--page)}
+header{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:10px 12px 20px}
+header strong{font-size:21px}
+header p,.panel p{color:var(--muted);line-height:1.5;margin:7px 0 14px}
+#status{font-size:12px;color:var(--accent)}
+#status[data-error="true"]{color:var(--status-error)}
+main{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:14px;align-items:start}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:15px;padding:18px;min-width:0}
+h2{font-size:17px;margin:0 0 15px}
+label{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--muted)}
+.controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
+input,select,button{font:inherit}
+input:not([type=checkbox]),select{
+  min-width:0;width:100%;border-radius:8px;border:1px solid var(--border);
+  padding:8px;background:var(--page);color:var(--text)
+}
+input:focus-visible,select:focus-visible,button:focus-visible{
+  outline:2px solid var(--accent);outline-offset:2px
+}
+input[type=color]{height:40px;padding:2px}
+input[type=range]{accent-color:var(--accent);padding:3px}
+.check{flex-direction:row;align-items:center}
+.check input{width:auto;accent-color:var(--accent)}
+output{color:var(--accent)}
+button{
+  background:var(--surface);color:var(--text);border:1px solid var(--border);
+  padding:10px 13px;border-radius:8px;font-weight:700;cursor:pointer
+}
+button:hover{background:var(--soft)}
+#save{background:var(--accent);color:var(--surface);border-color:var(--accent)}
+#save:hover{background:var(--muted);border-color:var(--muted)}
+button.secondary{background:var(--soft);color:var(--text)}
+button.secondary:hover{background:var(--border)}
+.links{display:grid;gap:8px;margin-bottom:20px}
+.link-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.link-line span{min-width:90px}
+.link-line input{
+  flex:1;min-width:100px;font:12px Consolas,monospace;
+  background:var(--page);border:1px solid var(--border);
+  color:var(--text);padding:9px;border-radius:7px
+}
+.link-line button{padding:7px 12px;background:var(--soft)}
+.link-line button:hover{background:var(--border)}
+.preview-panel{grid-column:1/-1}
+.preview-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.preview-title h2{margin:0 auto 0 0}
+.actions-panel{grid-column:1/-1}
+.share-tools{border:1px solid var(--border);background:var(--panel);border-radius:10px;padding:12px;margin-bottom:18px;display:grid;gap:12px}
+.share-tools>strong{color:var(--text);font-size:13px}
+.share-tools p{margin:0;color:var(--muted);font-size:12px}
+.share-buttons{display:flex;gap:8px;flex-wrap:wrap}
+.share-buttons button{flex:1;min-width:120px}
+#share-status{color:var(--accent);overflow-wrap:anywhere}
+button:disabled{opacity:.45;cursor:not-allowed}
+
+@media(max-width:600px){
+  .controls{grid-template-columns:1fr}
+  body{padding:8px}
+  header{padding:10px}
+}

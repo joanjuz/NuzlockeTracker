@@ -18,9 +18,10 @@ from urllib.request import urlopen
 import secrets
 
 from companion.sync import CompanionSync
-from server import make_handler, runtime_directory
+from server import make_handler, runtime_directory, RemoteOverlayShare
 from tracker.service import TrackerService
 from tracker.layout_export import PartyLayoutExporter, layout_directory
+from tracker.overlay import OverlayManager
 from tracker.desktop_export import DesktopExportApi
 
 APP_NAME = 'PokemonTracker'
@@ -128,6 +129,8 @@ class LocalBackend:
         self.sprite_cache = Path(sprite_cache) if sprite_cache else self.runtime.parent / 'sprite-cache'
         self.custom_dir = Path(custom_dir) if custom_dir else self.layout_path.parent / 'sprites_personalizados'
         self.layout = None
+        self.overlay = None
+        self.remote_share = None
         self.service = None
         self.companion = None
         self.server = None
@@ -141,9 +144,18 @@ class LocalBackend:
     def start(self):
         self.service = TrackerService(self.runtime / 'state.json')
         self.companion = CompanionSync(self.service, self.runtime)
-        self.server = ThreadingHTTPServer(('127.0.0.1', 0),
-            make_handler(self.service, secrets.token_urlsafe(32),
-                         self.companion, profile=self.profile))
+        self.overlay = OverlayManager(self.service, self.runtime, self.layout_path)
+        self.remote_share = RemoteOverlayShare(
+            self.service, self.overlay, preferred_port=8767 if self.profile == 'principal' else 8768)
+        handler = make_handler(self.service, secrets.token_urlsafe(32),
+                               self.companion, profile=self.profile,overlay=self.overlay,
+                               share=self.remote_share,sprite_cache=self.sprite_cache)
+        # Stable URL in OBS after restart, with a safe fallback if in use.
+        preferred_port = 8765 if self.profile == 'principal' else 8766
+        try:
+            self.server = ThreadingHTTPServer(('127.0.0.1', preferred_port),handler)
+        except OSError:
+            self.server = ThreadingHTTPServer(('127.0.0.1', 0),handler)
         self.http_thread = threading.Thread(target=self.server.serve_forever,
                                              name='tracker-http', daemon=True)
         self.worker = threading.Thread(target=self.service.run,
@@ -158,6 +170,8 @@ class LocalBackend:
         return self
 
     def close(self):
+        if self.remote_share:
+            self.remote_share.close()
         if self.layout:
             self.layout.close()
         if self.service:
@@ -192,7 +206,9 @@ def smoke_test_native():
 def smoke_test(backend):
     """CI check on Windows: verify actual frozen HTTP/resources without opening a GUI."""
     for endpoint in ('', 'app.js', 'app-icon.png', 'style.css', 'api/state',
-                     'api/session', 'api/templates', 'api/routes'):
+                     'api/session', 'api/templates', 'api/routes',
+                     'overlay', 'overlay/editor', 'overlay.js',
+                     'overlay.css','api/overlay/public','api/overlay/settings'):
         with urlopen(backend.url + endpoint, timeout=12) as response:
             assert response.status == 200, endpoint
             data=response.read(120)

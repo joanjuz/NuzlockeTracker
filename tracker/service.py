@@ -262,6 +262,8 @@ class TrackerService:
         elif action=='cancel':self.scan_next=None;self.update(scan={'active':False,'completed':self.snapshot()['scan']['completed']})
     def validate_mark_dead(self,cmd):
         key=cmd.get('key')
+        if cmd.get('source','manual') not in ('manual','soullink-response'):
+            raise ValueError('Origen de muerte inválido')
         if not isinstance(key,str) or len(key)>64:
             raise ValueError('Pokémon inválido para marcar muerte')
         state=self.snapshot()
@@ -275,7 +277,7 @@ class TrackerService:
         return target
     def mark_dead(self,cmd):
         target=self.validate_mark_dead(cmd)
-        if self.progress.mark_dead(target):
+        if self.progress.mark_dead(target,source=cmd.get('source','manual')):
             self.update()
 
     def validate_revive(self,cmd):

@@ -62,6 +62,25 @@ class ProgressTests(unittest.TestCase):
   with self.assertRaises(ValueError):
    self.service.handle({'action':'revive','key':key,'decrement_counter':'yes'})
 
+ def test_soullink_reply_records_source_and_persists(self):
+  from tracker.progress import RunProgress,pokemon_key
+  path=Path(self.tmp.name)/'soullink-progress.json'
+  progress=RunProgress(path)
+  mon=copy.deepcopy(self.service.team[0])
+  key=pokemon_key(mon)
+  self.assertTrue(progress.mark_dead(mon,source='soullink-response'))
+  self.assertEqual(progress.data['deaths'][key]['source'],'soullink-response')
+  self.assertEqual(progress.data['death_count'],1)
+  self.assertFalse(progress.mark_dead(mon,source='soullink-response'))
+  saved=RunProgress(path)
+  self.assertEqual(saved.data['deaths'][key]['source'],'soullink-response')
+  self.assertEqual(saved.data['death_count'],1)
+  with self.assertRaises(ValueError):
+   saved.mark_dead(mon,source='unknown')
+  saved.revive(key)
+  self.assertTrue(saved.mark_dead(mon))
+  self.assertEqual(saved.data['deaths'][key]['source'],'manual')
+
  def test_revive_validates_key(self):
   for key in (None,{},'not-registered'):
    with self.assertRaises(ValueError):self.service.handle({'action':'revive','key':key})

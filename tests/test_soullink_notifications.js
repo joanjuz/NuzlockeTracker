@@ -1,65 +1,120 @@
 'use strict';
-const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+const assert=require('node:assert/strict');
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const source=fs.readFileSync(path.join(__dirname,'../web/companion.js'),'utf8');
 const html=fs.readFileSync(path.join(__dirname,'../web/index.html'),'utf8');
-const els={},get=id=>els[id]??={id,hidden:false,value:'',textContent:'',checked:false,disabled:false,
-  showModal(){this.open=true},close(){this.open=false}};
-assert.match(html,/id="soullink-enabled"/);
-assert.match(html,/id="soullink-pokemon-icon"/);
-let interval,body,requests=[];
-const mon={species_id:25,nickname:'Chispa',species:'Pikachu',encryption_constant:101,
-  origin_version:33,met_location_id:8};
-const own={game:'Ultra Sun 1.0',party:[mon,null,null,null,null,null],boxes:{},progress:{deaths:{}},
-  connection:{status:'connected'},stale:false};
-const remoteMon={species_id:1,nickname:'Brote',species:'Bulbasaur',encryption_constant:202,
-  origin_version:33,met_location_id:8};
-const remote={schema_version:1,game:'Ultra Sun 1.0',party:[remoteMon,null,null,null,null,null],boxes:{},
-  progress:{deaths:{},missed_routes:[]}};
-body={configured:true,my_name:'Mi partida',partner:{name:'Amigo',game:'Ultra Sun 1.0',updated_at:100,
-  state:remote}};
-const storage={};
-const ctx={document:{getElementById:get,querySelectorAll:()=>[]},
-  localStorage:{getItem:k=>storage[k]??null,setItem:(k,v)=>storage[k]=v},
-  localState:own,routeCatalog:[{id:8,ids:[8]}],token:'test-local-token',
-  fetch:async(url,opts)=>{requests.push({url,opts});return{ok:true,json:async()=>url==='/api/companion'?body:{ok:true}}},
-  window:{setCompanionView:()=>{}},setInterval:(cb)=>{interval=cb},
-  navigator:{clipboard:{writeText:async()=>{}}},confirm:()=>true,
+const styles=fs.readFileSync(path.join(__dirname,'../web/companion.css'),'utf8');
+for(const id of ['soullink-pokemon-icon','soullink-sprite-fallback',
+                 'soullink-candidate','soullink-choice-row','soullink-notice-error'])
+ assert.ok(html.includes('id="'+id+'"'),id);
+assert.match(styles,/background:var\(--surface\)/);
+assert.match(styles,/color:var\(--accent\)/);
+const elements={};
+function node(id=''){
+  if(!id)return {value:'',textContent:'',hidden:false};
+  return elements[id]??=(id?{
+    id,hidden:true,checked:false,value:'',textContent:'',disabled:false,
+    options:[],style:{},replaceChildren(){this.options=[];this.value='';},
+    append(option){this.options.push(option);},
+    removeAttribute(name){if(name==='src')this.src='';},
+    showModal(){this.open=true},close(){this.open=false}
+  }:{
+    value:'',textContent:'',hidden:false
+  });
+}
+const pokemon=(species,id,nick,route=15,extra={})=>({
+ species_id:species,species:nick,nickname:nick,
+ origin_version:33,encryption_constant:id,met_location_id:route,
+ checksum_valid:true,egg:false,...extra
+});
+const first=pokemon(25,101,'Chispa'),second=pokemon(133,202,'Eevee'),
+ other=pokemon(94,303,'Fantasma',99),dead=pokemon(150,999,'Thor');
+const own={party:[first,second,null,null,null,null],
+ boxes:{'1':[first,other,...Array(28).fill(null)]},
+ progress:{deaths:{}},connection:{status:'connected'},stale:false};
+const partnerState={schema_version:1,game:'Ultra Moon 1.0',
+ party:[null,null,null,null,null,null],boxes:{},
+ progress:{deaths:{},missed_routes:[]}};
+const status={configured:true,worker_url:'https://partner.workers.dev',
+ my_name:'Local',partner:{name:'HOT RIDER',game:'Ultra Moon 1.0',
+ updated_at:12345,state:partnerState}};
+let poll;const posted=[];
+const ctx={
+ console,token:'test-local',localState:own,routeCatalog:[],
+ localStorage:{getItem:key=>key==='soullink-manual-enabled'?'true':null,setItem:()=>{}},
+ document:{getElementById:node,createElement:()=>node(),querySelectorAll:()=>[]},
+ window:{setCompanionView:()=>{}},
+ setInterval:fn=>{poll=fn;return 1},
+ navigator:{clipboard:{writeText:async()=>{}}},
+ confirm:()=>true,
+ fetch:async(url,opts)=>{
+   if(url==='/api/command'){
+     posted.push(JSON.parse(opts.body));return {ok:true,json:async()=>({ok:true})};
+   }
+   return {ok:true,json:async()=>status};
+ },
 };
-vm.createContext(ctx);vm.runInContext(source,ctx);
-async function settle(){for(let i=0;i<3;i++)await new Promise(r=>setImmediate(r))}
+async function settle(){await new Promise(resolve=>setImmediate(resolve));}
 (async()=>{
+ vm.createContext(ctx);
+ vm.runInContext(source,ctx,{filename:'companion.js'});
  await settle();
- get('soullink-enabled').checked=true;
- get('soullink-enabled').onchange();
- // First remote snapshot is history, not a new alert.
- await interval();await settle();
- assert.equal(get('soullink-notification').hidden,true);
- remote.progress.deaths['33:202']={pokemon:remoteMon,recorded_at:'2026-10-09T10:00:00Z'};
- body.partner.updated_at=101;
- await interval();await settle();
- assert.equal(get('soullink-notification').hidden,false);
- assert.match(get('soullink-description').textContent,/Chispa/);
- assert.match(get('soullink-description').textContent,/Brote/);
- assert.equal(get('soullink-pokemon-icon').src,'/sprites/25.png');
- assert.equal(requests.filter(x=>x.url==='/api/command').length,0,
-   'No automatic deaths');
- get('soullink-dismiss').onclick();
- assert.equal(get('soullink-notification').hidden,true);
- await interval();await settle();
- assert.equal(get('soullink-notification').hidden,true,'Dismiss stays dismissed');
- delete remote.progress.deaths['33:202'];
- remote.progress.deaths['33:303']={pokemon:remoteMon,recorded_at:'2026-10-09T10:01:00Z'};
- await interval();await settle();
- assert.equal(get('soullink-notification').hidden,false);
- await get('soullink-kill').onclick();
- const commands=requests.filter(x=>x.url==='/api/command');
- assert.equal(commands.length,1);
- assert.deepEqual(JSON.parse(commands[0].opts.body),{action:'mark_dead',key:'33:101'});
- get('soullink-enabled').checked=false;
- get('soullink-enabled').onchange();
- remote.progress.deaths['33:404']={pokemon:remoteMon,recorded_at:'2026-10-09T10:02:00Z'};
- await interval();await settle();
- assert.equal(get('soullink-notification').hidden,true);
- assert.equal(requests.filter(x=>x.url==='/api/command').length,1);
- console.log('Soul Link: muerte de la misma ruta, Ignorar/Marcar, sin muerte automática OK');
-})().catch(e=>{console.error(e);process.exitCode=1});
+ const notice=node('soullink-notification');
+ assert.equal(notice.hidden,true,'Historical remote deaths stay silent');
+ partnerState.progress.deaths['remote-1']={pokemon:dead,recorded_at:'2026-10-09'};
+ await poll();await settle();
+ assert.equal(notice.hidden,false,'New death opens notice');
+ const choice=node('soullink-candidate'),kill=node('soullink-kill');
+ assert.equal(node('soullink-choice-row').hidden,false,'Multiple catches require choice');
+ assert.equal(choice.options.length,3,'Placeholder and exactly two unique candidates');
+ assert.equal(choice.options[1].value,'33:101');
+ assert.equal(choice.options[2].value,'33:202');
+ assert.equal(kill.disabled,true,'No default first-Pokémon death');
+ assert.equal(node('soullink-pokemon-icon').src,'/soullink/sprite/150.png',
+              'Shows remote Pokémon before selection');
+ assert.equal(node('soullink-sprite-fallback').hidden,false);
+ assert.equal(posted.length,0,'No automatic deaths');
+ choice.value='33:202';choice.onchange();
+ assert.equal(kill.disabled,false);
+ assert.equal(node('soullink-pokemon-icon').src,'/soullink/sprite/133.png');
+ node('soullink-pokemon-icon').onload();
+ assert.equal(node('soullink-sprite-fallback').hidden,true);
+ assert.equal(node('soullink-pokemon-icon').hidden,false);
+ await kill.onclick();await settle();
+ assert.equal(posted.length,1);
+ assert.equal(posted[0].key,'33:202','Marked the explicitly selected second Pokémon');
+ assert.equal(posted[0].source,'soullink-response',
+              'Soul Link popup must tag this death as a reply, not a fresh death');
+ assert.equal(notice.hidden,true);
+ own.progress.deaths['33:202']={};
+ partnerState.progress.deaths['remote-2']={pokemon:dead,recorded_at:'2026-10-10'};
+ await poll();await settle();
+ assert.equal(notice.hidden,false);
+ assert.equal(node('soullink-choice-row').hidden,true,'One eligible Pokémon needs no selector');
+ assert.equal(kill.disabled,false);
+ assert.match(node('soullink-description').textContent,/Chispa/);
+ assert.equal(node('soullink-pokemon-icon').src,'/soullink/sprite/25.png');
+ node('soullink-pokemon-icon').onerror();
+ assert.equal(node('soullink-sprite-fallback').hidden,false);
+ node('soullink-dismiss').onclick();
+ assert.equal(notice.hidden,true);
+ await poll();await settle();
+ assert.equal(notice.hidden,true,'Ignore remains ignored');
+ // Another player's corresponding death arrives through sync: it is in Muertos
+ // but MUST NOT create another prompt, regardless of route/candidate matches.
+ partnerState.progress.deaths['remote-reply']={
+   pokemon:dead,recorded_at:'2026-10-11',source:'soullink-response'
+ };
+ await poll();await settle();
+ assert.equal(notice.hidden,true,'No rebound notification for Soul Link replies');
+ await poll();await settle();
+ assert.equal(notice.hidden,true,'No repeated notification after polling');
+ // A genuinely new loss from the same partner must still prompt.
+ partnerState.progress.deaths['remote-new']={
+   pokemon:dead,recorded_at:'2026-10-12',source:'manual'
+ };
+ await poll();await settle();
+ assert.equal(notice.hidden,false,'Independent manual loss still prompts');
+ node('soullink-dismiss').onclick();
+ console.log('Soul Link: selección, sprite, fuente de muerte y anti-rebote OK');
+})().catch(error=>{console.error(error);process.exitCode=1});
