@@ -60,6 +60,18 @@ class CompanionTests(unittest.TestCase):
         entry['source'] = 'untrusted'
         self.assertNotIn('source', snapshot(current)['progress']['deaths']['33:1234'])
 
+    def test_share_origin_categories_safe_and_visible_to_partner(self):
+        local=state()
+        local['progress']['origins']={'33:1234':'fossil'}
+        shared=snapshot(local)
+        self.assertEqual(shared['progress']['origins'],{'33:1234':'fossil'})
+        self.assertEqual(viewer_state(shared)['progress']['origins']['33:1234'],'fossil')
+        for origins in ({'33:1234':'invalid'}, {'../../secret':'gift'},
+                        {'33:1234':None}, ['fossil']):
+            with self.subTest(origins=origins),self.assertRaises(ValueError):
+                local['progress']['origins']=origins
+                snapshot(local)
+
     def test_viewer_can_render_last_session(self):
         old = snapshot(state('Ultra Moon 1.0'))
         view = viewer_state(old)
