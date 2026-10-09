@@ -139,6 +139,9 @@
       const id=deathIdentity(entry,key);
       if(souls.seen.has(id))continue;
       souls.seen.add(id);
+      // Si el compañero marcó esta muerte COMO RESPUESTA a la nuestra,
+      // ya está vinculada: no crear una notificación de rebote.
+      if(entry?.source==='soullink-response')continue;
       const remoteMon=entry?.pokemon;
       if(!remoteMon || !routeCandidates(remoteMon).length)continue;
       souls.queue.push({
@@ -165,7 +168,7 @@
     try{
       const response=await fetch('/api/command',{method:'POST',
         headers:{'Content-Type':'application/json','X-Tracker-Token':token},
-        body:JSON.stringify({action:'mark_dead',key:selected.key})});
+        body:JSON.stringify({action:'mark_dead',key:selected.key,source:'soullink-response'})});
       const payload=await response.json();
       if(!response.ok)throw Error(payload.error||'No se pudo registrar la muerte');
       souls.pending=null;soulNotice.hidden=true;
