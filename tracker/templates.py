@@ -3,6 +3,7 @@ import csv
 import io
 import json
 import os
+import re
 import unicodedata
 from pathlib import Path
 
@@ -16,6 +17,123 @@ TYPES = dict(zip(
 CATEGORIES = {'Physical': 'Físico', 'Special': 'Especial', 'Status': 'Estado',
               'Físico': 'Físico', 'Especial': 'Especial', 'Estado': 'Estado'}
 
+
+# USUM items are already translated in data/Items.txt. These aliases cover
+# PokeAPI's English reference descriptions and user-entered CSV labels.
+ITEM_NAMES = {
+    'fire stone': 'Piedra fuego', 'water stone': 'Piedra agua',
+    'thunder stone': 'Piedra trueno', 'leaf stone': 'Piedra hoja',
+    'ice stone': 'Piedra hielo', 'moon stone': 'Piedra lunar',
+    'sun stone': 'Piedra solar', 'dusk stone': 'Piedra noche',
+    'dawn stone': 'Piedra alba', 'shiny stone': 'Piedra día',
+    'kings rock': 'Roca del Rey', "king's rock": 'Roca del Rey',
+    'reaper cloth': 'Tela Terrible', 'metal coat': 'Revestimiento Metálico',
+    'prism scale': 'Escama Bella', 'deep sea scale': 'Escama Marina',
+    'deep sea tooth': 'Diente Marino', 'protector': 'Protector',
+    'electirizer': 'Electrizador', 'magmarizer': 'Magmatizador',
+    'dubious disc': 'Disco Extraño', 'upgrade': 'Mejora',
+    'razor fang': 'Colmillo Agudo', 'razor claw': 'Garra Afilada',
+    'oval stone': 'Piedra Oval', 'whipped dream': 'Dulce de Nata',
+    'sachet': 'Saquito Fragante', 'dragon scale': 'Escama Dragón',
+    'water stone ': 'Piedra agua',
+}
+
+# The Gen7 pk3DS editor uses indexes (NOT PokeAPI evolution trigger IDs).
+EVOLUTION_METHODS = {
+    '1': 'Subir de nivel con amistad alta',
+    '2': 'Subir de nivel de día con amistad alta',
+    '3': 'Subir de nivel de noche con amistad alta',
+    '4': 'Subir de nivel',
+    '5': 'Intercambiar',
+    '6': 'Intercambiar llevando',
+    '7': 'Intercambio especial',
+    '8': 'Usar',
+    '9': 'Subir de nivel con Ataque mayor que Defensa',
+    '10': 'Subir de nivel con Ataque igual a Defensa',
+    '11': 'Subir de nivel con Ataque menor que Defensa',
+    '16': 'Subir de nivel con belleza alta',
+    '17': 'Usar objeto (macho)',
+    '18': 'Usar objeto (hembra)',
+    '19': 'Subir de nivel de día llevando',
+    '20': 'Subir de nivel de noche llevando',
+    '21': 'Subir de nivel con movimiento conocido',
+    '22': 'Subir de nivel con Pokémon específico en el equipo',
+    '23': 'Subir de nivel (macho)', '24': 'Subir de nivel (hembra)',
+    '25': 'Subir de nivel en zona eléctrica',
+    '26': 'Subir de nivel en bosque especial',
+    '27': 'Subir de nivel en zona fría',
+    '28': 'Subir de nivel con consola invertida',
+    '31': 'Subir de nivel con lluvia',
+    '32': 'Subir de nivel por la mañana',
+    '33': 'Subir de nivel por la noche',
+    '40': 'Subir de nivel al atardecer',
+    '41': 'Subir de nivel en el Ultraumbral',
+    '42': 'Usar objeto en el Ultraumbral',
+}
+
+
+def spanish_item(name):
+    if not name:
+        return ''
+    text = name.replace('_', ' ').replace('-', ' ').strip()
+    return ITEM_NAMES.get(text.casefold(), text)
+
+
+def argument_item(row, catalog):
+    """Resolve object numeric ID against USUM (not a PokeAPI item index)."""
+    ident = row.get('Argument', '')
+    try:
+        key = int(ident)
+        if 1 <= key <= 959:
+            name = catalog.name('items', key)
+            if not name.startswith('ID '):
+                return name
+    except (TypeError, ValueError):
+        pass
+    return spanish_item(row.get('AltItemName') or row.get('ItemName') or '')
+
+
+def pretty_reference(method):
+    """Translate the PokeAPI reference without leaking internal IDs."""
+    parts = method.split(' · ', 1)
+    trigger = parts[0]
+    info = parts[1] if len(parts) > 1 else ''
+    props = {}
+    for part in info.split('; '):
+        if ': ' in part:
+            k, v = part.split(': ', 1)
+            props[k] = v
+    item_used = spanish_item(props.get('Objeto usado', ''))
+    item_held = spanish_item(props.get('Objeto equipado', ''))
+    if item_used:
+        result = 'Usar ' + item_used.lower() if item_used.lower().startswith('piedra ') else 'Usar ' + item_used
+    elif trigger.startswith('Subir de nivel'):
+        result = trigger
+    elif trigger == 'Intercambio':
+        result = 'Intercambiar'
+    else:
+        result = trigger
+    if item_held:
+        result += ' llevando ' + item_held
+    notes = []
+    fields = {
+        'Momento': 'de día/noche', 'Amistad mínima': 'amistad mínima',
+        'Lugar (ID)': 'lugar especial', 'Movimiento conocido (ID)': 'movimiento específico',
+        'Género': 'sexo requerido', 'Belleza mínima': 'belleza mínima',
+        'Afecto mínimo': 'afecto mínimo', 'Con lluvia': 'lluvia',
+    }
+    for key, desc in fields.items():
+        if key in props:
+            value = props[key]
+            notes.append(desc + (f' ({value})' if value.isdigit() and key not in ('Lugar (ID)', 'Movimiento conocido (ID)') else ''))
+    if notes:
+        result += ' · ' + ', '.join(notes)
+    return result
+
+
+def evolution_form(row):
+    """Form in pk3DS EvolutionSet7 denotes the RESULT, -1 inherits source."""
+    return row['form'] if row['form'] >= 0 else None
 
 def normalize(name):
     return ''.join(c for c in unicodedata.normalize('NFKD', name.casefold()) if not unicodedata.combining(c)).replace(' ', '').replace('-', '').replace("'", '')
@@ -94,7 +212,8 @@ def stats_csv(text, catalog):
     return result
 
 
-def evolutions_csv(text):
+def evolutions_csv(text, catalog=None):
+    catalog = catalog or Catalog()
     result = {}
     for row in rows(text, {'Source', 'Target', 'Method', 'Level', 'Argument', 'Form'}):
         if not row.get('Source'):
@@ -109,21 +228,30 @@ def evolutions_csv(text):
         argument = row.get('Argument', '')
         if argument:
             number(argument, 0, 65535, 'Argument')
-        item = (row.get('AltItemName') or row.get('ItemName') or '')[:70]
-        if method.casefold() == 'level':
-            description = 'Subir de nivel' + (f' al nivel {level}' if level else '')
-        elif method.casefold() == 'useditem':
-            description = 'Usar ' + (item or 'objeto ID ' + argument)
+        item = argument_item(row, catalog)
+        normalized = method.casefold()
+        if normalized in ('level', '4'):
+            description = 'Subir de nivel' + (f' al nivel {level}' if level else
+                                               f' al nivel {argument}' if argument else '')
+        elif normalized in ('useditem', '8'):
+            description = 'Usar ' + (item.lower() if item.lower().startswith('piedra ') else item or 'un objeto especial')
         elif method in ('19', '20'):
-            # Verified against pk3DS EvolutionEditor7 evolutionMethods (0-based).
-            # 19: Level Up with Held Item (Day); 20: (...) (Night).
             moment = 'de día' if method == '19' else 'de noche'
-            description = 'Subir de nivel ' + moment + ' llevando ' + (item or 'objeto ID ' + argument)
+            description = 'Subir de nivel ' + moment + ' llevando ' + (item or 'un objeto especial')
         else:
-            description = 'Método pk3DS ' + method + (f' · {item}' if item else
-                                                       f' · argumento {argument}' if argument else '')
-            if level:
-                description += f' · nivel {level}'
+            base = EVOLUTION_METHODS.get(method)
+            if base:
+                description = base
+                if method in ('6', '17', '18', '42') and item:
+                    description += ' ' + item
+                if level and method not in ('6', '17', '18', '42'):
+                    description += f' al nivel {level}'
+            else:
+                description = 'Método especial pk3DS ' + method
+                if level:
+                    description += f' · nivel {level}'
+                if item:
+                    description += ' · ' + item
         entry = {'target': target, 'method': description, 'raw_method': method,
                  'form': form, 'source': 'pk3DS Progressive'}
         if item:
@@ -157,7 +285,7 @@ class TemplateManager:
         parsed = {}
         for section, text in content.items():
             parsed[section] = {'moves': moves_csv, 'stats': lambda x: stats_csv(x, self.catalog),
-                               'evolutions': evolutions_csv}[section](text)
+                               'evolutions': lambda x: evolutions_csv(x, self.catalog)}[section](text)
         updated = dict(self.data)
         updated.update(parsed)
         raw = json.dumps({'schema_version': 1, **updated}, ensure_ascii=False, separators=(',', ':'))
@@ -172,19 +300,39 @@ class TemplateManager:
 
     def evolutions(self, species, form=0):
         source = str(species)
-        original = list(self.baseline.get(source, []))
-        entries = self.data['evolutions'].get(source, [])
-        by_target = {}
-        # Use form-specific rows if present for the same target, otherwise generic.
-        for row in entries:
-            if row['form'] not in (-1, form):
+        original = self.baseline.get(source, [])
+        # PokeAPI reference has alternate same-species regional evolutions, e.g.
+        # regular Vulpix -> Ninetales (Fire Stone) and Alolan -> Alolan (Ice Stone).
+        # Required Pokémon form 10205 is Alolan Vulpix. Never display both paths
+        # for a single Vulpix form.
+        output = []
+        for record in original:
+            line = record.get('method', '')
+            required = re.search(r'Forma requerida \(ID\): (\d+)', line)
+            regional = required is not None
+            if int(species) in (27, 37) and ((int(form or 0) == 1) != regional):
                 continue
-            target = row['target']
-            by_target.setdefault(target, []).append(row)
-        if not by_target:
-            return original
-        new = [e for e in original if e['target'] not in by_target]
-        for variants in by_target.values():
-            chosen = [v for v in variants if v['form'] == form] or [v for v in variants if v['form'] == -1]
-            new.extend({'target': v['target'], 'method': v['method'], 'source': 'pk3DS Progressive'} for v in chosen)
-        return new
+            cleaned = {**record, 'method': pretty_reference(line)}
+            if regional and int(species) in (27, 37):
+                cleaned['target_form'] = 1
+            else:
+                cleaned['target_form'] = int(form or 0) if int(species) in (27, 37) and int(form or 0) == 1 else 0
+            output.append(cleaned)
+        source_form = int(form or 0)
+        mods = self.data['evolutions'].get(source, [])
+        # The CSV field Form represents the resulting species' form; -1
+        # inherits the source form. Filter alternate same-target variants for
+        # the current source form without conflating target form with source.
+        grouped = {}
+        for row in mods:
+            result_form = source_form if row['form'] == -1 else row['form']
+            if source_form in (0, 1) and int(species) in (27, 37) and result_form != source_form:
+                continue
+            entry = {**row, 'target_form': result_form}
+            grouped.setdefault(row['target'], []).append(entry)
+        if not grouped:
+            return output
+        output = [entry for entry in output if entry['target'] not in grouped]
+        for variants in grouped.values():
+            output.extend(variants)
+        return output
