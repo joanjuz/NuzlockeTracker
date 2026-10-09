@@ -36,14 +36,14 @@ class ServerTests(unittest.TestCase):
   try:
    png=blank_sprite(24)
    with patch('server.fetch_sprite',return_value=png) as fetch:
-    result,raw=request('/sprites/10001.png')
+    result,raw=request('/soullink/sprite/10001.png')
     self.assertEqual(result,200)
     self.assertEqual(raw,png)
     self.assertTrue((cache/'10001.png').exists())
-    self.assertEqual(request('/sprites/10001.png'),(200,png))
+    self.assertEqual(request('/soullink/sprite/10001.png'),(200,png))
     fetch.assert_called_once_with(10001)
-   for path in ('/sprites/../runtime/state.json','/sprites/0.png',
-                '/sprites/99999.png','/sprites/1.png/../../api/state'):
+   for path in ('/soullink/sprite/../runtime/state.json','/soullink/sprite/0.png',
+                '/soullink/sprite/99999.png','/soullink/sprite/1.png/../../api/state'):
     self.assertEqual(request(path)[0],404,path)
   finally:
    server.shutdown();server.server_close();worker.join()
