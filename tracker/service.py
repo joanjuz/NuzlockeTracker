@@ -165,6 +165,9 @@ class TrackerService:
         with self.condition:
             if 'party' in changes and not changes.get('stale',self.state['stale']):
                 self.progress.observe(changes['party'])
+            if ('party' in changes or 'boxes' in changes) and not changes.get('stale',self.state['stale']):
+                self.progress.remember(changes.get('party',self.state['party']),
+                                       changes.get('boxes',self.state['boxes']))
             changes['progress']=copy.deepcopy(self.progress.data)
             if all(self.state.get(k)==v for k,v in changes.items()):return False
             self.state.update(changes);self.state['revision']+=1
@@ -254,6 +257,10 @@ class TrackerService:
             self.set_route_miss(cmd)
         elif action=='set_origin':
             self.set_origin(cmd)
+        elif action=='mark_route':
+            self.mark_route(cmd)
+        elif action=='clear_route_mark':
+            self.clear_route_mark(cmd)
         elif action=='connect':self.config=cmd;self.retry_at=0;self.scan_next=None;self.connect()
         elif action=='disconnect':
             self.config=None;self.scan_next=None;self.close_reader();self.update(connection={'status':'disconnected','message':'Desconectado'},stale=True,scan={'active':False,'completed':0})
@@ -294,6 +301,51 @@ class TrackerService:
         snapshot=self.snapshot()
         # A healed, current party member can be rearmed immediately.
         self.update(party=snapshot['party'],stale=snapshot['stale'])
+    def validate_route_mark(self,cmd,undo=False):
+        from .progress import pokemon_key, ORIGIN_KEY_PATTERN
+        key=cmd.get('key')
+        if not isinstance(key,str) or ORIGIN_KEY_PATTERN.fullmatch(key) is None:
+            raise ValueError('Clave del Pokémon inválida')
+        if undo:
+            if key not in self.progress.data['route_marks']:
+                raise ValueError('No existe una marca para quitar')
+            return key, None
+        kind=cmd.get('kind')
+        if kind not in ('trade','fossil'):
+            raise ValueError('Selecciona Fósil o Intercambiado')
+        state=self.snapshot()
+        roster=[*state.get('party',[]),
+                *(p for box in state.get('boxes',{}).values() for p in box)]
+        match=next((p for p in roster if isinstance(p,dict) and
+                    p.get('checksum_valid') is True and pokemon_key(p)==key),None)
+        if match is None:
+            # The Pokémon may have left via trade AFTER the last valid scan.
+            saved=self.progress.data['encounters'].get(key)
+            if saved is None:
+                raise ValueError('No hay ningún encuentro registrado con esa clave')
+            match={**saved,'checksum_valid':True}
+        return key, match
+
+    def mark_route(self,cmd):
+        key, pokemon=self.validate_route_mark(cmd)
+        kind=cmd['kind']
+        changed=self.progress.mark_route(pokemon,kind)
+        if kind=='fossil':
+            changed=self.progress.set_origin(pokemon,'fossil') or changed
+        if changed:
+            self.update()
+
+    def clear_route_mark(self,cmd):
+        key,_=self.validate_route_mark(cmd,undo=True)
+        kind=self.progress.data['route_marks'][key]['kind']
+        changed=self.progress.clear_route_mark(key)
+        if kind=='fossil' and self.progress.data['origins'].get(key)=='fossil':
+            member={**self.progress.data['encounters'].get(key,{})}
+            if member and self.progress.set_origin(member,'auto'):
+                changed=True
+        if changed:
+            self.update()
+
     def validate_set_origin(self,cmd):
         """Only annotate a known member; never allow arbitrary cache injection."""
         from .progress import ORIGIN_CATEGORIES, pokemon_key
@@ -316,7 +368,12 @@ class TrackerService:
 
     def set_origin(self,cmd):
         target=self.validate_set_origin(cmd)
-        if self.progress.set_origin(target,cmd['category']):
+        from .progress import pokemon_key
+        key=pokemon_key(target)
+        changed=self.progress.set_origin(target,cmd['category'])
+        if cmd['category']!='fossil' and self.progress.data['route_marks'].get(key,{}).get('kind')=='fossil':
+            changed=self.progress.clear_route_mark(key) or changed
+        if changed:
             self.update()
 
     def validate_route_miss(self,cmd):
