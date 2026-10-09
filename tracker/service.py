@@ -18,9 +18,26 @@ class TrackerService:
         self.output=Path(output);self.catalog=Catalog();self.reference=ReferenceData();self.factory=connector_factory
         self.condition=threading.Condition();self.commands=queue.Queue();self.stop=threading.Event();self.connection_generation=0;self.connection_lock=threading.Lock()
         self.state={'schema_version':1,'revision':0,'game':'Ultra Moon 1.0','connection':{'status':'disconnected','message':'Conecta con la partida cargada.'},'party':[None]*6,'boxes':{},'selected_box':1,'scan':{'active':False,'completed':0},'stale':True}
-        self.progress=RunProgress(self.output.with_name(self.output.stem+'-progress.json'))
+        # Restore the last validated boxes after a tracker restart, but keep
+        # connection='disconnected' and stale=True: cached is never live RAM.
+        if self.output.is_file():
+            try:
+                saved=json.loads(self.output.read_text(encoding='utf-8'))
+                if isinstance(saved,dict) and saved.get('game') in PROFILES and isinstance(saved.get('boxes'),dict):
+                    boxes=saved['boxes']
+                    if len(boxes)<=32 and all(isinstance(k,str) and k.isdigit() and 1<=int(k)<=32 and isinstance(v,list) and len(v)==30 and all(m is None or isinstance(m,dict) for m in v) for k,v in boxes.items()):
+                        self.state['game']=saved['game']
+                        self.state['boxes']=copy.deepcopy(boxes)
+                        self.state['box_verified']=saved.get('box_verified') is not False
+                        if type(saved.get('selected_box')) is int and 1<=saved['selected_box']<=32:
+                            self.state['selected_box']=saved['selected_box']
+        # A damaged local cache must never prevent the tracker from starting.
+            except (OSError,ValueError,TypeError):
+                pass
+        suffix='-ultra-sun' if self.state['game']=='Ultra Sun 1.0' else ''
+        self.progress=RunProgress(self.output.with_name(self.output.stem+suffix+'-progress.json'))
         self.state['progress']=copy.deepcopy(self.progress.data)
-        self.profile=ULTRA_MOON_10
+        self.profile=PROFILES[self.state['game']]
         self.reader=None;self.config=None;self.retry_at=0;self.scan_next=None;self.diagnostic=None
         self.next_box_refresh_at=0.0
     def request_connection_change(self):
@@ -64,7 +81,7 @@ class TrackerService:
             self.progress=RunProgress(self.output.with_name(self.output.stem+suffix+'-progress.json'))
             self.update(game=profile.name,party=[None]*6,boxes={},stale=True)
         self.profile=profile;self.sun_box_base=None
-        self.update(connection={'status':'connecting','message':'Localizando RAM…'},stale=True,boxes={},scan={'active':False,'completed':0})
+        self.update(connection={'status':'connecting','message':'Localizando RAM…'},stale=True,scan={'active':False,'completed':0})
         mode=self.config['mode']
         if self.factory:self.reader=self.factory(self.config)
         elif mode=='memory':
@@ -106,7 +123,9 @@ class TrackerService:
         self.update(**changes)
     def handle(self,cmd):
         action=cmd['action']
-        if action=='revive':
+        if action=='mark_dead':
+            self.mark_dead(cmd)
+        elif action=='revive':
             self.revive(cmd)
         elif action=='route_miss':
             self.set_route_miss(cmd)
@@ -118,6 +137,24 @@ class TrackerService:
             if not self.reader:raise ValueError('Conecta el tracker antes de leer las cajas.')
             self.scan_next=1;self.update(scan={'active':True,'completed':0})
         elif action=='cancel':self.scan_next=None;self.update(scan={'active':False,'completed':self.snapshot()['scan']['completed']})
+    def validate_mark_dead(self,cmd):
+        key=cmd.get('key')
+        if not isinstance(key,str) or len(key)>64:
+            raise ValueError('Pokémon inválido para marcar muerte')
+        state=self.snapshot()
+        members=[*state.get('party',[]),*(p for box in state.get('boxes',{}).values() for p in box)]
+        from .progress import pokemon_key
+        target=next((p for p in members if p and pokemon_key(p)==key and not p.get('egg') and p.get('checksum_valid') is True),None)
+        if target is None:
+            raise ValueError('No se encontró el Pokémon en tu equipo o cajas guardadas')
+        if key in self.progress.data['deaths']:
+            raise ValueError('Ese Pokémon ya está registrado en Muertos')
+        return target
+    def mark_dead(self,cmd):
+        target=self.validate_mark_dead(cmd)
+        if self.progress.mark_dead(target):
+            self.update()
+
     def validate_revive(self,cmd):
         key=cmd.get('key')
         if not isinstance(key,str) or len(key)>64 or key not in self.progress.data['deaths'] and key not in self.progress.data['revived_pending']:
@@ -156,6 +193,6 @@ class TrackerService:
             except Exception as exc:
                 self.diagnostic=getattr(exc,'diagnostic',None) or {'error':str(exc)}
                 self.close_reader();self.scan_next=None;self.retry_at=time.monotonic()+3
-                self.update(connection={'status':'retrying' if self.config else 'error','message':str(exc)},stale=True,boxes={},scan={'active':False,'completed':0})
+                self.update(connection={'status':'retrying' if self.config else 'error','message':str(exc)},stale=True,scan={'active':False,'completed':0})
             self.stop.wait(.35 if self.scan_next else .85)
         self.close_reader()
