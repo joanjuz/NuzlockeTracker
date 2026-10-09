@@ -98,6 +98,53 @@ class CompanionTests(unittest.TestCase):
         self.assertEqual(requests[1][0].get_method(), 'POST')
         self.assertEqual(requests[1][0].get_header('X-setup-key'), 'private-test-key')
 
+    def test_default_worker_and_full_invitation_link(self):
+        calls=[]
+        def fake_transport(url, method='GET', payload=None, token=None, setup_key=None):
+            calls.append(url)
+            if url.endswith('/v1/pairs/join'):
+                return {'pair_id':'pair-two','token':'token-two'}
+            return {'pair_id':'pair-one','token':'token-one','invite_code':'1234567890abcdef1234567890abcdef'}
+        with tempfile.TemporaryDirectory() as root:
+            first=CompanionSync(Service(),Path(root)/'runtime',fake_transport)
+            s=first.perform('create',{'name':'Sol','game':'Ultra Sun 1.0','setup_key':'admin-secret-test-123'})
+            self.assertEqual(s['default_worker_url'], 'https://pokemon-tracker-companion.pokemon-tracker.workers.dev')
+            self.assertEqual(s['invite_link'],s['default_worker_url']+'/join#'+s['invite_code'])
+            second=CompanionSync(Service(),Path(root)/'runtime'/'profiles'/'segundo-jugador',fake_transport)
+            self.assertEqual(second.status()['default_worker_url'],s['default_worker_url'])
+            joined=second.perform('join',{'name':'Luna','game':'Ultra Moon 1.0','invite_code':s['invite_link']})
+            self.assertTrue(joined['configured'])
+            self.assertEqual(calls[-1],s['default_worker_url']+'/v1/pairs/join')
+
+    def test_scanning_coalesces_box_updates_but_not_hp(self):
+        events=[]
+        def fake_transport(url, method='GET', payload=None, token=None, setup_key=None):
+            events.append(method)
+            if url.endswith('/v1/pairs'):return {'pair_id':'p','token':'token','invite_code':'invitation123456789'}
+            if url.endswith('/v1/partner'):return {'partner_joined':False,'partner':None}
+            if url.endswith('/v1/state'):return {'ok':True}
+            raise AssertionError(url)
+        with tempfile.TemporaryDirectory() as directory:
+            service=Service()
+            sync=CompanionSync(service,directory,fake_transport)
+            sync.perform('create',{'name':'Sol','game':'Ultra Sun 1.0','setup_key':'admin-secret-test-123'})
+            sync.sync_once()
+            def put_count():return events.count('PUT')
+            self.assertEqual(put_count(),1)
+            service.current['scan']={'active':True,'completed':1}
+            service.current['boxes']['2']=[mon()]+[None]*29
+            sync.sync_once()
+            self.assertEqual(put_count(),1)
+            service.current['party'][0]['hp']=100
+            sync.sync_once()
+            self.assertEqual(put_count(),2)
+            service.current['boxes']['3']=[mon()]+[None]*29
+            sync.sync_once()
+            self.assertEqual(put_count(),2)
+            service.current['scan']={'active':False,'completed':32}
+            sync.sync_once()
+            self.assertEqual(put_count(),3)
+
     def test_pairing_upload_cache_and_leave(self):
         transport_calls=[]
         def transport(url, method='GET', payload=None, token=None, setup_key=None):

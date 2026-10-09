@@ -26,6 +26,8 @@ vm.runInContext(code,context);
 setImmediate(()=>{
   try {
     assert.equal(get('companion-toggle').hidden,false);
+    assert.match(code, /setInterval\(getStatus, 5000\)/);
+    assert.match(code, /invite_link \|\| info\.invite_code/);
     assert.equal(get('companion-toggle').textContent,'Compañero');
     get('companion-toggle').onclick();
     assert.equal(events.length,1);
