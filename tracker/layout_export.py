@@ -209,6 +209,7 @@ class PartyLayoutExporter:
         self.contents = [None] * 6
         self.gif_contents = [None] * 6
         self.render_signatures = [None] * 6
+        self.custom_cache = {}  # path -> (mtime_ns, size, validated media or None)
         self.directory.mkdir(parents=True, exist_ok=True)
         self.custom.mkdir(parents=True, exist_ok=True)
         # Guarantee six files immediately, including slots that are empty.
@@ -275,19 +276,31 @@ class PartyLayoutExporter:
     def custom_media(self, mon, ident):
         for name in custom_media_names(mon, ident):
             candidate = self.custom / name
-            if not candidate.is_file():
-                continue
             try:
-                limit = MAX_GIF_BYTES if candidate.suffix == '.gif' else 500_000
-                if candidate.stat().st_size > limit:
+                stat = candidate.stat()
+                signature = (stat.st_mtime_ns, stat.st_size)
+                cached = self.custom_cache.get(candidate)
+                if cached and cached[0] == signature:
+                    if cached[1] is not None:
+                        return cached[1]
                     continue
-                data = candidate.read_bytes()
-                if candidate.suffix == '.gif':
-                    return validate_gif(data), True
-                return validate_png(data), False
-            except (OSError, ValueError):
-                # Invalid image is ignored: fallback to the next custom file
-                # or the official sprite without stopping memory scanning.
+                media = None
+                limit = MAX_GIF_BYTES if candidate.suffix == '.gif' else 500_000
+                if stat.st_size <= limit:
+                    try:
+                        data = candidate.read_bytes()
+                        media = ((validate_gif(data), True) if candidate.suffix == '.gif'
+                                 else (validate_png(data), False))
+                    except (OSError, ValueError):
+                        pass
+                # Large animated GIFs are decoded only when the file changes.
+                if len(self.custom_cache) > 64:
+                    self.custom_cache.clear()
+                self.custom_cache[candidate] = (signature, media)
+                if media is not None:
+                    return media
+            except OSError:
+                self.custom_cache.pop(candidate, None)
                 continue
         return None
 
