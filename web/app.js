@@ -176,7 +176,7 @@ function renderPlaces(){
       const list=[30,31,32,33].flatMap(v=>(r.ids||[r.id]).flatMap(id=>locations.get(`${v}:${id}`)||[]));
       const missed=(state.progress?.missed_routes||[]).includes(String(r.id));
       const traded=tradedRoutes.includes(String(r.id));
-      const routeVacant=!list.some(item=>item.type==='active'||item.type==='mark');
+      const routeVacant=!list.some(item=>item.type==='mark'||(item.type==='pokemon'&&item.kind==='active'));
       const note=r.manual_only?'El juego comparte esta ubicación con otra zona; la asignación puede ser ambigua.':'';
       return `<article class="route-tile ${list.length?'occupied':'unfilled'}" title="${esc(note)}">
        <div class="route-sprites">${list.length?list.map(({p,type,kind})=>type==='mark'?routeFootprint(p,kind):routePokemon(p,kind==='historical')).join(''):
