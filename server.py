@@ -34,6 +34,7 @@ def make_handler(service,token,companion=None,profile='principal'):
             path=urlsplit(self.path).path
             if path=='/api/session':self.reply(200,{'token':token,'profile':profile});return
             if path=='/api/state':self.reply(200,service.snapshot());return
+            if path=='/api/templates':self.reply(200,service.templates.status());return
             if path=='/api/companion':
                 if companion is None:self.reply(404,{'error':'Sin sincronización'});return
                 self.reply(200,companion.status());return
@@ -87,12 +88,22 @@ def make_handler(service,token,companion=None,profile='principal'):
                     self.reply(200,companion.perform(action,cmd))
                 except (ValueError,TypeError) as exc:self.reply(400,{'error':str(exc)})
                 return
+            if self.path=='/api/templates':
+                try:
+                    length=int(self.headers.get('Content-Length','0'))
+                    if not 0<length<=500000:raise ValueError('Plantilla demasiado grande')
+                    data=json.loads(self.rfile.read(length))
+                    if not isinstance(data,dict):raise ValueError('Plantillas inválidas')
+                    self.reply(200,service.import_templates(data.get('files')))
+                except (ValueError,TypeError,UnicodeError,KeyError) as error:
+                    self.reply(400,{'error':str(error)})
+                return
             if self.path!='/api/command':self.reply(404,{});return
             try:
                 size=int(self.headers.get('Content-Length','0'))
                 if not 0<size<=4096:raise ValueError('Tamaño inválido')
                 cmd=json.loads(self.rfile.read(size));action=cmd.get('action')
-                if action not in ('connect','disconnect','box','scan','cancel','demo','route_miss','revive','mark_dead'):raise ValueError('Acción inválida')
+                if action not in ('connect','disconnect','box','scan','cancel','demo','route_miss','revive','mark_dead','save_session'):raise ValueError('Acción inválida')
                 if action=='revive':service.validate_revive(cmd)
                 if action=='mark_dead':service.validate_mark_dead(cmd)
                 if action=='route_miss':service.validate_route_miss(cmd)

@@ -12,10 +12,14 @@ from .locations import location_name
 from .reference import ReferenceData
 from .progress import RunProgress
 from .battle import apply_battle_hp
+from .templates import TemplateManager
 
 class TrackerService:
     def __init__(self,output,connector_factory=None):
         self.output=Path(output);self.catalog=Catalog();self.reference=ReferenceData();self.factory=connector_factory
+        self.templates=TemplateManager(self.output.with_name('pk3ds-templates.json'),self.catalog)
+        self.reference.template_moves=self.templates.data['moves']
+        self.session_path=self.output.with_name('session-profile.json')
         self.condition=threading.Condition();self.commands=queue.Queue();self.stop=threading.Event();self.connection_generation=0;self.connection_lock=threading.Lock()
         self.state={'schema_version':1,'revision':0,'game':'Ultra Moon 1.0','connection':{'status':'disconnected','message':'Conecta con la partida cargada.'},'party':[None]*6,'boxes':{},'selected_box':1,'scan':{'active':False,'completed':0},'stale':True}
         # Restore the last validated boxes after a tracker restart, but keep
@@ -40,6 +44,61 @@ class TrackerService:
         self.profile=PROFILES[self.state['game']]
         self.reader=None;self.config=None;self.retry_at=0;self.scan_next=None;self.diagnostic=None
         self.next_box_refresh_at=0.0
+        # Companion credentials already persist independently. Restore the emulator
+        # selection without requiring the user to re-pair on every launch.
+        if self.session_path.is_file():
+            try:
+                saved=json.loads(self.session_path.read_text(encoding='utf-8'))
+                if saved.get('schema_version')==1:
+                    self.config=self.valid_connection(saved.get('connection'))
+            except (OSError, ValueError, AttributeError):
+                pass
+        self.state['session_saved']=self.session_path.is_file() and self.config is not None
+        self.state['templates']=self.templates.status()
+        self.state['party']=[self.refresh_template(p) for p in self.state['party']]
+        self.state['boxes']={k:[self.refresh_template(p) for p in box] for k,box in self.state['boxes'].items()}
+    @staticmethod
+    def valid_connection(config):
+        if not isinstance(config,dict) or config.get('game') not in PROFILES or config.get('mode') not in ('memory','gdb'):
+            raise ValueError('Configuración de conexión no válida')
+        pid=config.get('pid')
+        port=config.get('port',24689)
+        if pid is not None and (type(pid) is not int or not 1<=pid<=2**32-1):
+            raise ValueError('PID inválido')
+        if type(port) is not int or not 1<=port<=65535:
+            raise ValueError('Puerto GDB inválido')
+        return {'game':config['game'],'mode':config['mode'],'pid':pid,'port':port}
+
+    def save_session(self):
+        if not self.config:
+            raise ValueError('Conecta primero un juego para guardar esta sesión')
+        data={'schema_version':1,'connection':self.valid_connection(self.config)}
+        self.session_path.parent.mkdir(parents=True,exist_ok=True)
+        tmp=self.session_path.with_suffix('.tmp')
+        tmp.write_text(json.dumps(data,ensure_ascii=False),encoding='utf-8')
+        os.replace(tmp,self.session_path)
+        self.update(session_saved=True)
+
+    def refresh_template(self,p):
+        if not isinstance(p,dict):return p
+        data=dict(p)
+        species=p.get('species_id')
+        data['base_stats']=self.templates.data['stats'].get(str(species))
+        data['evolutions']=self.templates.evolutions(species,p.get('form',0))
+        moves=p.get('moves')
+        if isinstance(moves,list) and len(moves)==4:
+            data['analysis_moves']=[self.reference.move(i,self.catalog) if i else None for i in moves]
+        return data
+
+    def import_templates(self, files):
+        result=self.templates.import_csv(files)
+        self.reference.template_moves=self.templates.data['moves']
+        state=self.snapshot()
+        party=[self.refresh_template(p) for p in state['party']]
+        boxes={k:[self.refresh_template(p) for p in members] for k,members in state['boxes'].items()}
+        self.update(party=party,boxes=boxes,templates=result)
+        return result
+
     def request_connection_change(self):
         with self.connection_lock:
             self.connection_generation+=1
@@ -66,7 +125,7 @@ class TrackerService:
         p['met_location']=location_name(p.get('met_location_id',0),p.get('origin_version',33))
         p['egg_location']=location_name(p.get('egg_location_id',0),p.get('origin_version',33))
         p['move_names']=[self.catalog.name('moves',m) if m else '—' for m in p['moves']]
-        return p
+        return self.refresh_template(p)
     def close_reader(self):
         if self.reader:
             try:self.reader.close()
@@ -96,6 +155,7 @@ class TrackerService:
         self.scan_next=1
         self.next_box_refresh_at=time.monotonic()+180.0
         self.update(connection={'status':'connected','message':'Conectado · '+('Windows sin GDB' if mode=='memory' else 'GDB')},scan={'active':True,'completed':0})
+        self.save_session()
     def poll(self):
         party=[self.enrich(p) for p in decode_party(capture_party(self.reader,self.profile))]
         party,in_battle=apply_battle_hp(self.reader,party,self.profile.name)
@@ -123,7 +183,9 @@ class TrackerService:
         self.update(**changes)
     def handle(self,cmd):
         action=cmd['action']
-        if action=='mark_dead':
+        if action=='save_session':
+            self.save_session()
+        elif action=='mark_dead':
             self.mark_dead(cmd)
         elif action=='revive':
             self.revive(cmd)
