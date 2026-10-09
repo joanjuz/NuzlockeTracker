@@ -22,7 +22,7 @@ def sprite_png(rgba):
 def animated_gif():
     frames = [
         Image.new('RGBA', (8, 8), (240, 15, 30, 255)),
-        Image.new('RGBA', (8, 8), (15, 90, 235, 255)),
+        Image.new('RGBA', (8, 8), (25, 230, 235, 255)),
     ]
     result = BytesIO()
     frames[0].save(result, format='GIF', save_all=True,
