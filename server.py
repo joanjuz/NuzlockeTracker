@@ -120,7 +120,9 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None,
                 if path=='/api/overlay/public':
                     self.reply(200,overlay.public_state());return
                 if path=='/api/overlay/settings':
-                    self.reply(200,overlay.get_settings());return
+                    config=overlay.get_settings()
+                    config['hp_asset_versions']=overlay.hp_asset_versions()
+                    self.reply(200,config);return
                 if path=='/api/overlay/defaults':
                     self.reply(200,DEFAULT);return
                 if path=='/api/overlay/fonts':
