@@ -12,3 +12,8 @@
 .companion-dialog #companion-status {border-radius:10px;padding:12px;margin:15px 0;background:#263346;font-size:13px;overflow-wrap:anywhere}
 .companion-dialog #companion-linked {display:grid;gap:13px}
 @media (prefers-color-scheme:light){:root[data-theme="light"] .companion-dialog{color:#151c27;background:white}}
+
+/* Optional nonblocking Soul Link notice. */
+.soullink-enable{display:flex;gap:10px;align-items:center;padding:12px 4px;font-size:12px}.soullink-enable input{width:17px;height:17px}
+.soul-link-notice{position:fixed;z-index:80;right:22px;bottom:22px;width:min(350px,calc(100vw - 36px));background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;box-shadow:0 12px 40px var(--shadow);color:var(--text);font-size:13px}
+.soul-link-notice strong{font-size:14px}.soul-link-notice p{margin:8px 0}.soul-link-dismiss{position:absolute;top:7px;right:7px;border:0;background:transparent;font-size:19px;padding:5px 9px}.soul-link-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}.soul-link-actions button{font-size:12px;padding:8px 12px}
