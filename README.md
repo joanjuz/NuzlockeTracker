@@ -75,3 +75,8 @@ La nueva rama `feature/app-escritorio-windows` permite compilar `PokemonTracker.
 ### Reparación Python.NET en el EXE
 
 La primera build `--onedir` podía bloquear `Python.Runtime.dll` por la marca de seguridad de Windows al extraer ZIP. La compilación de escritorio pasa a `--onefile`, sin `_internal`, y GitHub Actions valida ahora la importación real de `webview.platforms.winforms` además de los endpoints. El archivo `runtime` no se incluye ni se sobrescribe.
+
+
+### Sprites animados en OBS
+
+La carpeta `sprites_personalizados` admite `25.gif`, `94.gif`, `37-alola.gif` y los nombres `.png` previos. El tracker genera `layout/pokemon_1.gif`…`pokemon_6.gif` para fuentes de imagen animadas de OBS y conserva los seis `.png` como vistas estáticas. Si falta GIF se usa un fotograma estático. Muertos en escala de grises por fotograma; Revivir restaura los colores. Ver [instrucciones de escritorio](docs/DESKTOP_WINDOWS.md).

@@ -37,3 +37,15 @@ El menú **··· → Guardar diagnóstico** ahora escribe un JSON real en `%LOC
 La sincronización de PS puede adelantarse a la animación del combate, porque la lectura de memoria observa los valores internos que el juego actualiza antes de dibujarlos. No se introducen retrasos artificiales que puedan ocultar estados válidos.
 
 Esta corrección sigue pendiente de validar con **Azahar + Ultra Luna** real. Si falla, enviar el JSON generado, sin volcados completos de memoria ni credenciales.
+
+## Instalación portable y estado de compatibilidad
+
+El ejecutable no depende de una computadora en particular: Windows 10/11 x64,
+WebView2 Runtime y autorización normal de lectura de memoria bastan para
+iniciar la aplicación. La compatibilidad con el emulador/juego específico
+se valida por separado (Lime3DS/Azahar probados en el entorno del usuario);
+el empaquetado no incluye partidas, ROM, plantillas o tokens. El progreso y
+Soul Link se guardan por equipo en `%LOCALAPPDATA%\\PokemonTracker\\runtime`
+y requieren importación/copias seguras al cambiar de computadora.
+
+ORAS y X/Y siguen pendientes; no se incluyen perfiles de RAM Gen6.

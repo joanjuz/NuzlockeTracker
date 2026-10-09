@@ -101,3 +101,27 @@ DIAGNOSTICOS
   descargas del navegador. En el segundo perfil se usa su carpeta de runtime.
 - El estado de PS en batalla puede reflejar el cambio antes de que termine
   la animación del juego; no se añade retraso artificial.
+
+ANIMACIONES EN EL LAYOUT (GIF)
+- Se admiten sprites personalizados animados .gif además de .png:
+  sprites_personalizados\\25.gif, 94.gif, 448.gif, 37-alola.gif, etc.
+- Se usa el ID de la Pokédex Nacional. Para Alola se acepta 37-alola.gif
+  o el ID propio del sprite (10103.gif). El formato de nombres .png anterior
+  no cambia. Si están los dos, el GIF animado tiene prioridad.
+- El layout genera simultáneamente seis PNG (pokemon_1.png ...
+  pokemon_6.png) y seis GIF (pokemon_1.gif ... pokemon_6.gif).
+- Con OBS, añade cada pokemon_N.gif como **Fuente de imagen** si quieres
+  movimiento; los pokemon_N.png siguen siendo compatibles con overlays
+  estáticos y muestran el primer fotograma del GIF.
+- Si un Pokémon no tiene GIF personalizado se genera un GIF estático con su
+  imagen predeterminada para mantener siempre las mismas rutas en OBS.
+- La muerte convierte todos los fotogramas de la animación a escala de grises;
+  Revivir devuelve todos los colores. Los archivos personalizados nunca se
+  modifican. Los GIF de salida siempre se repiten en bucle.
+- Límites de seguridad: máximo 5 MB por GIF, 512x512, 120 fotogramas
+  y 12 millones de píxeles acumulados; los GIF dañados se ignoran y
+  se usa la imagen PNG u oficial correspondiente.
+- GIF solo tiene transparencia binaria; los PNG conservan niveles de alpha
+  completos. En OBS, la recarga de GIF al cambiar de equipo puede variar
+  según la versión; si no se refresca, recarga la fuente una vez.
+- No se necesita conexión a Internet para usar los sprites personalizados.
