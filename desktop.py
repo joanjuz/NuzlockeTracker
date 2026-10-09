@@ -215,6 +215,28 @@ def message_error(message):
         print(message, file=sys.stderr)
 
 
+
+def create_desktop_window(backend, webview):
+    """Expose only a plain function; never let pywebview traverse the backend.
+
+    Passing DesktopExportApi as js_api freezes WebView2 initialization:
+    pywebview recursively inspects public attributes and follows the attached
+    TrackerService and Window object. A narrow window.expose callback does
+    not inspect its closure and preserves the same JS API name.
+    """
+    export_api = DesktopExportApi(backend.service)
+
+    def save_export(kind):
+        return export_api.save_export(kind)
+
+    window = webview.create_window('Pokémon Tracker', backend.url,
+                                  width=1220, height=850,
+                                  min_size=(820, 560),
+                                  background_color='#15191e')
+    export_api.window = window
+    window.expose(save_export)
+    return window
+
 def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('--profile', choices=PROFILE_CHOICES, default=None,
@@ -249,12 +271,7 @@ def main(argv=None):
             return 0
         # Deliberately lazy: CI smoke test does not require installed WebView2.
         import webview
-        desktop_api = DesktopExportApi(backend.service)
-        window = webview.create_window('Pokémon Tracker',
-                    backend.url, js_api=desktop_api,
-                    width=1220, height=850,
-                    min_size=(820, 560), background_color='#15191e')
-        desktop_api.window = window
+        create_desktop_window(backend, webview)
         webview.start(gui='edgechromium', debug=False)
         return 0
     except Exception as error:
