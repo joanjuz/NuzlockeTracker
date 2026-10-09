@@ -17,3 +17,13 @@
 ## Criterio de cierre
 
 La rama de escritorio/layout podrá integrarse una vez que el usuario valide la ventana, la conservación de sesiones, los seis sprites PNG cambiantes y Soul Link en ambas partidas. La compatibilidad Azahar/Citra solo pasará de experimental a validada tras pruebas de lectura reales con esos emuladores. ORAS y X/Y continuarán en el backlog.
+
+## Error de permisos WinError 5 en Azahar (diagnóstico específico)
+Si aparece «Acceso denegado» en Azahar, el conector identifica ahora
+proceso, PID, etapa OpenProcess y error 5 en un mensaje en español.
+La lectura requiere PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, no acceso
+total. VirtualQueryEx necesita el primer permiso; un fallback de solo
+PROCESS_QUERY_LIMITED_INFORMATION no es suficiente para localizar RAM.
+Abrir Azahar normalmente, sin elevación distinta de Pokémon Tracker, y
+seleccionar su PID si existen otros procesos. No se garantiza soporte sin
+pruebas con partidas y versiones concretas.

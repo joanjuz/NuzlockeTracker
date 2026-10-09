@@ -66,8 +66,27 @@ class WindowsProcess:
         if not processes:raise DiscoveryError('No se encontró Lime3DS, Azahar ni Citra. Abre un emulador y carga la partida.')
         if len(processes)>1:raise DiscoveryError('Hay varios emuladores abiertos. Introduce el PID: '+', '.join(str(p[0]) for p in processes))
         self.pid,self.name=processes[0]
+        # VirtualQueryEx requires PROCESS_QUERY_INFORMATION (0x0400), while
+        # ReadProcessMemory requires PROCESS_VM_READ (0x0010). Do not request
+        # PROCESS_ALL_ACCESS or attempt to bypass Windows security.
         self.handle=self.api.OpenProcess(0x0400|0x0010,False,self.pid)
-        if not self.handle:raise C.WinError(C.get_last_error())
+        if not self.handle:
+            error=C.get_last_error()
+            if error==5:
+                raise DiscoveryError(
+                    f'Acceso denegado a {self.name} (PID {self.pid}, WinError 5). '
+                    'Windows no permite leer la memoria de este proceso. '
+                    'Cierra Azahar/Citra y vuelve a abrirlo normalmente, sin '
+                    '«Ejecutar como administrador», igual que Pokémon Tracker. '
+                    'Comprueba el PID en el Administrador de tareas. Si sigue '
+                    'fallando, guarda el diagnóstico; la compatibilidad con '
+                    'este emulador continúa siendo experimental.',
+                    {'process':self.name,'pid':self.pid,'winerror':error,
+                     'stage':'OpenProcess'})
+            raise DiscoveryError(
+                f'No se pudo abrir {self.name} (PID {self.pid}, error Windows {error}).',
+                {'process':self.name,'pid':self.pid,'winerror':error,
+                 'stage':'OpenProcess'})
     def read(self,address,length):
         buffer=C.create_string_buffer(length);received=C.c_size_t()
         ok=self.api.ReadProcessMemory(self.handle,C.c_void_p(address),buffer,length,C.byref(received))

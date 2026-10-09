@@ -5,6 +5,7 @@ are transparent 96x96 PNG files. Downloads are asynchronous and cached.
 """
 from __future__ import annotations
 
+import io
 import os
 import struct
 import sys
@@ -14,6 +15,9 @@ import urllib.request
 import zlib
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+
+from PIL import Image, ImageOps
+from .progress import pokemon_key
 
 # PokeAPI sprite IDs for Gen7 Alolan variants. Do not show the Kanto sprite
 # when an Alolan species has been detected.
@@ -63,6 +67,26 @@ def validate_png(data):
     return data
 
 
+def grayscale_png(data):
+    """Desaturate an output PNG, preserving alpha and never editing its source."""
+    validate_png(data)
+    with Image.open(io.BytesIO(data)) as src:
+        rgba = src.convert('RGBA')
+        gray = ImageOps.grayscale(rgba)
+        result = Image.merge('RGBA', (gray, gray, gray, rgba.getchannel('A')))
+        out = io.BytesIO()
+        result.save(out, format='PNG')
+    return validate_png(out.getvalue())
+
+
+def custom_names(mon, ident):
+    """Species National Dex ID; regional names override their numeric form ID."""
+    species = mon['species_id']
+    if mon.get('form') == 1 and species in ALOLA_SPRITES:
+        return (f'{species}-alola.png', f'{ident}.png')
+    return (f'{species}.png',)
+
+
 def fetch_sprite(identifier):
     if not 1 <= identifier <= 10115:
         raise ValueError('Identificador fuera de rango')
@@ -94,10 +118,11 @@ def layout_directory(home, profile='principal', executable=None, frozen=None):
 
 
 class PartyLayoutExporter:
-    def __init__(self, service, directory, cache_dir=None, downloader=fetch_sprite, bundled=None):
+    def __init__(self, service, directory, cache_dir=None, downloader=fetch_sprite, bundled=None, custom_dir=None):
         self.service = service
         self.directory = Path(directory)
         self.cache = Path(cache_dir or self.directory.parent / 'sprite-cache')
+        self.custom = Path(custom_dir or self.directory.parent / 'sprites_personalizados')
         self.bundled = Path(bundled or (Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent.parent)) / 'data' / 'sprites'))
         self.downloader = downloader
         self.stop = threading.Event()
@@ -108,6 +133,7 @@ class PartyLayoutExporter:
         self.slots = [None] * 6
         self.contents = [None] * 6
         self.directory.mkdir(parents=True, exist_ok=True)
+        self.custom.mkdir(parents=True, exist_ok=True)
         # Guarantee six files immediately, including slots that are empty.
         for index in range(6):
             self.write_slot(index, BLANK_PNG)
@@ -135,6 +161,21 @@ class PartyLayoutExporter:
                     continue
         return None
 
+    def custom_sprite(self, mon, ident):
+        for name in custom_names(mon, ident):
+            candidate = self.custom / name
+            if candidate.is_file():
+                try:
+                    return validate_png(candidate.read_bytes())
+                except (OSError, ValueError):
+                    # A broken user image never stops the tracker or hides the
+                    # regular Pokémon sprite.
+                    continue
+        return None
+
+    def render_sprite(self, data, dead):
+        return grayscale_png(data) if dead else data
+
     def download_and_store(self, ident):
         data = validate_png(self.downloader(ident))
         self.cache.mkdir(parents=True, exist_ok=True)
@@ -148,28 +189,40 @@ class PartyLayoutExporter:
         return data
 
     def refresh(self):
-        party = self.service.snapshot().get('party') or []
-        ids = [sprite_id(party[i] if i < len(party) else None) for i in range(6)]
+        state = self.service.snapshot()
+        party = state.get('party') or []
+        deaths = (state.get('progress') or {}).get('deaths') or {}
         now = time.monotonic()
-        for i, ident in enumerate(ids):
+        for i in range(6):
+            mon = party[i] if i < len(party) else None
+            ident = sprite_id(mon)
             if ident is None:
                 self.slots[i] = None
                 self.write_slot(i, BLANK_PNG)
                 continue
+            dead = pokemon_key(mon) in deaths
+            # Refresh custom files on every state check: adding or replacing a
+            # PNG takes effect without restarting the app. No source mutation.
+            user_png = self.custom_sprite(mon, ident)
+            if user_png is not None:
+                self.slots[i] = ident
+                self.write_slot(i, self.render_sprite(user_png, dead))
+                continue
             local = self.local_sprite(ident)
             if local is not None:
                 self.slots[i] = ident
-                self.write_slot(i, local)
+                self.write_slot(i, self.render_sprite(local, dead))
                 continue
             if self.slots[i] != ident:
-                # Never leave the previous Pokémon visible while the new one downloads.
                 self.slots[i] = ident
                 self.write_slot(i, BLANK_PNG)
             future = self.futures.get(ident)
             if future and future.done():
                 del self.futures[ident]
                 try:
-                    self.write_slot(i, future.result())
+                    # Only use the downloaded sprite for the species currently
+                    # occupying this slot; keep custom priority intact.
+                    self.write_slot(i, self.render_sprite(future.result(), dead))
                 except Exception:
                     self.retry_after[ident] = now + 30
             elif future is None and now >= self.retry_after.get(ident, 0):

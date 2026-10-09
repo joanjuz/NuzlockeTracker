@@ -66,3 +66,30 @@ LAYOUT PARA OBS
 - Para dos ventanas, los sprites del segundo perfil van a layout\perfil_2\.
 - OBS puede cargar cada PNG por su ruta como Fuente de imagen. Según la versión
   de OBS, puede ser necesario refrescar la fuente para que relea el archivo.
+
+SPRITES PERSONALIZADOS (LAYOUT PARA OBS)
+- Coloca los PNG en la carpeta 'sprites_personalizados' junto al ejecutable.
+  Si Windows impide escribir junto al EXE, usa:
+  %LOCALAPPDATA%\PokemonTracker\sprites_personalizados
+- El nombre debe ser el número de la especie en la Pokédex nacional, con
+  extensión .png: 25.png (Pikachu), 94.png (Gengar), 448.png (Lucario).
+- Formas de Alola: usa 37-alola.png (Vulpix), 38-alola.png (Ninetales),
+  50-alola.png (Diglett). También acepta el ID específico del sprite
+  como 10103.png si no existe 37-alola.png.
+- Recomendado PNG con transparencia, hasta 512x512 y 500 KB por sprite.
+- Prioridad: personalizado -> sprite habitual en caché/paquete -> PokeAPI.
+  No es necesario personalizar todos los Pokémon.
+- Cuando un Pokémon se registra como muerto (automática o manualmente),
+  el PNG de layout pasa a escala de grises, manteniendo su transparencia.
+  «Revivir» restaura el color del sprite. Los originales no se alteran.
+- Las imágenes personalizadas se recargan automáticamente sin reiniciar.
+  Esta mejora afecta al layout de seis PNG; no reemplaza las imágenes de
+  la interfaz principal del tracker.
+
+AZAHAR: ACCESO DENEGADO
+- Si aparece WinError 5, Windows rechazó OpenProcess para leer RAM.
+  Inicia Azahar y Pokémon Tracker con los mismos permisos habituales,
+  sin elevar solo Azahar. Verifica el PID si hay varios emuladores.
+- No intentamos saltarnos los controles de permisos ni forzar acceso.
+  Aunque se resuelva el permiso, el mapa RAM de Azahar sigue pendiente
+  de validación real para Ultra Sol/Luna.

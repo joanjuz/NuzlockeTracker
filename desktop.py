@@ -120,11 +120,12 @@ def automatic_profile(home):
 
 class LocalBackend:
     """Start/stop the same tracker core as server.py, without an external browser."""
-    def __init__(self, runtime, profile, layout_path=None, sprite_cache=None):
+    def __init__(self, runtime, profile, layout_path=None, sprite_cache=None, custom_dir=None):
         self.runtime = Path(runtime)
         self.profile = profile
         self.layout_path = Path(layout_path) if layout_path else self.runtime.parent / 'layout'
         self.sprite_cache = Path(sprite_cache) if sprite_cache else self.runtime.parent / 'sprite-cache'
+        self.custom_dir = Path(custom_dir) if custom_dir else self.layout_path.parent / 'sprites_personalizados'
         self.layout = None
         self.service = None
         self.companion = None
@@ -149,7 +150,9 @@ class LocalBackend:
         self.http_thread.start()
         self.worker.start()
         self.companion.start()
-        self.layout = PartyLayoutExporter(self.service, self.layout_path, cache_dir=self.sprite_cache)
+        self.layout = PartyLayoutExporter(self.service, self.layout_path,
+                                          cache_dir=self.sprite_cache,
+                                          custom_dir=self.custom_dir)
         self.layout.start()
         return self
 
@@ -233,7 +236,8 @@ def main(argv=None):
         backend = LocalBackend(
             runtime_directory(home, None if profile == 'principal' else profile),
             profile, layout_path=layout_directory(home, profile),
-            sprite_cache=home / 'sprite-cache'
+            sprite_cache=home / 'sprite-cache',
+            custom_dir=layout_directory(home).parent / 'sprites_personalizados'
         ).start()
         if opts.smoke_test:
             smoke_test(backend)
