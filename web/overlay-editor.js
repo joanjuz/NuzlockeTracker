@@ -5,18 +5,21 @@
     'name_weight','font','font_file','name_outline','hp_height','hp_radius',
     'hp_background','hp_border','hp_border_width','hp_good','hp_mid','hp_low',
     'hp_low_threshold','hp_mid_threshold','hp_label','hp_text_color','hp_text_size',
-    'hp_style','hp_reverse','hp_glow','show_empty',
+    'hp_style','hp_reverse','hp_glow','show_empty','hp_custom_fill','hp_custom_frame',
   ];
   const numberFields=new Set(['gap','slot_width','sprite_size','name_size','name_weight','hp_height',
     'hp_radius','hp_border_width','hp_low_threshold','hp_mid_threshold','hp_text_size']);
-  const checkFields=new Set(['hp_reverse','hp_glow','show_empty']);
+  const checkFields=new Set(['hp_reverse','hp_glow','show_empty','hp_custom_fill','hp_custom_frame']);
   const status=$('status');
   let token='',pending=null,defaultConfig=null,loading=true;
+  let shared={enabled:false,ip:'',port:null,base_url:''};
   function say(text,problem=false){status.textContent=text;status.dataset.error=String(problem)}
   function setupLinks(){
     const slot=$('slot').value,container=$('links');container.replaceChildren();
+    const remote=$('link-target').value==='vpn'&&shared.enabled;
+    const base=remote?shared.base_url:location.origin;
     for(const [label,layer] of [['Composición','all'],['Sprites','sprites'],['Motes','names'],['Vida','hp']]){
-      const url=location.origin+'/overlay?layer='+layer+(slot?'&slot='+slot:'');
+      const url=base+'/overlay?layer='+layer+(slot?'&slot='+slot:'');
       const row=document.createElement('div');row.className='link-line';
       const title=document.createElement('span');title.textContent=label;
       const input=document.createElement('input');input.readOnly=true;input.value=url;
@@ -59,7 +62,6 @@
     try{
       const saved=await post('/api/overlay/settings',read());
       say('Personalización guardada');
-      document.getElementById('preview').contentWindow?.postMessage({type:'overlay-refresh'},location.origin);
       return saved;
     }catch(error){say(error.message,true)}
   }
@@ -70,10 +72,59 @@
     control.addEventListener('input',()=>{
       const output=document.querySelector('[data-for="'+control.id+'"]');
       if(output)output.textContent=control.value;
-      if(loading||control.id==='upload')return;
+      if(loading||control.type==='file')return;
       clearTimeout(pending);pending=setTimeout(save,350);
     });
   }
+  function displayShare(){
+    const status=$('share-status');
+    status.textContent=shared.enabled
+      ?'Compartiendo solo el overlay en '+shared.base_url+'. Comparte los enlaces VPN con tu compañero.'
+      :'Acceso remoto apagado: únicamente puedes usar las URL de 127.0.0.1.';
+    $('share-disable').disabled=!shared.enabled;
+    setupLinks();
+  }
+  $('link-target').onchange=setupLinks;
+  $('share-enable').onclick=async()=>{
+    try{
+      const ip=$('share-ip').value.trim();
+      const result=await post('/api/overlay/share',{enabled:true,ip});
+      shared=result;
+      try{localStorage.setItem('progressive-obs-vpn-ip',ip)}catch(_){}
+      $('link-target').value='vpn';
+      displayShare();say('Fuente VPN activada · comparte estas URL con tu compañero');
+    }catch(error){say('VPN: '+error.message,true)}
+  };
+  $('share-disable').onclick=async()=>{
+    try{
+      shared=await post('/api/overlay/share',{enabled:false});
+      $('link-target').value='local';
+      displayShare();say('Acceso VPN desactivado');
+    }catch(error){say('VPN: '+error.message,true)}
+  };
+  const encodeFile=async(file)=>{
+    const bytes=new Uint8Array(await file.arrayBuffer());
+    let result='';
+    for(let i=0;i<bytes.length;i+=24000){
+      result+=btoa(String.fromCharCode(...bytes.subarray(i,i+24000)));
+    }
+    return result;
+  };
+  async function importHealth(kind){
+    const control=$('hp_'+kind+'_upload');
+    const file=control.files?.[0];if(!file)return;
+    try{
+      if(file.size>2_000_000)throw new Error('El PNG supera los 2 MB');
+      if(!file.name.toLowerCase().endsWith('.png'))throw new Error('Selecciona un archivo PNG');
+      const info=await post('/api/overlay/hp-image',{kind,data:await encodeFile(file)});
+      $('hp_custom_'+kind).checked=true;
+      await save();
+      say('Imagen de '+(kind==='fill'?'relleno':'marco')+' importada ('+info.width+'×'+info.height+')');
+    }catch(error){say('PNG: '+error.message,true)}
+    finally{control.value=''}
+  }
+  $('hp_fill_upload').onchange=()=>importHealth('fill');
+  $('hp_frame_upload').onchange=()=>importHealth('frame');
   $('upload').onchange=async()=>{
     const file=$('upload').files?.[0];if(!file)return;
     try{
@@ -107,9 +158,14 @@
     setupLinks();
     try{
       const session=await(await fetch('/api/session')).json();token=session.token;
-      const [response,fontRes]=await Promise.all([fetch('/api/overlay/settings'),fetch('/api/overlay/fonts')]);
-      if(!response.ok||!fontRes.ok)throw new Error('No se encuentra el editor local');
+      const [response,fontRes,shareRes]=await Promise.all([
+        fetch('/api/overlay/settings'),fetch('/api/overlay/fonts'),fetch('/api/overlay/share')]);
+      if(!response.ok||!fontRes.ok||!shareRes.ok)throw new Error('No se encuentra el editor local');
       const current=await response.json();populateFonts(await fontRes.json());
+      shared=await shareRes.json();
+      try{$('share-ip').value=shared.ip||localStorage.getItem('progressive-obs-vpn-ip')||''}catch(_){}
+      $('link-target').value=shared.enabled?'vpn':'local';
+      displayShare();
       defaultConfig=await(await fetch('/api/overlay/defaults')).json();
       fill(current);say('Listo · los cambios se guardan automáticamente');
     }catch(error){say('No se pudo abrir el editor: '+error.message,true)}
