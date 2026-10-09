@@ -121,7 +121,7 @@ class OverlayTests(unittest.TestCase):
         self.assertEqual(json.loads(body)['kind'],'fill')
         got=self.req('GET','/overlay/hp-image/fill.png')
         self.assertEqual(got[0],200)
-        self.assertEqual(got[1][:8],b'\\x89PNG\\r\\n\\x1a\\n')
+        self.assertEqual(got[1][:8],b'\x89PNG\r\n\x1a\n')
         self.assertNotEqual(self.manager.hp_asset_versions()['fill'],'0')
         self.assertEqual(self.req('POST','/api/overlay/hp-image',
             {'kind':'../../runtime', 'data':value['data']},
