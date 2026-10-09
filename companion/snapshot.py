@@ -1,6 +1,7 @@
 """The only state allowed to leave a local tracker for a Soul Link partner."""
 import copy
 import json
+import re
 
 MAX_SNAPSHOT_BYTES = 650_000
 POKEMON_FIELDS = {
@@ -60,7 +61,7 @@ def snapshot(state):
     categories = ('route', 'fossil', 'gift', 'egg', 'trade')
     if not isinstance(origins, dict) or len(origins) > 1200:
         raise ValueError('Clasificaciones de origen inválidas')
-    if any(not isinstance(key, str) or len(key) > 64 or
+    if any(not isinstance(key, str) or re.fullmatch(r'[0-9]{1,3}:[0-9]{1,10}', key) is None or
            not isinstance(value, str) or value not in categories
            for key, value in origins.items()):
         raise ValueError('Clasificación de origen no válida')
