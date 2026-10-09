@@ -125,3 +125,21 @@ ANIMACIONES EN EL LAYOUT (GIF)
   completos. En OBS, la recarga de GIF al cambiar de equipo puede variar
   según la versión; si no se refresca, recarga la fuente una vez.
 - No se necesita conexión a Internet para usar los sprites personalizados.
+
+GUARDAR SESIÓN Y DIAGNÓSTICO (VENTANA NATIVA)
+- Menú ··· → Guardar sesión… abre el selector de archivos de Windows.
+  Puedes elegir la carpeta y el nombre del archivo JSON exportado.
+  Incluye equipo, cajas, progreso, contador de muertes y juego.
+  No incluye tokens de Soul Link, claves ni datos privados del Worker.
+- Pestaña Conexión → Guardar diagnóstico… abre el mismo selector de Windows.
+  Exporta juego, estado de conexión y detalles de detección de RAM.
+  No exporta los datos del equipo ni las cajas.
+- Cancelar el diálogo no genera archivos ni cambia la sesión.
+- La sincronización, la configuración y los datos del tracker continúan
+  guardándose automáticamente en AppData. Exportar es una copia opcional,
+  no reemplaza los guardados internos.
+- Los diálogos de Guardar como necesitan ejecutarse desde PokemonTracker.exe
+  mediante la interfaz nativa WebView2; el servidor web de respaldo no
+  muestra diálogos nativos del sistema.
+- El icono que se ve en la aplicación se sirve como /app-icon.png desde
+  el propio servidor local empaquetado; no necesita Internet.
