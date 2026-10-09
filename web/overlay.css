@@ -20,6 +20,20 @@ body{font-family:var(--font);color:var(--fg);padding:0}
 .hp-fill.gradient{background:linear-gradient(to bottom,rgba(255,255,255,.48),transparent 55%),var(--hp-color)}
 .hp-fill.striped{background:repeating-linear-gradient(125deg,transparent 0 8px,rgba(255,255,255,.28) 8px 12px),var(--hp-color)}
 .hp-fill.glow{box-shadow:0 0 12px var(--hp-color),0 0 5px var(--hp-color)}
+.hp-fill.custom-fill{background:transparent;position:relative;overflow:hidden}
+.hp-fill-art{display:none}
+.hp-fill.custom-fill .hp-fill-art{
+  display:block;position:absolute;left:0;top:0;
+  width:var(--hp-art-width);height:100%;
+  background-image:var(--hp-fill-image);background-size:100% 100%;
+  background-repeat:no-repeat;pointer-events:none
+}
+.hp-outline.reverse .hp-fill.custom-fill .hp-fill-art{left:auto;right:0}
+.hp-outline.custom-frame::after{
+  content:"";position:absolute;inset:0;z-index:2;pointer-events:none;
+  background-image:var(--hp-frame-image);
+  background-size:100% 100%;background-repeat:no-repeat
+}
 .hp-outline.reverse .hp-fill{position:absolute;right:0;top:0}
 .hp-label{font-size:var(--hp-size);line-height:1.1;color:var(--hp-text);text-align:center;
   font-weight:700;text-shadow:0 1px 3px #000c}
