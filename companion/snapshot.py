@@ -86,6 +86,11 @@ def snapshot(state):
         safe_marks[key] = {'kind': mark['kind'],
                            'pokemon': {field: copy.deepcopy(record[field])
                                        for field in allowed if field in record}}
+    traded_routes = progress.get('traded_routes') or []
+    if (not isinstance(traded_routes,list) or len(traded_routes)>200 or
+        any(not isinstance(route,str) or not route.isdigit() or len(route)>10
+            for route in traded_routes)):
+        raise ValueError('Rutas intercambiadas inválidas')
     count = progress.get('death_count', len(safe_deaths))
     if type(count) is not int or not 0 <= count <= 100000:
         raise ValueError('Contador de muertes no válido')
@@ -97,7 +102,7 @@ def snapshot(state):
         'party': [pokemon(p) for p in party], 'boxes': result_boxes,
         'progress': {'deaths': safe_deaths, 'missed_routes': missed,
                      'death_count': count, 'origins': safe_origins,
-                     'route_marks': safe_marks},
+                     'route_marks': safe_marks, 'traded_routes': traded_routes},
         'battle_hp': state.get('battle_hp') is True,
     }
     raw = json.dumps(data, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
