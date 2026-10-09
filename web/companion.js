@@ -73,7 +73,7 @@
     if(!Number.isInteger(id)||id<1||id>10115)return;
     soulImage.onload=()=>{soulImage.hidden=false;soulFallback.hidden=true};
     soulImage.onerror=()=>{soulImage.hidden=true;soulFallback.hidden=false};
-    soulImage.src='/sprites/'+id+'.png';
+    soulImage.src='/soullink/sprite/'+id+'.png';
   }
   function clearSoulError(){soulError.hidden=true;soulError.textContent=''}
   function updateSoulSelection(){
