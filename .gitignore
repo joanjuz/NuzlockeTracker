@@ -1,23 +1,30 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
-.pnp.js
-
-# testing
-/coverage
-
-# production
-/build
-
-# misc
+# Datos locales de partidas y diagnosticos
+runtime/
+backup*/
+backup_patch*/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+.env
+.env.*
+*.log
+*.tmp
+*.bak
+*.zip
+*.bin
+captura*.bin
+diagnostico_conexion.json
+# Ejecutables, dumps, ROMs y partidas
+*.3ds
+*.cia
+*.cxi
+*.sav
+*.dmp
+*.exe
+*.dll
+node_modules/
 .DS_Store
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+Thumbs.db

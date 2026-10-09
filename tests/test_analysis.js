@@ -1,0 +1,18 @@
+const assert=require('node:assert/strict'),fs=require('node:fs');
+const A=require('../web/analysis.js'),data=JSON.parse(fs.readFileSync(require('node:path').join(__dirname,'../data/Analysis_USUM.json'))),chart=data.chart;
+assert.equal(A.basic(chart,'Roca',['Bicho','Fuego']),4);
+assert.equal(A.basic(chart,'Fuego',['Agua','Dragón']),.25);
+assert.equal(A.basic(chart,'Eléctrico',['Tierra','Volador']),0);
+assert.equal(A.defensive(chart,'Tierra',{types:['Veneno'],ability_id:26}),0);
+assert.equal(A.defensive(chart,'Tierra',{types:['Veneno'],ability_id:26},false),2);
+assert.equal(A.defensive(chart,'Fuego',{types:['Acero'],ability_id:85}),1);
+assert.equal(A.offensive(chart,{id:573,type:'Hielo'},{},['Agua']),2);
+assert.equal(A.offensive(chart,{id:614,type:'Tierra'},{},['Volador','Acero']),2);
+assert.equal(A.offensive(chart,{id:560,type:'Lucha'},{},['Planta','Acero']),2);
+assert.equal(A.offensive(chart,{id:216,type:'Normal'},{ability_id:113},['Fantasma']),1);
+const p1={nickname:'Uno',analysis_moves:[{id:14,name:'Danza Espada',category:'Estado',type:'Normal'},{id:503,name:'Escaldar',category:'Especial',type:'Agua'}]};
+const p2={nickname:'Dos',analysis_moves:[{id:85,name:'Rayo',category:'Especial',type:'Eléctrico'}]};
+assert.equal(A.coverage(chart,[p1],['Agua']).value,.5);
+assert.equal(A.coverage(chart,[p1,p2],['Agua']).value,2);
+assert.equal(A.coverage(chart,[{analysis_moves:[p1.analysis_moves[0]]}],['Agua']),null);
+console.log('13 comprobaciones de análisis: OK');

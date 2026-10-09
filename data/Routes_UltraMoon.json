@@ -1,0 +1,759 @@
+{
+  "schema_version": 1,
+  "game_key": "ultra-moon-1.0",
+  "game": "Ultra Moon 1.0",
+  "region": "Alola",
+  "sources": [
+    "https://github.com/kwsch/PKHeX/blob/master/PKHeX.Core/Game/Locations/Locations7.cs",
+    "https://www.wikidex.net/wiki/Alola",
+    "https://github.com/Bassel-T/nuzlocke.app/blob/main/src/lib/data/routes.json"
+  ],
+  "routes": [
+    {
+      "id": 8,
+      "ids": [
+        8
+      ],
+      "name": "Ruta 1",
+      "story_order": 1
+    },
+    {
+      "id": 6,
+      "ids": [
+        6
+      ],
+      "name": "Afueras de Hauoli",
+      "story_order": 2
+    },
+    {
+      "id": 230,
+      "ids": [
+        230
+      ],
+      "name": "Escuela de Entrenadores",
+      "story_order": 3
+    },
+    {
+      "id": 18,
+      "ids": [
+        18,
+        20,
+        22
+      ],
+      "name": "Ciudad Hauoli",
+      "story_order": 4
+    },
+    {
+      "id": 24,
+      "ids": [
+        24
+      ],
+      "name": "Pueblo Lilii",
+      "story_order": 5
+    },
+    {
+      "id": 12,
+      "ids": [
+        12
+      ],
+      "name": "Ruta 2",
+      "story_order": 6
+    },
+    {
+      "id": 198,
+      "ids": [
+        198
+      ],
+      "name": "Playa Big Wave",
+      "story_order": 7
+    },
+    {
+      "id": 38,
+      "ids": [
+        38
+      ],
+      "name": "Cementerio de Hauoli",
+      "story_order": 8
+    },
+    {
+      "id": 44,
+      "ids": [
+        44
+      ],
+      "name": "Huerto de Bayas",
+      "story_order": 9
+    },
+    {
+      "id": 46,
+      "ids": [
+        46,
+        48
+      ],
+      "name": "Cueva Sotobosque",
+      "story_order": 10
+    },
+    {
+      "id": 10,
+      "ids": [
+        10
+      ],
+      "name": "Ruta 3",
+      "story_order": 11
+    },
+    {
+      "id": 40,
+      "ids": [
+        40
+      ],
+      "name": "Jardines de Melemele",
+      "story_order": 12
+    },
+    {
+      "id": 42,
+      "ids": [
+        42
+      ],
+      "name": "Gruta Unemar",
+      "story_order": 13
+    },
+    {
+      "id": 14,
+      "ids": [
+        14
+      ],
+      "name": "Bahía Kalae",
+      "story_order": 14
+    },
+    {
+      "id": 34,
+      "ids": [
+        34,
+        36
+      ],
+      "name": "Colina Dequilate",
+      "story_order": 15
+    },
+    {
+      "id": 200,
+      "ids": [
+        200
+      ],
+      "name": "Cueva Costera",
+      "story_order": 16
+    },
+    {
+      "id": 70,
+      "ids": [
+        70
+      ],
+      "name": "Ciudad Kantai",
+      "story_order": 17
+    },
+    {
+      "id": 202,
+      "ids": [
+        202
+      ],
+      "name": "Playa de Kantai",
+      "story_order": 18
+    },
+    {
+      "id": 50,
+      "ids": [
+        50
+      ],
+      "name": "Ruta 4",
+      "story_order": 19
+    },
+    {
+      "id": 228,
+      "ids": [
+        228
+      ],
+      "name": "Valle de los Pikachu",
+      "story_order": 20
+    },
+    {
+      "id": 68,
+      "ids": [
+        68
+      ],
+      "name": "Pueblo Ohana",
+      "story_order": 21
+    },
+    {
+      "id": 78,
+      "ids": [
+        78
+      ],
+      "name": "Rancho Ohana",
+      "story_order": 22
+    },
+    {
+      "id": 52,
+      "ids": [
+        52
+      ],
+      "name": "Ruta 5",
+      "story_order": 23
+    },
+    {
+      "id": 86,
+      "ids": [
+        86,
+        88
+      ],
+      "name": "Colina Saltagua",
+      "story_order": 24
+    },
+    {
+      "id": 54,
+      "ids": [
+        54
+      ],
+      "name": "Ruta 6",
+      "story_order": 25
+    },
+    {
+      "id": 74,
+      "ids": [
+        74,
+        104
+      ],
+      "name": "Avenida Royale",
+      "story_order": 26
+    },
+    {
+      "id": 56,
+      "ids": [
+        56
+      ],
+      "name": "Ruta 7",
+      "story_order": 27
+    },
+    {
+      "id": 82,
+      "ids": [
+        82,
+        84
+      ],
+      "name": "Área Volcánica Wela",
+      "story_order": 28
+    },
+    {
+      "id": 16,
+      "ids": [
+        16
+      ],
+      "name": "Mar de Melemele",
+      "story_order": 29
+    },
+    {
+      "id": 232,
+      "ids": [
+        232
+      ],
+      "name": "Túnel del Volcán",
+      "story_order": 30
+    },
+    {
+      "id": 58,
+      "ids": [
+        58
+      ],
+      "name": "Ruta 8",
+      "story_order": 31
+    },
+    {
+      "id": "manual-58",
+      "ids": [],
+      "name": "Centro de Restauración de Fósiles",
+      "shared_location_ids": [
+        58
+      ],
+      "manual_only": true,
+      "story_order": 32
+    },
+    {
+      "id": 90,
+      "ids": [
+        90
+      ],
+      "name": "Jungla Umbría",
+      "story_order": 33
+    },
+    {
+      "id": 100,
+      "ids": [
+        100
+      ],
+      "name": "Túnel Diglett",
+      "story_order": 34
+    },
+    {
+      "id": 60,
+      "ids": [
+        60
+      ],
+      "name": "Ruta 9",
+      "story_order": 35
+    },
+    {
+      "id": 72,
+      "ids": [
+        72
+      ],
+      "name": "Ciudad Konikoni",
+      "story_order": 36
+    },
+    {
+      "id": 76,
+      "ids": [
+        76
+      ],
+      "name": "Colina del Recuerdo",
+      "story_order": 37
+    },
+    {
+      "id": 94,
+      "ids": [
+        94
+      ],
+      "name": "Afueras de Akala",
+      "story_order": 38
+    },
+    {
+      "id": 62,
+      "ids": [
+        62,
+        102
+      ],
+      "name": "Resort Hanohano",
+      "story_order": 39
+    },
+    {
+      "id": 64,
+      "ids": [
+        64
+      ],
+      "name": "Playa de Hanohano",
+      "story_order": 40
+    },
+    {
+      "id": 188,
+      "ids": [
+        188
+      ],
+      "name": "Paraíso Æther",
+      "story_order": 41
+    },
+    {
+      "id": 108,
+      "ids": [
+        108
+      ],
+      "name": "Ruta 11",
+      "story_order": 42
+    },
+    {
+      "id": 132,
+      "ids": [
+        132,
+        192
+      ],
+      "name": "Ciudad Malíe",
+      "story_order": 43
+    },
+    {
+      "id": 134,
+      "ids": [
+        134
+      ],
+      "name": "Parque de Malíe",
+      "story_order": 44
+    },
+    {
+      "id": 106,
+      "ids": [
+        106
+      ],
+      "name": "Ruta 10",
+      "story_order": 45
+    },
+    {
+      "id": 136,
+      "ids": [
+        136,
+        152
+      ],
+      "name": "Pico Hokulani",
+      "story_order": 46
+    },
+    {
+      "id": 122,
+      "ids": [
+        122
+      ],
+      "name": "Ruta 12",
+      "story_order": 47
+    },
+    {
+      "id": 138,
+      "ids": [
+        138
+      ],
+      "name": "Monte Rubor",
+      "story_order": 48
+    },
+    {
+      "id": 110,
+      "ids": [
+        110
+      ],
+      "name": "Playa de Ula-Ula",
+      "story_order": 49
+    },
+    {
+      "id": 112,
+      "ids": [
+        112
+      ],
+      "name": "Ruta 13",
+      "story_order": 50
+    },
+    {
+      "id": 114,
+      "ids": [
+        114
+      ],
+      "name": "Aldea Tapu",
+      "story_order": 51
+    },
+    {
+      "id": 116,
+      "ids": [
+        116
+      ],
+      "name": "Ruta 15",
+      "story_order": 52
+    },
+    {
+      "id": 126,
+      "ids": [
+        126
+      ],
+      "name": "Ruta 14",
+      "story_order": 53
+    },
+    {
+      "id": "manual-126",
+      "ids": [],
+      "name": "Casa Æther",
+      "shared_location_ids": [
+        116
+      ],
+      "manual_only": true,
+      "story_order": 54
+    },
+    {
+      "id": 150,
+      "ids": [
+        150
+      ],
+      "name": "Súper Ultraganga · Local Abandonado",
+      "story_order": 55
+    },
+    {
+      "id": 124,
+      "ids": [
+        124
+      ],
+      "name": "Desierto de Haina",
+      "story_order": 56
+    },
+    {
+      "id": 148,
+      "ids": [
+        148
+      ],
+      "name": "Mansión Misteriosa",
+      "story_order": 57
+    },
+    {
+      "id": 118,
+      "ids": [
+        118
+      ],
+      "name": "Ruta 16",
+      "story_order": 58
+    },
+    {
+      "id": 128,
+      "ids": [
+        128
+      ],
+      "name": "Jardines de Ula-Ula",
+      "story_order": 59
+    },
+    {
+      "id": 144,
+      "ids": [
+        144,
+        142
+      ],
+      "name": "Lago Coroluna / Lago Corosol",
+      "story_order": 60
+    },
+    {
+      "id": 120,
+      "ids": [
+        120
+      ],
+      "name": "Ruta 17",
+      "story_order": 61
+    },
+    {
+      "id": 130,
+      "ids": [
+        130
+      ],
+      "name": "Pueblo Po",
+      "story_order": 62
+    },
+    {
+      "id": 172,
+      "ids": [
+        172
+      ],
+      "name": "Aldea Marina",
+      "story_order": 63
+    },
+    {
+      "id": 156,
+      "ids": [
+        156
+      ],
+      "name": "Jardines de Poni",
+      "story_order": 64
+    },
+    {
+      "id": 160,
+      "ids": [
+        160
+      ],
+      "name": "Antiguo Paso de Poni",
+      "story_order": 65
+    },
+    {
+      "id": 162,
+      "ids": [
+        162
+      ],
+      "name": "Arrecife de Poni",
+      "story_order": 66
+    },
+    {
+      "id": 174,
+      "ids": [
+        174
+      ],
+      "name": "Cañón de Poni",
+      "story_order": 67
+    },
+    {
+      "id": 176,
+      "ids": [
+        176,
+        178
+      ],
+      "name": "Altar de la Luna / Altar del Sol",
+      "story_order": 68
+    },
+    {
+      "id": 206,
+      "ids": [
+        206,
+        208
+      ],
+      "name": "Ultrópolis",
+      "story_order": 69
+    },
+    {
+      "id": 190,
+      "ids": [
+        190
+      ],
+      "name": "Ultraabismo",
+      "story_order": 70
+    },
+    {
+      "id": 210,
+      "ids": [
+        210,
+        212,
+        214,
+        216,
+        218,
+        220,
+        222
+      ],
+      "name": "Ultraespacio",
+      "story_order": 71
+    },
+    {
+      "id": 184,
+      "ids": [
+        184
+      ],
+      "name": "Isla Exeggutor",
+      "story_order": 72
+    },
+    {
+      "id": 146,
+      "ids": [
+        146
+      ],
+      "name": "Monte Lanakila",
+      "story_order": 73
+    },
+    {
+      "id": 154,
+      "ids": [
+        154
+      ],
+      "name": "Liga Pokémon",
+      "story_order": 74
+    },
+    {
+      "id": 26,
+      "ids": [
+        26,
+        28
+      ],
+      "name": "Senda Mahalo",
+      "story_order": 75
+    },
+    {
+      "id": 164,
+      "ids": [
+        164
+      ],
+      "name": "Bosque de Poni",
+      "story_order": 76
+    },
+    {
+      "id": 166,
+      "ids": [
+        166
+      ],
+      "name": "Llanura de Poni",
+      "story_order": 77
+    },
+    {
+      "id": 226,
+      "ids": [
+        226
+      ],
+      "name": "Gruta de la Llanura",
+      "story_order": 78
+    },
+    {
+      "id": 158,
+      "ids": [
+        158
+      ],
+      "name": "Prado de Poni",
+      "story_order": 79
+    },
+    {
+      "id": 182,
+      "ids": [
+        182
+      ],
+      "name": "Gruta Desenlace",
+      "story_order": 80
+    },
+    {
+      "id": 168,
+      "ids": [
+        168
+      ],
+      "name": "Costa de Poni",
+      "story_order": 81
+    },
+    {
+      "id": 170,
+      "ids": [
+        170
+      ],
+      "name": "Pendiente de Poni",
+      "story_order": 82
+    },
+    {
+      "id": 186,
+      "ids": [
+        186
+      ],
+      "name": "Árbol de Combate",
+      "story_order": 83
+    },
+    {
+      "id": 204,
+      "ids": [
+        204
+      ],
+      "name": "Playa de Poni",
+      "story_order": 84
+    },
+    {
+      "id": 30,
+      "ids": [
+        30,
+        32
+      ],
+      "name": "Ruinas de la Guerra",
+      "story_order": 85
+    },
+    {
+      "id": 92,
+      "ids": [
+        92
+      ],
+      "name": "Ruinas de la Vida",
+      "story_order": 86
+    },
+    {
+      "id": 140,
+      "ids": [
+        140
+      ],
+      "name": "Ruinas de la Cosecha",
+      "story_order": 87
+    },
+    {
+      "id": 180,
+      "ids": [
+        180
+      ],
+      "name": "Ruinas del Tránsito",
+      "story_order": 88
+    },
+    {
+      "id": 66,
+      "ids": [
+        66
+      ],
+      "name": "Jardines de Akala",
+      "story_order": 89
+    },
+    {
+      "id": 224,
+      "ids": [
+        224
+      ],
+      "name": "Castillo Team Rocket",
+      "story_order": 90
+    }
+  ],
+  "order_note": "Encounter sequence for umoon; additional PK7 zones interleaved near their region. Shared-ID areas remain unattributed."
+}

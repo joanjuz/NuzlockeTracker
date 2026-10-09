@@ -1,0 +1,151 @@
+"""Headless tracker: one memory worker, versioned JSON snapshots."""
+import copy,json,os,queue,threading,time
+from dataclasses import replace
+from pathlib import Path
+from .process_memory import LimeProcessMemory,DiscoveryCancelled
+from .connectors import LimeGDB
+from .profiles import capture_party, PROFILES, ULTRA_MOON_10
+from .pokemon import decode_party
+from .boxes import read_box,decode_box
+from .catalog import Catalog
+from .locations import location_name
+from .reference import ReferenceData
+from .progress import RunProgress
+from .battle import apply_battle_hp
+
+class TrackerService:
+    def __init__(self,output,connector_factory=None):
+        self.output=Path(output);self.catalog=Catalog();self.reference=ReferenceData();self.factory=connector_factory
+        self.condition=threading.Condition();self.commands=queue.Queue();self.stop=threading.Event();self.connection_generation=0;self.connection_lock=threading.Lock()
+        self.state={'schema_version':1,'revision':0,'game':'Ultra Moon 1.0','connection':{'status':'disconnected','message':'Conecta con la partida cargada.'},'party':[None]*6,'boxes':{},'selected_box':1,'scan':{'active':False,'completed':0},'stale':True}
+        self.progress=RunProgress(self.output.with_name(self.output.stem+'-progress.json'))
+        self.state['progress']=copy.deepcopy(self.progress.data)
+        self.profile=ULTRA_MOON_10
+        self.reader=None;self.config=None;self.retry_at=0;self.scan_next=None;self.diagnostic=None
+    def request_connection_change(self):
+        with self.connection_lock:
+            self.connection_generation+=1
+            return self.connection_generation
+    def snapshot(self):
+        with self.condition:return copy.deepcopy(self.state)
+    def update(self,**changes):
+        with self.condition:
+            if 'party' in changes and not changes.get('stale',self.state['stale']):
+                self.progress.observe(changes['party'])
+            changes['progress']=copy.deepcopy(self.progress.data)
+            if all(self.state.get(k)==v for k,v in changes.items()):return False
+            self.state.update(changes);self.state['revision']+=1
+            self.output.parent.mkdir(parents=True,exist_ok=True)
+            temporary=self.output.with_suffix('.tmp');temporary.write_text(json.dumps(self.state,ensure_ascii=False),encoding='utf-8');os.replace(temporary,self.output)
+            self.condition.notify_all();return True
+    def enrich(self,p):
+        if p is None:return None
+        p=dict(p);p['types']=self.catalog.metadata('species',p['species_id']).get('types',self.reference.pokemon_types(p['species_id'],p.get('form',0)))
+        p['type_source']='Catálogo ROM' if self.catalog.metadata('species',p['species_id']).get('types') else 'Referencia USUM'
+        p['analysis_moves']=[self.reference.move(m,self.catalog) if m else None for m in p['moves']]
+        p['species']=self.catalog.name('species',p['species_id'])
+        p['ability']=self.catalog.name('abilities',p['ability_id']);p['item']=self.catalog.name('items',p['item_id'])
+        p['met_location']=location_name(p.get('met_location_id',0),p.get('origin_version',33))
+        p['egg_location']=location_name(p.get('egg_location_id',0),p.get('origin_version',33))
+        p['move_names']=[self.catalog.name('moves',m) if m else '—' for m in p['moves']]
+        return p
+    def close_reader(self):
+        if self.reader:
+            try:self.reader.close()
+            except Exception:pass
+        self.reader=None
+    def connect(self):
+        self.close_reader()
+        profile=PROFILES[self.config.get('game','Ultra Moon 1.0')]
+        if profile.name!=self.profile.name:
+            self.profile=profile
+            suffix='-ultra-sun' if profile.name=='Ultra Sun 1.0' else ''
+            self.progress=RunProgress(self.output.with_name(self.output.stem+suffix+'-progress.json'))
+            self.update(game=profile.name,party=[None]*6,boxes={},stale=True)
+        self.profile=profile;self.sun_box_base=None
+        self.update(connection={'status':'connecting','message':'Localizando RAM…'},stale=True,boxes={},scan={'active':False,'completed':0})
+        mode=self.config['mode']
+        if self.factory:self.reader=self.factory(self.config)
+        elif mode=='memory':
+            generation=self.config.get('_connection_generation',self.connection_generation)
+            self.reader=LimeProcessMemory(self.config.get('pid'),lambda msg:self.update(connection={'status':'connecting','message':msg}),dynamic=self.profile.name=='Ultra Sun 1.0',cancel=lambda:generation!=self.connection_generation or self.stop.is_set())
+            self.profile=replace(self.profile,party_address=self.reader.party_address)
+            self.diagnostic={'game':self.profile.name,'party_address':hex(self.profile.party_address),'discovery':getattr(self.reader.process,'discovery_report',{})}
+        else:
+            self.reader=LimeGDB(self.config.get('port',24689));self.reader.identify();self.reader.resume()
+        self.update(connection={'status':'connected','message':'Conectado · '+('Windows sin GDB' if mode=='memory' else 'GDB')})
+    def poll(self):
+        party=[self.enrich(p) for p in decode_party(capture_party(self.reader,self.profile))]
+        party,in_battle=apply_battle_hp(self.reader,party,self.profile.name)
+        number=self.scan_next or self.snapshot()['selected_box']
+        boxes=self.snapshot()['boxes'];box_verified=True
+        if self.profile.name=='Ultra Sun 1.0':
+            box_verified=False
+            # Test the old and equally shifted addresses, accepting only real PK7 records.
+            delta=self.profile.party_address-ULTRA_MOON_10.party_address
+            for address in dict.fromkeys([self.sun_box_base] if self.sun_box_base else [self.profile.box_address,ULTRA_MOON_10.box_address+delta]):
+                try:raw_box=decode_box(read_box(self.reader,number,address))
+                except (ValueError,OSError,ConnectionError):continue
+                if any(raw_box) or self.sun_box_base==address:
+                    self.sun_box_base=address
+                    self.profile=replace(self.profile,box_address=address)
+                    boxes[str(number)]=[self.enrich(p) for p in raw_box];box_verified=True;break
+        else:
+            boxes[str(number)]=[self.enrich(p) for p in decode_box(read_box(self.reader,number,self.profile.box_address))]
+        changes={'party':party,'boxes':boxes,'stale':False,'battle_hp':in_battle,'box_verified':box_verified}
+        if self.snapshot()['connection']['status']!='connected' or self.snapshot()['stale']:
+            changes['connection']={'status':'connected','message':'Conectado · '+('Windows sin GDB' if (self.config or {}).get('mode','memory')=='memory' else 'GDB')}
+        if self.scan_next:
+            changes['scan']={'active':number<32,'completed':number};self.scan_next=number+1 if number<32 else None
+        if self.diagnostic is not None:self.diagnostic.update(box_address=hex(self.profile.box_address),box_verified=box_verified,battle_hp=in_battle)
+        self.update(**changes)
+    def handle(self,cmd):
+        action=cmd['action']
+        if action=='revive':
+            self.revive(cmd)
+        elif action=='route_miss':
+            self.set_route_miss(cmd)
+        elif action=='connect':self.config=cmd;self.retry_at=0;self.scan_next=None;self.connect()
+        elif action=='disconnect':
+            self.config=None;self.scan_next=None;self.close_reader();self.update(connection={'status':'disconnected','message':'Desconectado'},stale=True,scan={'active':False,'completed':0})
+        elif action=='box':self.update(selected_box=cmd['number'])
+        elif action=='scan':
+            if not self.reader:raise ValueError('Conecta el tracker antes de leer las cajas.')
+            self.scan_next=1;self.update(scan={'active':True,'completed':0})
+        elif action=='cancel':self.scan_next=None;self.update(scan={'active':False,'completed':self.snapshot()['scan']['completed']})
+    def validate_revive(self,cmd):
+        key=cmd.get('key')
+        if not isinstance(key,str) or len(key)>64 or key not in self.progress.data['deaths'] and key not in self.progress.data['revived_pending']:
+            raise ValueError('Pokémon no registrado en Muertos')
+    def revive(self,cmd):
+        self.validate_revive(cmd)
+        self.progress.revive(cmd['key'])
+        snapshot=self.snapshot()
+        # A healed, current party member can be rearmed immediately.
+        self.update(party=snapshot['party'],stale=snapshot['stale'])
+    def validate_route_miss(self,cmd):
+        ids={str(r['id']) for r in self.reference.routes(self.state['game'])['routes']}
+        if cmd.get('route') not in ids or type(cmd.get('missed')) is not bool:
+            raise ValueError('Ruta o estado Miss inválido')
+    def set_route_miss(self,cmd):
+        self.validate_route_miss(cmd)
+        self.progress.set_miss(cmd['route'],cmd['missed'])
+        self.update()
+    def run(self):
+        while not self.stop.is_set():
+            try:
+                try:cmd=self.commands.get(timeout=.15);self.handle(cmd)
+                except queue.Empty:pass
+                if self.config and not self.reader and time.monotonic()>=self.retry_at:self.connect()
+                if self.reader:self.poll()
+            except DiscoveryCancelled:
+                self.close_reader();self.scan_next=None;self.retry_at=0
+            except ValueError as exc:
+                # A torn RAM snapshot must not tear down a healthy transport.
+                self.update(connection={'status':'connected' if self.reader else 'error','message':str(exc)},stale=True)
+            except Exception as exc:
+                self.diagnostic=getattr(exc,'diagnostic',None) or {'error':str(exc)}
+                self.close_reader();self.scan_next=None;self.retry_at=time.monotonic()+3
+                self.update(connection={'status':'retrying' if self.config else 'error','message':str(exc)},stale=True,boxes={},scan={'active':False,'completed':0})
+            self.stop.wait(.35 if self.scan_next else .85)
+        self.close_reader()

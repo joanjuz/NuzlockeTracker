@@ -1,69 +1,54 @@
-# NuzTracker
+# Pokemon Tracker
 
-**NuzTracker** es una aplicación web interactiva para organizar y llevar el control de tu equipo Pokémon, útil especialmente para retos como Nuzlocke. Permite importar equipos desde archivos TXT, personalizar cada Pokémon, registrar rutas de captura, y gestionar evoluciones.
+Tracker local para **Pokemon Ultra Sol / Ultra Luna 1.0** en Lime3DS.
 
----
+> Version estable: **v0.20.2**, validada en ambos juegos.
 
-## 🧩 Funcionalidades principales
+## Funcionalidades
 
-### 1. **Gestión del equipo**
-- Agrega Pokémon personalizados con apodo, habilidad, tipos, etc.
-- Visualización clara del equipo activo.
-- División del equipo en:
-  - **Activos**
-  - **Caja**
-  - **Muertos**
-- Cambia el estado de un Pokémon (activo, caja o muerto).
-- Elimina Pokémon si lo deseas.
+- Lee en vivo el equipo y las cajas desde la memoria del emulador.
+- Muestra las estadisticas, movimientos, objetos, habilidades y sprites del equipo.
+- Actualiza los PS durante el combate en Ultra Sol y Ultra Luna 1.0.
+- Permite cambiar de juego sin reiniciar el servidor.
+- Incluye secciones de rutas, Pokemon debilitados y analisis ofensivo/defensivo.
+- Incluye modo de demostracion sin emulador.
 
-### 2. **Movimientos**
-- Asigna movimientos personalizados a cada Pokémon.
-- Visualiza su tipo y daño.
-- Elimina movimientos con facilidad.
+## Requisitos
 
-### 3. **Importar desde Showdown (TXT)**
-- Carga un archivo `.txt` en formato de exportación de Pokémon Showdown.
-- Los Pokémon se cargarán automáticamente con sus datos y movimientos.
-- Se realiza una actualización automática de tipos y debilidades usando la PokéAPI.
+- Windows y Python 3 (para lectura de memoria real con Lime3DS).
+- Lime3DS con una version compatible del juego.
+- Navegador web moderno. No requiere Node.js para ejecutar el tracker.
 
-### 4. **Generar archivo Showdown**
-- Genera y descarga el archivo `.txt` de tu equipo actual en formato Showdown compatible.
+## Uso
 
-### 5. **Bitácora de aventura**
-- Marca las medallas obtenidas y miembros del Alto Mando vencidos.
-- Registra qué rutas ya han sido usadas para capturar Pokémon.
+1. Abre Lime3DS con Ultra Sol o Ultra Luna 1.0.
+2. Ejecuta `Iniciar.bat`, ubicado en la raiz del proyecto.
+3. Se abrira la interfaz web local. En **Conexion**, selecciona el juego y pulsa **Conectar**.
 
-### 6. **Sistema de evolución**
-- Se muestra la evolución siguiente (si existe) del Pokémon activo.
-- Aparece el botón **Evolucionar** si se cumplen las condiciones.
-- Se indican los requisitos para evolucionar: nivel, ítem, etc.
-- Al evolucionar, el Pokémon se reemplaza automáticamente por su forma evolucionada con datos actualizados.
+Para iniciar la demostracion sin Lime3DS, ejecuta `Iniciar_Demo.bat`.
+El servidor escucha solo en `127.0.0.1` y utiliza un puerto local disponible.
 
----
+## Pruebas
 
-## 🛠️ Tecnologías utilizadas
-- **React** + Hooks
-- **PokéAPI REST** para obtener información de Pokémon
-- **React Select** para campos desplegables mejorados
-- **CSS personalizado** para interfaz tipo Pokédex
-
----
-
-## 📦 Instalación y ejecución local
-
-```bash
-git clone https://github.com/tu-usuario/nuztracker.git
-cd nuztracker
-npm install
-npm start
+```powershell
+py -3 -m unittest discover -s tests
+node tests/test_analysis.js
+node tests/test_progress_ui.js
+node tests/test_mini_sprites.js
 ```
 
----
+Node.js solo es necesario para ejecutar las pruebas JavaScript, no para usar la aplicacion.
 
-## 🚧 Pendiente / Futuras mejoras
-- Soporte para múltiples versiones de evolución.
-- Control de niveles y experiencia.
----
+## Desarrollo
 
-## 🧠 Autor
-Desarrollado por joanjuz.
+- `master`: version estable.
+- `development`: integracion de nuevas funciones.
+- `feature/*`: trabajo en funcionalidades individuales mediante pull requests.
+- `backup/nuztracker-react-20261008`: respaldo de la version React/Tauri anterior.
+
+El historial tecnico anterior se encuentra en [`docs/HISTORIAL_VERSIONES.md`](docs/HISTORIAL_VERSIONES.md).
+Los datos personales y registros locales se guardan en `runtime/`, que no se sube a Git.
+
+## Fuentes y licencias
+
+Vease `LICENSE.txt` y los avisos de atribucion presentes en `data/` y `web/fonts/`.
