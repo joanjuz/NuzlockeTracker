@@ -141,6 +141,7 @@ class ProgressTests(unittest.TestCase):
   key=pokemon_key(own[0])
   self.assertEqual(progress.data['route_marks'][key]['kind'],'trade')
   self.assertEqual(progress.data['route_marks'][key]['source'],'auto')
+  self.assertEqual(progress.data['origins'][pokemon_key(received)],'trade')
   self.assertEqual(progress.data['route_marks'][key]['pokemon']['nickname'],own[0]['nickname'])
   self.assertTrue(RunProgress(path).data['full_scan_baseline'])
   # No se vuelve a generar por escanear dos veces el mismo estado.
