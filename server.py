@@ -309,10 +309,11 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None,
                 size=int(self.headers.get('Content-Length','0'))
                 if not 0<size<=4096:raise ValueError('Tamaño inválido')
                 cmd=json.loads(self.rfile.read(size));action=cmd.get('action')
-                if action not in ('connect','disconnect','box','scan','cancel','demo','route_miss','revive','mark_dead','save_session'):raise ValueError('Acción inválida')
+                if action not in ('connect','disconnect','box','scan','cancel','demo','route_miss','revive','mark_dead','set_origin','save_session'):raise ValueError('Acción inválida')
                 if action=='revive':service.validate_revive(cmd)
                 if action=='mark_dead':service.validate_mark_dead(cmd)
                 if action=='route_miss':service.validate_route_miss(cmd)
+                if action=='set_origin':service.validate_set_origin(cmd)
                 if action=='demo' and (not service.snapshot().get('demo') or cmd.get('scenario') not in ('normal','damage','empty','stale','long')):raise ValueError('Escenario de demostración inválido')
                 if action=='connect':
                     from tracker.profiles import PROFILES
