@@ -103,17 +103,16 @@ function routePokemon(p, historical=false){
   }else if(historical&&!marked)actions.push('<small class="route-not-found">Ya no está en las lecturas</small>');
   else if(dead)actions.push('<small class="route-death-status">Muerto</small>');
   else if(companionView)actions.push('<small class="route-death-status">Solo lectura</small>');
-  // Sin listas desplegables: acciones directas y una etiqueta solo para orígenes especiales.
-  const label=category!=='route'?`<small class="origin-type-label">${esc(ORIGIN_TYPES[category])}</small>`:'';
+  // El origen se reconoce por la sección/estado: evita etiquetas repetidas
+  // debajo de Deshacer y deja visibles solamente sprites y acciones.
   return `<div class="route-pokemon-entry ${historical?'route-historical':''}">
-    ${sprite(p)}${actions.join('')}${label}</div>`;
+    ${sprite(p)}${actions.join('')}</div>`;
 }
 function routeFootprint(p,kind){
   const key=pokemonKey(p),name=p.nickname||p.species||('Pokémon #'+p.species_id);
   return `<div class="route-footprint" title="${esc(name)} · origen registrado: ${esc(p.met_location||'Desconocido')}">
     <span class="route-footprint-symbol">${kind==='trade'?'↔':'◆'}</span>
     <small>${kind==='trade'?'Intercambiado':'Fósil'}</small>
-    <span class="route-footprint-name">${esc(name)}</span>
     ${!companionView?`<button class="route-death" data-route-undo="${esc(key)}" type="button">Deshacer</button>`:''}
   </div>`;
 }
@@ -178,20 +177,21 @@ function renderPlaces(){
       const traded=tradedRoutes.includes(String(r.id));
       const routeVacant=!list.some(item=>item.type==='mark'||(item.type==='pokemon'&&item.kind==='active'));
       const note=r.manual_only?'El juego comparte esta ubicación con otra zona; la asignación puede ser ambigua.':'';
-      return `<article class="route-tile ${list.length?'occupied':'unfilled'}" title="${esc(note)}">
+      return `<fieldset class="route-tile ${list.length?'occupied':'unfilled'}" title="${esc(note)}">
+       <legend class="route-legend">${esc(r.name)}</legend>
        <div class="route-sprites">${list.length?list.map(({p,type,kind})=>type==='mark'?routeFootprint(p,kind):routePokemon(p,kind==='historical')).join(''):
           traded?'<span class="trade-route-symbol" aria-label="Ruta intercambiada">↔</span>':
           missed?'<span class="miss-mark" aria-label="Encuentro perdido">MISS</span>':
           '<img class="empty-sprite" src="/empty-pokemon.svg" alt="Sin Pokémon registrado">'}</div>
-       <h4>${esc(r.name)}</h4>
-       <button class="miss-toggle" data-route-miss="${esc(r.id)}" ${companionView?'disabled':''}
+       <div class="route-actions"><button class="miss-toggle" data-route-miss="${esc(r.id)}" ${companionView?'disabled':''}
          aria-pressed="${missed}" aria-label="${missed?'Quitar Miss de':'Marcar Miss en'} ${esc(r.name)}">${missed?'↶ Quitar Miss':'Marcar Miss'}</button>
        ${routeVacant?`<button class="miss-toggle route-trade-toggle" type="button"
          data-route-trade="${esc(r.id)}" ${companionView?'disabled':''}
          aria-pressed="${traded}">${traded?'↶ Quitar intercambio':'Intercambiado'}</button>`:''}
        ${traded?'<small class="route-marked">↔ Intercambiado</small>':''}
        ${missed&&list.length?'<small class="miss-label">MISS</small>':''}
-      </article>`;
+       </div>
+      </fieldset>`;
     }).join('')}</div>`;
     $('places').append(section);
   }
@@ -201,12 +201,19 @@ function renderPlaces(){
       .some(s=>normalize(s||'').includes(query))||normalize(title).includes(query));
     if(!matching.length)continue;
     const section=document.createElement('section');section.className='route-section origin-section';section.dataset.origin=kind;
+    // Fósiles, regalos, etc.: una tarjeta por lugar, con sus sprites juntos.
+    const groups=new Map();
+    for(const item of matching){
+      const p=item.p;
+      const key=`${p.origin_version}:${p.met_location_id}`;
+      if(!groups.has(key))groups.set(key,[]);
+      groups.get(key).push(item);
+    }
     section.innerHTML=`<h3>${title} <span class="origin-count">${matching.length}</span></h3>
-      <div class="route-grid">${matching.map(({p,historical})=>`<article class="route-tile occupied">
-      <div class="route-sprites">${routePokemon(p,historical)}</div>
-      <h4>${esc(p.nickname||p.species)}</h4>
-      <small class="origin-location">${esc(p.met_location||'Lugar desconocido')}</small>
-      </article>`).join('')}</div>`;
+      <div class="route-grid">${[...groups.values()].map(group=>`<fieldset class="route-tile occupied">
+      <legend class="route-legend">${esc(group[0].p.met_location||'Lugar desconocido')}</legend>
+      <div class="route-sprites">${group.map(({p,historical})=>routePokemon(p,historical)).join('')}</div>
+      </fieldset>`).join('')}</div>`;
     $('places').append(section);
   }
   const extras=[...locations.values()].filter(items=>
@@ -217,10 +224,10 @@ function renderPlaces(){
   if(visible.length){
     const section=document.createElement('section');section.className='route-section';
     section.innerHTML=`<h3>Otros orígenes registrados</h3><div class="route-grid">
-      ${visible.map(items=>`<article class="route-tile occupied">
+      ${visible.map(items=>`<fieldset class="route-tile occupied">
+        <legend class="route-legend">${esc(items[0].p.met_location||'Origen desconocido')}</legend>
         <div class="route-sprites">${items.map(({p,type,kind})=>type==='mark'?routeFootprint(p,kind):routePokemon(p,kind==='historical')).join('')}</div>
-        <h4>${esc(items[0].p.met_location||'Origen desconocido')}</h4>
-      </article>`).join('')}</div>`;
+      </fieldset>`).join('')}</div>`;
     $('places').append(section);
   }
   if(!$('places').children.length)$('places').innerHTML='<p class="subtitle">Sin rutas coincidentes.</p>';
