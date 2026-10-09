@@ -8,12 +8,14 @@ from __future__ import annotations
 
 import base64
 import copy
+import io
 import json
 import os
 import re
 import tempfile
 import threading
 from pathlib import Path
+from PIL import Image, UnidentifiedImageError
 
 from .progress import pokemon_key
 from .layout_export import BLANK_PNG, png_to_gif
@@ -34,6 +36,7 @@ DEFAULT = {
     'hp_text_color': '#ffffff', 'hp_text_size': 13,
     'hp_style': 'solid', 'hp_reverse': False, 'hp_glow': False,
     'show_empty': False, 'font_file': '',
+    'hp_custom_fill': False, 'hp_custom_frame': False,
 }
 VALID_FONTS = ('ttf', 'otf', 'woff', 'woff2')
 ALLOWED = set(DEFAULT)
@@ -56,7 +59,7 @@ def validated_settings(candidate):
         elif name == 'hp_style':
             if value not in ('solid', 'gradient', 'striped'):
                 raise ValueError('Estilo de barra incorrecto')
-        elif name in ('hp_glow', 'hp_reverse', 'show_empty'):
+        elif name in ('hp_glow', 'hp_reverse', 'show_empty', 'hp_custom_fill', 'hp_custom_frame'):
             if type(value) is not bool:
                 raise ValueError('Opción incorrecta: ' + name)
         elif name == 'font':
@@ -101,6 +104,7 @@ class OverlayManager:
         self.layout = Path(layout)
         self.path = self.runtime / 'obs-overlay.json'
         self.fonts = self.runtime / 'obs-fonts'
+        self.hp_images = self.runtime / 'obs-hp-images'
         self.lock = threading.RLock()
         self.settings = copy.deepcopy(DEFAULT)
         if self.path.is_file():
@@ -161,6 +165,50 @@ class OverlayManager:
         if name not in self.available_fonts():
             return None
         return (self.fonts / name).read_bytes()
+
+    def hp_image_bytes(self, kind):
+        """Solo imágenes conocidas; nunca permite servir rutas suministradas por el cliente."""
+        if kind not in ('fill', 'frame'):
+            return None
+        path = self.hp_images / (kind + '.png')
+        try:
+            return path.read_bytes() if path.is_file() else None
+        except OSError:
+            return None
+
+    def import_hp_image(self, kind, data):
+        """Importa PNG estático, valida dimensiones y elimina metadatos al reescribirlo."""
+        if kind not in ('fill', 'frame'):
+            raise ValueError('Tipo de imagen de barra inválido')
+        if not isinstance(data, str) or len(data) > 3_000_000:
+            raise ValueError('Imagen demasiado grande (máximo 2 MB)')
+        try:
+            raw = base64.b64decode(data, validate=True)
+            if len(raw) > 2_000_000 or not raw.startswith(b'\\x89PNG\\r\\n\\x1a\\n'):
+                raise ValueError('Se necesita una imagen PNG válida de hasta 2 MB')
+            with Image.open(io.BytesIO(raw)) as image:
+                w, h = image.size
+                if image.format != 'PNG' or getattr(image, 'n_frames', 1) != 1:
+                    raise ValueError('Utiliza un PNG estático')
+                if not 1 <= w <= 2048 or not 1 <= h <= 512 or w * h > 1_000_000:
+                    raise ValueError('Dimensiones máximas: 2048 × 512 y 1 megapíxel')
+                normalized = image.convert('RGBA')
+                output = io.BytesIO()
+                normalized.save(output, format='PNG', optimize=True)
+                cleaned = output.getvalue()
+                if len(cleaned) > 3_000_000:
+                    raise ValueError('PNG procesado demasiado grande')
+        except (OSError, UnidentifiedImageError, ValueError) as exc:
+            raise ValueError('No se pudo importar el PNG: ' + str(exc)) from exc
+        self.hp_images.mkdir(parents=True, exist_ok=True)
+        tmp = self.hp_images / (kind + '.tmp')
+        target = self.hp_images / (kind + '.png')
+        try:
+            tmp.write_bytes(cleaned)
+            os.replace(tmp, target)
+        finally:
+            tmp.unlink(missing_ok=True)
+        return {'kind': kind, 'width': w, 'height': h, 'bytes': len(cleaned)}
 
     def image_bytes(self, slot, suffix):
         if type(slot) is not int or slot not in range(1,7) or suffix not in ('png','gif'):
