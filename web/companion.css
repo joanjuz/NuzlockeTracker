@@ -15,9 +15,55 @@
 
 .death-counter{font-size:11px;border:1px solid var(--border,#444);padding:5px 8px;border-radius:10px;white-space:nowrap;display:inline-flex;gap:6px;align-items:center}.death-counter strong{font-size:15px;color:var(--accent,#e85f64)}
 .companion-soullink-toggle{display:flex;align-items:center;gap:8px;margin:16px 0;font-size:13px}.companion-soullink-toggle input{width:auto}
-.soullink-notification{position:fixed;right:22px;bottom:22px;z-index:1000;background:#1b2230;color:#fff;border:1px solid #697386;border-radius:13px;box-shadow:0 12px 36px #0008;max-width:330px;padding:15px}.soullink-notification[hidden]{display:none}.soullink-notification p{font-size:13px;line-height:1.5}.soullink-notification-actions{display:flex;gap:10px}.soullink-notification-actions button{border:1px solid #8893a4;background:transparent;color:inherit;border-radius:8px;padding:6px 12px;cursor:pointer}.soullink-notification-actions button:first-child{border-color:#e66;color:#ff9595}
-
-.soullink-mon{display:flex;align-items:center;gap:12px}.soullink-mon img{flex:0 0 56px;image-rendering:pixelated;object-fit:contain}.soullink-mon p{margin:8px 0}
+/* Avisos de muerte Soul Link: respetan los modos claro y oscuro Progressive. */
+.soullink-notification{
+  position:fixed;right:20px;bottom:20px;z-index:1000;
+  width:min(386px,calc(100vw - 24px));max-height:min(72vh,600px);overflow-y:auto;
+  background:var(--surface);color:var(--text);
+  border:1px solid var(--border);border-radius:13px;
+  box-shadow:0 14px 38px var(--shadow);
+  padding:16px;
+}
+.soullink-notification[hidden],.soullink-choice[hidden],
+.soullink-notice-error[hidden],.soullink-sprite-fallback[hidden],
+#soullink-pokemon-icon[hidden]{display:none!important}
+.soullink-notification>strong{font-size:14px;letter-spacing:.1px}
+.soullink-mon{display:flex;align-items:center;gap:12px;margin:12px 0}
+.soullink-mon p{margin:0;line-height:1.45;font-size:12px;overflow-wrap:anywhere}
+.soullink-portrait{
+  display:grid;place-items:center;flex:0 0 64px;
+  width:64px;height:64px;background:var(--soft);
+  border:1px solid var(--border);border-radius:10px;overflow:hidden
+}
+.soullink-portrait img{
+  width:60px;height:60px;object-fit:contain;
+  image-rendering:pixelated
+}
+.soullink-sprite-fallback{font-size:13px;font-weight:700;color:var(--muted)}
+.soullink-choice{display:grid;gap:7px;font-size:12px;color:var(--muted);margin:12px 0}
+.soullink-choice select{
+  display:block;width:100%;min-width:0;
+  border:1px solid var(--border);background:var(--page);
+  color:var(--text);border-radius:8px;padding:9px 10px;font:inherit
+}
+.soullink-choice select:focus-visible,.soullink-notification button:focus-visible{
+  outline:2px solid var(--accent);outline-offset:2px
+}
+.soullink-notice-error{font-size:12px;color:var(--accent);line-height:1.4;margin:8px 0}
+.soullink-notification-actions{display:flex;gap:9px;flex-wrap:wrap}
+.soullink-notification-actions button{
+  padding:8px 12px;border:1px solid var(--border);
+  background:transparent;color:var(--text);border-radius:8px;cursor:pointer
+}
+.soullink-notification-actions button:first-child{
+  color:var(--accent);border-color:var(--accent)
+}
+.soullink-notification-actions button:hover{background:var(--soft)}
+.soullink-notification-actions button:first-child:hover{background:var(--weak-bg)}
+.soullink-notification-actions button:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:600px){
+  .soullink-notification{bottom:12px;right:12px}
+}
 
 /* Compact death tally alongside Equipo, never in the mini-sprite strip. */
 nav .death-counter{align-self:center;padding:3px 6px;font-size:11px;border-radius:7px;gap:4px;margin:0 3px;line-height:1;flex:0 0 auto}nav .death-counter strong{font-size:12px}.connection-diagnostic{margin-top:12px}.export-feedback{font-size:12px;max-width:100%;padding:7px 10px;margin:5px 0 10px;border-radius:8px;border:1px solid #5c6b77;overflow-wrap:anywhere}.export-feedback[hidden]{display:none}
