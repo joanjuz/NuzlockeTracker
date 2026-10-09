@@ -102,3 +102,16 @@ h1,h2,h3,.brand{font-weight:700;letter-spacing:.01em}.topbar nav button{font-wei
 .evolution-pokemon-title .evolution-wiki{font-size:10px}
 
 .brand .ball img{width:28px;height:28px;display:block;object-fit:contain}.brand .ball{display:inline-flex;align-items:center;justify-content:center}
+
+/* Clasificación de origen por captura (no depende de especie ni de la ROM). */
+.origin-section{padding-top:18px;border-top:1px solid var(--border);margin-top:30px}
+.origin-section h3{display:flex;align-items:center;gap:9px;color:var(--text)}
+.origin-count{background:var(--soft);border-radius:20px;font-size:11px;padding:3px 8px;color:var(--accent)}
+.origin-select{display:block;width:min(118px,100%);max-width:100%;min-width:0;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);font-size:10px;padding:4px 3px;cursor:pointer;text-overflow:ellipsis}
+.origin-select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.origin-select:disabled{opacity:.5;cursor:default}
+.origin-type-label{font-size:10px;color:var(--muted)}
+.origin-location{font-size:10px;color:var(--muted);overflow-wrap:anywhere;line-height:1.4;max-width:100%}
+.origin-section .route-tile{gap:5px;justify-content:flex-start}
+.origin-section .route-tile h4{margin-top:5px}
+.route-pokemon-entry{max-width:100%;width:100%}
