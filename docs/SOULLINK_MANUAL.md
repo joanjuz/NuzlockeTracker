@@ -70,3 +70,14 @@ pareja si la ruta no se puede asociar con los datos disponibles o si no
 se leyeron las cajas. El contador, las opciones locales y el progreso no
 necesitan enviarse a servicios distintos del Worker existente. Los tokens
 y las claves siguen guardados por perfil, no en el repositorio.
+
+
+## Historial de rutas, intercambios salientes y fósiles (experimental)
+
+- Las lecturas válidas guardan un historial local mínimo de cada Pokémon (ID persistente, mote, especie y lugar de procedencia), sin almacenar datos completos de la ROM. No se considera una ausencia prueba de intercambio: puede deberse a una caja sin actualizar.
+- Si el Pokémon deja de figurar en el equipo/cajas leídas, en Rutas aparece **Ya no está en las lecturas** y la ruta continúa teniendo historial, no se convierte automáticamente en vacía.
+- **Intercambiado:** confirma manualmente que ese Pokémon fue entregado. Queda una huella visible en la ruta original, incluso cuando ya no existe en la partida; es distinta de **Intercambios recibidos**, que clasifica los Pokémon nuevos. **Deshacer** retira la huella.
+- **Fósil:** botón directo junto al Pokémon, sin usar su especie. Lo agrupa en **Fósiles**, pero mantiene una huella **Fósil** en la ubicación registrada originalmente; **Deshacer** restaura la clasificación automática.
+- Se conserva el lugar registrado en el juego y el historial aunque el Pokémon cambie de caja, mote o especie. No se marcan muertes ni se alteran ROM o guardados.
+- Solo las **huellas confirmadas** se envían como datos mínimos al compañero Soul Link; la lista de todos los Pokémon vistos permanece local.
+- Para validar una ausencia después de un intercambio es aconsejable actualizar todas las cajas. La detección totalmente automática del acto de intercambiar requiere evidencia adicional: una desaparición por sí sola no basta.
