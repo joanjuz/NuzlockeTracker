@@ -67,3 +67,16 @@ La sincronización reacciona a cambios en la partida y consulta el estado del co
 ## Soul Link Companion v0.23.1
 
 La sección **Rutas** incorpora **Muerte** (sin icono ni confirmación) debajo de cada sprite para registrar manualmente Pokémon en **Muertos**; no mata automáticamente a su pareja Soul Link. **Cajas** conserva la última lectura al desconectar o reiniciar el tracker, diferenciándola de la RAM en vivo. Se retiró el texto de lectura automática, pero el escaneo en segundo plano se mantiene.
+
+## Aplicación de escritorio para Windows (experimental)
+
+La nueva rama `feature/app-escritorio-windows` permite compilar `PokemonTracker.exe`: ventana WebView2 propia (sin CMD y sin navegador externo), selector de perfil principal/segundo jugador, datos persistentes en `%LOCALAPPDATA%\\PokemonTracker\\runtime` y traspaso local no destructivo de los perfiles anteriores. El ZIP portable incluye solamente ejecutable, dependencias y recursos de uso (sin BAT, tests, código de Cloudflare ni herramientas). Consulta [guía Windows](docs/DESKTOP_WINDOWS.md). Para compilar en Windows: `powershell -ExecutionPolicy Bypass -File tools/build_windows.ps1` con Python 3.13 instalado. La compilación y ZIP también se publican como artefacto de GitHub Actions en el PR experimental. Los BAT siguen en el repositorio hasta validar el `.exe`.
+
+### Reparación Python.NET en el EXE
+
+La primera build `--onedir` podía bloquear `Python.Runtime.dll` por la marca de seguridad de Windows al extraer ZIP. La compilación de escritorio pasa a `--onefile`, sin `_internal`, y GitHub Actions valida ahora la importación real de `webview.platforms.winforms` además de los endpoints. El archivo `runtime` no se incluye ni se sobrescribe.
+
+
+### Sprites animados en OBS
+
+La carpeta `sprites_personalizados` admite `25.gif`, `94.gif`, `37-alola.gif` y los nombres `.png` previos. El tracker genera `layout/pokemon_1.gif`…`pokemon_6.gif` para fuentes de imagen animadas de OBS y conserva los seis `.png` como vistas estáticas. Si falta GIF se usa un fotograma estático. Muertos en escala de grises por fotograma; Revivir restaura los colores. Ver [instrucciones de escritorio](docs/DESKTOP_WINDOWS.md).

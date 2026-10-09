@@ -1,11 +1,11 @@
 """Loopback HTTP + WebSocket server, using the Python standard library."""
-import argparse,base64,hashlib,json,re,secrets,socket,struct,threading,webbrowser
+import argparse,base64,hashlib,json,re,secrets,socket,struct,sys,threading,webbrowser
 from http.server import ThreadingHTTPServer,BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlsplit
 from tracker.service import TrackerService
 from companion.sync import CompanionSync
-ROOT=Path(__file__).resolve().parent
+ROOT=Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent))
 
 def runtime_directory(root, profile=None):
     """Separate game state, progress, partner credentials and cache for each local player."""
@@ -87,6 +87,12 @@ def make_handler(service,token,companion=None,profile='principal'):
                     if action not in ('create','join','refresh','leave'):raise ValueError('Acción inválida')
                     self.reply(200,companion.perform(action,cmd))
                 except (ValueError,TypeError) as exc:self.reply(400,{'error':str(exc)})
+                return
+            if self.path=='/api/diagnostic/save':
+                try:
+                    self.reply(200,{'ok':True,'path':service.save_diagnostic()})
+                except OSError as exc:
+                    self.reply(500,{'error':'No se pudo guardar el archivo: '+str(exc)})
                 return
             if self.path=='/api/templates':
                 try:

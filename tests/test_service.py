@@ -17,6 +17,21 @@ class ServiceTests(unittest.TestCase):
   with patch('tracker.service.capture_party',return_value=b''),patch('tracker.service.decode_party',return_value=[None]*6),patch('tracker.service.read_box',return_value=b''),patch('tracker.service.decode_box',return_value=[None]*30):
    for _ in range(32):self.service.poll()
   state=self.service.snapshot();self.assertEqual(len(state['boxes']),32);self.assertEqual(state['scan'],{'active':False,'completed':32});self.assertIsNone(self.service.scan_next)
+ def test_diagnostic_saved_to_disk_without_partner_secrets(self):
+  self.service.diagnostic={'error':'No se encontró RAM','pid':5678,
+                            'mode':'dynamic','regions_scanned':1050}
+  file=Path(self.service.save_diagnostic())
+  self.assertTrue(file.is_file())
+  self.assertEqual(file.parent,(self.path.parent/'diagnosticos').resolve())
+  data=json.loads(file.read_text(encoding='utf-8'))
+  self.assertEqual(data['diagnostic']['regions_scanned'],1050)
+  self.assertNotIn('party',str(data))
+  self.assertNotIn('companion',str(data))
+  self.assertNotIn('token',str(data))
+  self.assertNotIn('password',str(data))
+  self.assertNotIn('boxes',str(data))
+  self.assertTrue(Path(self.service.save_diagnostic()).is_file())
+
  def test_auto_scan_starts_after_connect(self):
   self.service.factory=lambda config: object()
   self.service.config={'game':'Ultra Moon 1.0','mode':'memory'}
@@ -72,6 +87,31 @@ class ServiceTests(unittest.TestCase):
   again.config={'game':'Ultra Sun 1.0','mode':'memory'}
   again.connect()
   self.assertTrue(all(p is None for p in again.snapshot()['party']))
+
+ def test_dynamic_ultra_moon_checks_shifted_box_address(self):
+  from dataclasses import replace
+  class Reader:
+   discovery_mode='dynamic'
+  self.service.reader=Reader()
+  self.service.profile=replace(self.service.profile,party_address=self.service.profile.party_address+0x2400)
+  self.service.scan_next=1
+  shifted=self.service.profile.box_address+0x2400
+  calls=[]
+  def readbox(reader,number,address):
+   calls.append(address)
+   if address!=shifted:raise ValueError('Caja sin descifrar')
+   return b'valid'
+  with patch('tracker.service.capture_party',return_value=b''), \
+       patch('tracker.service.decode_party',return_value=[None]*6), \
+       patch('tracker.service.apply_battle_hp',return_value=([None]*6,False)), \
+       patch('tracker.service.read_box',side_effect=readbox), \
+       patch('tracker.service.decode_box',return_value=[{'species_id':25}]+[None]*29), \
+       patch.object(self.service,'enrich',side_effect=lambda p:p):
+   self.service.poll()
+  self.assertIn(shifted,calls)
+  self.assertEqual(self.service.sun_box_base,shifted)
+  self.assertEqual(self.service.snapshot()['boxes']['1'][0]['species_id'],25)
+  self.assertTrue(self.service.snapshot()['box_verified'])
 
  def test_cached_boxes_survive_disconnect_and_restart(self):
   mon={'species_id':448,'nickname':'Lucario','origin_version':33,'encryption_constant':123,'checksum_valid':True}
