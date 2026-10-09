@@ -50,6 +50,10 @@ def snapshot(state):
             raise ValueError('Registro de debilitados incorrecto')
         safe_deaths[key] = {'pokemon': pokemon(entry.get('pokemon')),
                             'recorded_at': str(entry.get('recorded_at', ''))[:40]}
+        # Share ONLY this harmless flag: the partner must display the death
+        # in Muertos, without creating a second Soul Link notification.
+        if entry.get('source') == 'soullink-response':
+            safe_deaths[key]['source'] = 'soullink-response'
     count = progress.get('death_count', len(safe_deaths))
     if type(count) is not int or not 0 <= count <= 100000:
         raise ValueError('Contador de muertes no válido')
