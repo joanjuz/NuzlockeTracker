@@ -66,6 +66,26 @@ def snapshot(state):
            for key, value in origins.items()):
         raise ValueError('Clasificación de origen no válida')
     safe_origins = dict(origins)
+    route_marks = progress.get('route_marks') or {}
+    if not isinstance(route_marks, dict) or len(route_marks) > 1200:
+        raise ValueError('Historial de marcas inválido')
+    safe_marks = {}
+    for key, mark in route_marks.items():
+        if (not isinstance(key, str) or
+            re.fullmatch(r'[0-9]{1,3}:[0-9]{1,10}', key) is None or
+            not isinstance(mark, dict) or mark.get('kind') not in ('trade','fossil')
+            or not isinstance(mark.get('pokemon'), dict)):
+            raise ValueError('Marca de ruta inválida')
+        record = mark['pokemon']
+        if (type(record.get('species_id')) is not int or
+            not 1 <= record['species_id'] <= 1025):
+            raise ValueError('Pokémon de marca inválido')
+        # Redacted fields: no trainer IDs or other private game data.
+        allowed = ('species_id','species','nickname','origin_version',
+                   'encryption_constant','met_location_id','met_location')
+        safe_marks[key] = {'kind': mark['kind'],
+                           'pokemon': {field: copy.deepcopy(record[field])
+                                       for field in allowed if field in record}}
     count = progress.get('death_count', len(safe_deaths))
     if type(count) is not int or not 0 <= count <= 100000:
         raise ValueError('Contador de muertes no válido')
@@ -76,7 +96,8 @@ def snapshot(state):
         'schema_version': 1, 'game': state['game'],
         'party': [pokemon(p) for p in party], 'boxes': result_boxes,
         'progress': {'deaths': safe_deaths, 'missed_routes': missed,
-                     'death_count': count, 'origins': safe_origins},
+                     'death_count': count, 'origins': safe_origins,
+                     'route_marks': safe_marks},
         'battle_hp': state.get('battle_hp') is True,
     }
     raw = json.dumps(data, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
