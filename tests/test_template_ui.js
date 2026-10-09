@@ -11,6 +11,10 @@ for(const id of ['template-moves','template-stats','template-evolutions','import
 assert.match(app, /\/api\/templates/);
 assert.match(app, /function detail\(p\)/);
 assert.match(app, /Cómo evoluciona/);
+assert.match(app, /www\.wikidex\.net\/wiki\//);
+assert.match(app, /evolution-pokemon-title/);
+assert.doesNotMatch(app, /TU AVENTURA EN ALOLA/);
+assert.doesNotMatch(html, /TU AVENTURA EN ALOLA/);
 assert.match(app, /p\.evolutions\?\.length/);
 assert.doesNotMatch(app, /No tiene evoluciones registradas para esta especie/);
 // Broken local sprite files must retry PokeAPI and then reveal the number.

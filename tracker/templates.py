@@ -310,13 +310,14 @@ class TemplateManager:
             line = record.get('method', '')
             required = re.search(r'Forma requerida \(ID\): (\d+)', line)
             regional = required is not None
-            if int(species) in (27, 37) and ((int(form or 0) == 1) != regional):
+            # Each listed Alolan source has a distinct branch in PokeAPI's
+            # historical Gen7 evolution data. Regional and regular Pokémon
+            # share the species ID, so filter by the PK7 form before rendering.
+            regional_source = int(species) in (27, 37, 50, 52, 74, 75, 88)
+            if regional_source and ((int(form or 0) == 1) != regional):
                 continue
             cleaned = {**record, 'method': pretty_reference(line)}
-            if regional and int(species) in (27, 37):
-                cleaned['target_form'] = 1
-            else:
-                cleaned['target_form'] = int(form or 0) if int(species) in (27, 37) and int(form or 0) == 1 else 0
+            cleaned['target_form'] = 1 if regional_source and regional else 0
             output.append(cleaned)
         source_form = int(form or 0)
         mods = self.data['evolutions'].get(source, [])
@@ -326,7 +327,7 @@ class TemplateManager:
         grouped = {}
         for row in mods:
             result_form = source_form if row['form'] == -1 else row['form']
-            if source_form in (0, 1) and int(species) in (27, 37) and result_form != source_form:
+            if source_form in (0, 1) and int(species) in (27, 37, 50, 52, 74, 75, 88) and result_form != source_form:
                 continue
             entry = {**row, 'target_form': result_form}
             grouped.setdefault(row['target'], []).append(entry)

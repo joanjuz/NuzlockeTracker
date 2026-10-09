@@ -75,6 +75,22 @@ class TemplateTests(unittest.TestCase):
             self.assertEqual(mgr.evolutions(38, 1), [])
             self.assertEqual(mgr.evolutions(27, 1)[0]['target'], 28)
 
+    def test_alolan_diglett_and_related_regional_forms_are_not_duplicated(self):
+        with tempfile.TemporaryDirectory() as folder:
+            mgr = TemplateManager(Path(folder) / 'templates.json')
+            for source, target in ((50, 51), (52, 53), (74, 75), (75, 76), (88, 89)):
+                with self.subTest(species=source):
+                    regular = mgr.evolutions(source, 0)
+                    alolan = mgr.evolutions(source, 1)
+                    self.assertEqual(len(regular), 1)
+                    self.assertEqual(len(alolan), 1)
+                    self.assertEqual(regular[0]['target'], target)
+                    self.assertEqual(alolan[0]['target'], target)
+                    self.assertEqual(regular[0]['target_form'], 0)
+                    self.assertEqual(alolan[0]['target_form'], 1)
+            self.assertEqual(mgr.evolutions(50, 0)[0]['method'], 'Subir de nivel (nivel 26)')
+            self.assertEqual(mgr.evolutions(50, 1)[0]['method'], 'Subir de nivel (nivel 26)')
+
     def test_pk3ds_item_names_and_form_target(self):
         from tracker.templates import evolutions_csv
         csv = ("Source,Target,Method,Level,Argument,Form,ItemName,AltItemName\n"
