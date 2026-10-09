@@ -22,7 +22,7 @@ class ServiceTests(unittest.TestCase):
                             'mode':'dynamic','regions_scanned':1050}
   file=Path(self.service.save_diagnostic())
   self.assertTrue(file.is_file())
-  self.assertEqual(file.parent,self.path.parent/'diagnosticos')
+  self.assertEqual(file.parent,(self.path.parent/'diagnosticos').resolve())
   data=json.loads(file.read_text(encoding='utf-8'))
   self.assertEqual(data['diagnostic']['regions_scanned'],1050)
   self.assertNotIn('party',str(data))

@@ -26,7 +26,7 @@ class ServerTests(unittest.TestCase):
   self.assertEqual(code,200)
   saved=Path(json.loads(response)['path'])
   self.assertTrue(saved.is_file())
-  self.assertEqual(saved.parent,self.service.output.parent/'diagnosticos')
+  self.assertEqual(saved.parent,(self.service.output.parent/'diagnosticos').resolve())
   self.assertEqual(json.loads(saved.read_text(encoding='utf-8'))['diagnostic']['pid'],142)
   self.assertEqual(self.request('GET','/api/diagnostic')[0],200)
 
