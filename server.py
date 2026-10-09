@@ -1,5 +1,5 @@
 """Loopback HTTP + WebSocket server, using the Python standard library."""
-import argparse,base64,hashlib,json,re,secrets,socket,struct,sys,threading,webbrowser
+import argparse,base64,hashlib,ipaddress,json,re,secrets,socket,struct,sys,threading,webbrowser
 from http.server import ThreadingHTTPServer,BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -21,11 +21,81 @@ def frame(payload,opcode=1):
     raw=payload.encode() if isinstance(payload,str) else payload
     size=len(raw);return bytes([128|opcode])+(bytes([size]) if size<126 else b'\x7e'+struct.pack('!H',size) if size<65536 else b'\x7f'+struct.pack('!Q',size))+raw
 
-def make_handler(service,token,companion=None,profile='principal',overlay=None):
+class RemoteOverlayShare:
+    """Servidor independiente vinculado SOLO a la IP VPN seleccionada.
+
+    Las rutas remotas permiten leer el overlay, nunca acceder a /api/session,
+    /api/state, /api/command, /ws ni publicar cambios.
+    """
+    def __init__(self, service, overlay, preferred_port=8767):
+        self.service = service
+        self.overlay = overlay
+        self.preferred_port = preferred_port
+        self.lock = threading.RLock()
+        self.server = None
+        self.thread = None
+
+    def status(self):
+        with self.lock:
+            if self.server is None:
+                return {'enabled': False, 'ip': '', 'port': None, 'base_url': ''}
+            ip, port = self.server.server_address[:2]
+            return {'enabled': True, 'ip': ip, 'port': port,
+                    'base_url': f'http://{ip}:{port}'}
+
+    def configure(self, enabled, ip=''):
+        if type(enabled) is not bool:
+            raise ValueError('Estado de VPN inválido')
+        if not enabled:
+            self.close()
+            return self.status()
+        if not isinstance(ip, str):
+            raise ValueError('Introduce una dirección IPv4 de tu computadora')
+        try:
+            address = ipaddress.IPv4Address(ip.strip())
+        except ipaddress.AddressValueError as exc:
+            raise ValueError('La IP VPN debe ser IPv4; por ejemplo 26.10.20.30') from exc
+        if address.is_unspecified or address.is_loopback or address.is_multicast or int(address) == 0xffffffff:
+            raise ValueError('Selecciona la IP de tu adaptador VPN; no 127.0.0.1 ni 0.0.0.0')
+        ip = str(address)
+        with self.lock:
+            if self.server and self.server.server_address[0] == ip:
+                return self.status()
+            handler = make_handler(self.service, secrets.token_urlsafe(32),
+                                   overlay=self.overlay, remote_only=True)
+            try:
+                server = ThreadingHTTPServer((ip, self.preferred_port), handler)
+            except OSError as exc:
+                # Solo intentar puerto dinámico cuando el predeterminado está ocupado.
+                if getattr(exc, 'errno', None) not in (98, 10048):
+                    raise ValueError('No se pudo usar esa IP. Comprueba la IP de Radmin VPN: ' + str(exc)) from exc
+                server = ThreadingHTTPServer((ip, 0), handler)
+            server.daemon_threads = True
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            previous = self.server
+            self.server, self.thread = server, thread
+        if previous:
+            previous.shutdown()
+            previous.server_close()
+        return self.status()
+
+    def close(self):
+        with self.lock:
+            previous = self.server
+            self.server = None
+            self.thread = None
+        if previous:
+            previous.shutdown()
+            previous.server_close()
+
+
+def make_handler(service,token,companion=None,profile='principal',overlay=None,
+                 share=None,remote_only=False):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self,*args):pass
         def allowed(self):
-            host=f'127.0.0.1:{self.server.server_port}'
+            host=f'{self.server.server_address[0]}:{self.server.server_port}'
             return self.headers.get('Host')==host and self.headers.get('Origin',f'http://{host}')==f'http://{host}'
         def reply(self,code,data,kind='application/json'):
             raw=json.dumps(data,ensure_ascii=False).encode() if kind=='application/json' else data
@@ -33,8 +103,20 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None):
         def do_GET(self):
             if not self.allowed():self.reply(403,{'error':'Origen inválido'});return
             path=urlsplit(self.path).path
+            if remote_only:
+                remote_files = ('/overlay', '/overlay.js', '/overlay.css',
+                                '/api/overlay/public', '/api/overlay/settings',
+                                '/fonts/Oxanium.ttf')
+                media = (path.startswith('/overlay/media/pokemon_') or
+                         path.startswith('/overlay/font/') or
+                         path.startswith('/overlay/hp-image/'))
+                if path not in remote_files and not media:
+                    self.reply(404, {'error':'Solo lectura OBS'});return
             if path.startswith('/api/overlay/') or path.startswith('/overlay'):
                 if overlay is None:self.reply(404,{});return
+                if path=='/api/overlay/share':
+                    if share is None or remote_only:self.reply(404,{});return
+                    self.reply(200,share.status());return
                 if path=='/api/overlay/public':
                     self.reply(200,overlay.public_state());return
                 if path=='/api/overlay/settings':
@@ -51,6 +133,12 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None):
                     kind={'ttf':'font/ttf','otf':'font/otf',
                           'woff':'font/woff','woff2':'font/woff2'}.get(extension,'application/octet-stream')
                     self.reply(200,raw,kind);return
+                if path.startswith('/overlay/hp-image/'):
+                    match=re.fullmatch(r'/overlay/hp-image/(fill|frame)\\.png',path)
+                    if not match:self.reply(404,{});return
+                    raw=overlay.hp_image_bytes(match[1])
+                    if raw is None:self.reply(404,{});return
+                    self.reply(200,raw,'image/png');return
                 if path.startswith('/overlay/media/pokemon_'):
                     match=re.fullmatch(r'/overlay/media/pokemon_([1-6])\.(gif|png)',path)
                     if not match:self.reply(404,{});return
@@ -112,17 +200,31 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None):
                 if file.is_file():self.reply(200,file.read_bytes(),'image/png');return
             self.reply(404,{})
         def do_POST(self):
+            if remote_only:self.reply(403,{'error':'Solo lectura OBS'});return
             if not self.allowed() or self.headers.get('X-Tracker-Token')!=token:self.reply(403,{});return
-            if self.path in ('/api/overlay/settings','/api/overlay/font'):
+            if self.path=='/api/overlay/share':
+                if share is None:self.reply(404,{});return
+                try:
+                    length=int(self.headers.get('Content-Length','0'))
+                    if not 0<length<=256:raise ValueError('Solicitud demasiado grande')
+                    data=json.loads(self.rfile.read(length))
+                    if not isinstance(data,dict):raise ValueError('Solicitud incorrecta')
+                    self.reply(200,share.configure(data.get('enabled'),data.get('ip','')))
+                except (ValueError,TypeError,OSError) as exc:
+                    self.reply(400,{'error':str(exc)})
+                return
+            if self.path in ('/api/overlay/settings','/api/overlay/font','/api/overlay/hp-image'):
                 if overlay is None:self.reply(404,{});return
                 try:
                     size=int(self.headers.get('Content-Length','0'))
-                    limit=4300000 if self.path.endswith('/font') else 8192
+                    limit=4300000 if self.path.endswith('/font') else 3000000 if self.path.endswith('/hp-image') else 8192
                     if not 0<size<=limit:raise ValueError('Solicitud de overlay demasiado grande')
                     obj=json.loads(self.rfile.read(size))
                     if not isinstance(obj,dict):raise ValueError('JSON inválido')
                     if self.path.endswith('/font'):
                         result=overlay.import_font(obj.get('name'),obj.get('data'))
+                    elif self.path.endswith('/hp-image'):
+                        result=overlay.import_hp_image(obj.get('kind'),obj.get('data'))
                     else:
                         result=overlay.set_settings(obj)
                     self.reply(200,result)
@@ -190,13 +292,14 @@ def main():
     companion=CompanionSync(service,runtime)
     companion.start()
     overlay=OverlayManager(service,runtime,runtime/'layout')
+    share=RemoteOverlayShare(service,overlay)
     server=ThreadingHTTPServer(('127.0.0.1',0),
         make_handler(service,secrets.token_urlsafe(32),companion,
-                     profile=args.profile or 'principal',overlay=overlay))
+                     profile=args.profile or 'principal',overlay=overlay,share=share))
     worker=threading.Thread(target=service.run,daemon=True);worker.start()
     url=f'http://127.0.0.1:{server.server_port}/';print('Tracker local: '+url+'\nPerfil: '+(args.profile or 'principal')+'\nMantén esta ventana abierta. Ctrl+C para cerrar.')
     if not args.no_browser:webbrowser.open(url)
     try:server.serve_forever()
     except KeyboardInterrupt:pass
-    finally:service.stop.set();companion.close();server.server_close()
+    finally:service.stop.set();share.close();companion.close();server.server_close()
 if __name__=='__main__':main()
