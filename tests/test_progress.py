@@ -23,6 +23,47 @@ class ProgressTests(unittest.TestCase):
    self.assertFalse(self.service.snapshot()['progress']['deaths'])
   self.service.update(boxes={'1':party});self.assertFalse(self.service.snapshot()['progress']['deaths'])
   self.service.update(party=party,stale=False);self.assertEqual(len(self.service.snapshot()['progress']['deaths']),1)
+ def test_origin_classification_without_hardcoding_species_and_persists(self):
+  from tracker.progress import RunProgress,origin_category,pokemon_key
+  p=dict(self.service.team[0])
+  self.assertEqual(origin_category(p),'route')
+  hatched=dict(p,egg=False,egg_location_id=30001)
+  self.assertEqual(origin_category(hatched),'egg')
+  self.assertEqual(origin_category(dict(p,egg=True)),'egg')
+  path=Path(self.tmp.name)/'origin-progress.json'
+  progress=RunProgress(path)
+  self.assertTrue(progress.set_origin(p,'fossil'))
+  self.assertEqual(origin_category(p,progress.data['origins']),'fossil')
+  renamed=dict(p,nickname='Nuevo mote',species_id=150)
+  self.assertEqual(origin_category(renamed,progress.data['origins']),'fossil')
+  loaded=RunProgress(path)
+  self.assertEqual(loaded.data['origins'],progress.data['origins'])
+  self.assertEqual(origin_category(hatched,loaded.data['origins']),'fossil')
+  loaded.set_origin(p,'auto')
+  self.assertEqual(origin_category(hatched,loaded.data['origins']),'egg')
+  self.assertNotIn(pokemon_key(p),RunProgress(path).data['origins'])
+  with self.assertRaises(ValueError):loaded.set_origin(p,'inventado')
+  with self.assertRaises(ValueError):loaded.set_origin(p,None)
+
+ def test_origin_command_requires_existing_pokemon_and_valid_category(self):
+  from tracker.progress import pokemon_key
+  state_path=Path(self.tmp.name)/'clasificacion-state.json'
+  live=TrackerService(state_path)
+  mon=copy.deepcopy(self.service.team[0])
+  live.update(party=[mon]+[None]*5,stale=False)
+  key=pokemon_key(mon)
+  command={'action':'set_origin','key':key,'category':'gift'}
+  live.validate_set_origin(command)
+  live.handle(command)
+  self.assertEqual(live.snapshot()['progress']['origins'][key],'gift')
+  self.assertEqual(TrackerService(state_path).snapshot()['progress']['origins'][key],'gift')
+  live.handle(dict(command,category='auto'))
+  self.assertNotIn(key,live.snapshot()['progress']['origins'])
+  for invalid in [dict(command,category='fossils'),dict(command,key='33:999999999'),
+                  dict(command,key='../../secret'),dict(command,category=None)]:
+   with self.subTest(invalid=invalid),self.assertRaises(ValueError):
+    live.validate_set_origin(invalid)
+
  def test_miss_reversible_persistent_and_validated(self):
   cmd={'action':'route_miss','route':'8','missed':True};self.service.handle(cmd);self.service.handle(cmd)
   self.assertEqual(DemoService(self.path).snapshot()['progress']['missed_routes'],['8'])
