@@ -176,6 +176,15 @@ class OverlayManager:
         except OSError:
             return None
 
+    def hp_asset_versions(self):
+        versions = {}
+        for kind in ('fill', 'frame'):
+            try:
+                versions[kind] = str((self.hp_images / (kind + '.png')).stat().st_mtime_ns)
+            except OSError:
+                versions[kind] = '0'
+        return versions
+
     def import_hp_image(self, kind, data):
         """Importa PNG estático, valida dimensiones y elimina metadatos al reescribirlo."""
         if kind not in ('fill', 'frame'):
