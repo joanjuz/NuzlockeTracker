@@ -97,7 +97,7 @@ class LayoutTests(unittest.TestCase):
             root = layout_directory(Path(temp)/'user',executable=exe,frozen=True)
             second = layout_directory(Path(temp)/'user','segundo-jugador',
                                       executable=exe,frozen=True)
-            self.assertEqual(root,Path(temp)/'layout')
+            self.assertEqual(root,(Path(temp)/'layout').resolve())
             self.assertEqual(second,root/'perfil_2')
 
     def test_second_window_automatically_uses_existing_profile(self):
