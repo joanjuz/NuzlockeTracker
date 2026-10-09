@@ -1,0 +1,18 @@
+'use strict';
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const assert = require('node:assert/strict');
+const app = fs.readFileSync(path.join(__dirname,'../web/app.js'),'utf8');
+const html = fs.readFileSync(path.join(__dirname,'../web/index.html'),'utf8');
+new vm.Script(app, {filename:'web/app.js'});
+for(const id of ['template-moves','template-stats','template-evolutions','import-templates','save-session','template-status'])
+  assert.match(html, new RegExp('id="'+id+'"'), 'Falta control '+id);
+assert.match(app, /\/api\/templates/);
+assert.match(app, /function detail\(p\)/);
+assert.match(app, /Cómo evoluciona/);
+assert.match(app, /Método modificado por pk3DS Progressive/);
+assert.match(app, /Estadísticas base · pk3DS Progressive/);
+assert.match(app, /saved_connection/);
+assert.match(app, /session_saved|save_session/);
+console.log('UI pk3DS: script válido, selectores, importación, ficha de evolución y sesión OK');
