@@ -1,5 +1,5 @@
 'use strict';
-/* Public browser source: six sanitized slots, never the private /api/state. */
+/* Browser source reads only six sanitized slots from the public overlay API. */
 (() => {
   const args = new URLSearchParams(location.search);
   const allowed = new Set(['all','sprites','names','hp']);
