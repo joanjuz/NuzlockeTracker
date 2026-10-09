@@ -64,6 +64,61 @@ class ProgressTests(unittest.TestCase):
    with self.subTest(invalid=invalid),self.assertRaises(ValueError):
     live.validate_set_origin(invalid)
 
+ def test_historical_trade_mark_persists_after_member_disappears(self):
+  from tracker.progress import pokemon_key
+  import copy
+  path=Path(self.tmp.name)/'trade-state.json'
+  app=TrackerService(path)
+  mon=copy.deepcopy(self.service.team[0])
+  key=pokemon_key(mon)
+  app.update(party=[mon]+[None]*5,stale=False)
+  self.assertIn(key,app.snapshot()['progress']['encounters'])
+  # El Pokémon se fue, pero NO suponemos automáticamente que fue intercambio.
+  app.update(party=[None]*6,boxes={'1':[None]*30},stale=False)
+  saved=app.snapshot()['progress']
+  self.assertIn(key,saved['encounters'])
+  self.assertNotIn(key,saved['route_marks'])
+  app.handle({'action':'mark_route','key':key,'kind':'trade'})
+  self.assertEqual(app.snapshot()['progress']['route_marks'][key]['kind'],'trade')
+  restarted=TrackerService(path)
+  self.assertEqual(restarted.snapshot()['progress']['route_marks'][key]['pokemon']['nickname'],mon['nickname'])
+  restarted.handle({'action':'clear_route_mark','key':key})
+  self.assertNotIn(key,restarted.snapshot()['progress']['route_marks'])
+  # El historial permanece para corregir un intercambio marcado por error.
+  self.assertIn(key,restarted.snapshot()['progress']['encounters'])
+
+ def test_fossil_button_moves_origin_and_undo_restores_automatic(self):
+  from tracker.progress import pokemon_key
+  path=Path(self.tmp.name)/'fossil-state.json'
+  app=TrackerService(path)
+  mon=copy.deepcopy(self.service.team[1])
+  key=pokemon_key(mon)
+  app.update(party=[mon]+[None]*5,stale=False)
+  app.handle({'action':'mark_route','key':key,'kind':'fossil'})
+  progress=app.snapshot()['progress']
+  self.assertEqual(progress['origins'][key],'fossil')
+  self.assertEqual(progress['route_marks'][key]['kind'],'fossil')
+  self.assertEqual(progress['death_count'],0)
+  app.handle({'action':'clear_route_mark','key':key})
+  progress=app.snapshot()['progress']
+  self.assertNotIn(key,progress['route_marks'])
+  self.assertNotIn(key,progress['origins'])
+  app.handle({'action':'mark_route','key':key,'kind':'fossil'})
+  app.handle({'action':'set_origin','key':key,'category':'gift'})
+  self.assertNotIn(key,app.snapshot()['progress']['route_marks'])
+  self.assertEqual(app.snapshot()['progress']['origins'][key],'gift')
+
+ def test_route_mark_rejects_unknown_keys_and_invalid_kind(self):
+  path=Path(self.tmp.name)/'marks-state.json'
+  app=TrackerService(path)
+  for bad in ({'key':'../../secret','kind':'trade'},
+              {'key':'33:123','kind':'unknown'},
+              {'key':'33:123','kind':'trade'}):
+   with self.subTest(bad=bad),self.assertRaises(ValueError):
+    app.validate_route_mark(bad)
+  with self.assertRaises(ValueError):
+   app.validate_route_mark({'key':'33:123'},undo=True)
+
  def test_miss_reversible_persistent_and_validated(self):
   cmd={'action':'route_miss','route':'8','missed':True};self.service.handle(cmd);self.service.handle(cmd)
   self.assertEqual(DemoService(self.path).snapshot()['progress']['missed_routes'],['8'])
