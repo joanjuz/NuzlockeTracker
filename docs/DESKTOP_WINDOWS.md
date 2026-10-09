@@ -2,7 +2,9 @@ POKEMON TRACKER - APLICACION PARA WINDOWS (VERSION EXPERIMENTAL)
 
 INICIAR
 1. Descarga PokemonTracker-Windows-x64.zip desde los artefactos de GitHub Actions.
-2. Extrae TODO el ZIP en una carpeta nueva; NO muevas PokemonTracker.exe por separado.
+2. Extrae el ZIP en una carpeta nueva. Esta edición usa un EXE independiente:
+   solo necesitas PokemonTracker.exe para ejecutarla; LEEME.txt y LICENSE.txt
+   son documentación. La primera apertura puede tardar más por extracción temporal.
 3. Ejecuta PokemonTracker.exe con doble clic. No exige instalar Python, abrir .bat
    ni ejecutar un servidor en la consola: la ventana usa Microsoft Edge WebView2.
 4. Selecciona "Jugador principal" o "Segundo jugador". Puedes abrir una instancia
@@ -30,7 +32,9 @@ PERFILES, PARTIDAS Y SOUL LINK
   o PokemonTracker.exe --profile segundo-jugador
 
 DISTRIBUCION LIMPIA
-- Necesitas PokemonTracker.exe y la carpeta _internal completa.
+- La distribución ahora incluye un único PokemonTracker.exe, sin carpeta _internal.
+- El ejecutable autoextrae sus dependencias temporalmente; así las DLL no
+  conservan individualmente el bloqueo de archivos descargados de Internet.
 - El paquete excluye .bat, tests, scripts de diagnóstico, Git y la fuente del Worker.
 - El repositorio conserva los .bat temporalmente como alternativa para depuración;
   no los borres todavía hasta verificar que la versión de escritorio funciona.
@@ -40,6 +44,8 @@ DISTRIBUCION LIMPIA
 SOLUCIONAR PROBLEMAS
 - Instala o repara Microsoft Edge WebView2 Runtime si aparece un error de ventana.
 - Si no abre, revisa %LOCALAPPDATA%\PokemonTracker\desktop-error.log.
+- El test de compilación ahora carga Python.NET/WinForms y comprueba el servidor,
+  por lo que detecta el error Python.Runtime.Loader.Initialize antes de publicar.
 - Windows SmartScreen puede avisar porque la compilación experimental no está
   firmada digitalmente. Comprueba la procedencia del artefacto y no desactives
   protecciones del sistema sin verificarlo.

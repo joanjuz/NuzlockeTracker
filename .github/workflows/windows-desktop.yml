@@ -42,13 +42,16 @@ jobs:
         shell: powershell
         run: |
           if (-not (Test-Path '.\out\PokemonTracker-Windows-x64.zip')) { throw 'Falta el ZIP' }
-          if (Test-Path '.\dist\PokemonTracker\Iniciar.bat') { throw 'El paquete contiene BAT' }
-          if (Test-Path '.\dist\PokemonTracker\tests') { throw 'El paquete contiene tests' }
-          if (-not (Test-Path '.\dist\PokemonTracker\PokemonTracker.exe')) { throw 'Falta el EXE' }
+          if (Test-Path '.\dist\Iniciar.bat') { throw 'El paquete contiene BAT' }
+          if (Test-Path '.\dist\tests') { throw 'El paquete contiene tests' }
+          if (-not (Test-Path '.\dist\PokemonTracker.exe')) { throw 'Falta el EXE' }
       - name: Publicar ZIP para pruebas Windows
         uses: actions/upload-artifact@v4
         with:
-          name: PokemonTracker-Windows-x64
-          path: dist/PokemonTracker/
+          name: PokemonTracker-Windows-x64-onefile
+          path: |
+            dist/PokemonTracker.exe
+            dist/LICENSE.txt
+            dist/LEEME.txt
           retention-days: 14
           if-no-files-found: error

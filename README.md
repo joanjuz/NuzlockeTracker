@@ -71,3 +71,7 @@ La sección **Rutas** incorpora **Muerte** (sin icono ni confirmación) debajo d
 ## Aplicación de escritorio para Windows (experimental)
 
 La nueva rama `feature/app-escritorio-windows` permite compilar `PokemonTracker.exe`: ventana WebView2 propia (sin CMD y sin navegador externo), selector de perfil principal/segundo jugador, datos persistentes en `%LOCALAPPDATA%\\PokemonTracker\\runtime` y traspaso local no destructivo de los perfiles anteriores. El ZIP portable incluye solamente ejecutable, dependencias y recursos de uso (sin BAT, tests, código de Cloudflare ni herramientas). Consulta [guía Windows](docs/DESKTOP_WINDOWS.md). Para compilar en Windows: `powershell -ExecutionPolicy Bypass -File tools/build_windows.ps1` con Python 3.13 instalado. La compilación y ZIP también se publican como artefacto de GitHub Actions en el PR experimental. Los BAT siguen en el repositorio hasta validar el `.exe`.
+
+### Reparación Python.NET en el EXE
+
+La primera build `--onedir` podía bloquear `Python.Runtime.dll` por la marca de seguridad de Windows al extraer ZIP. La compilación de escritorio pasa a `--onefile`, sin `_internal`, y GitHub Actions valida ahora la importación real de `webview.platforms.winforms` además de los endpoints. El archivo `runtime` no se incluye ni se sobrescribe.

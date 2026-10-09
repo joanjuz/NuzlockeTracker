@@ -190,6 +190,19 @@ class LocalBackend:
             self.worker.join(timeout=4)
 
 
+def smoke_test_native():
+    """Load the SAME .NET/WinForms backend used by the real window.
+
+    In particular this detects pythonnet / Python.Runtime.dll packaging failures
+    that an HTTP-only smoke test misses. No windows are opened by this check.
+    """
+    if sys.platform == 'win32':
+        import webview.platforms.winforms as winforms
+        if not hasattr(winforms, 'BrowserView'):
+            raise RuntimeError('Backend gráfico WinForms incompleto')
+    return True
+
+
 def smoke_test(backend):
     """CI check on Windows: verify actual frozen HTTP/resources without opening a GUI."""
     for endpoint in ('', 'app.js', 'style.css', 'api/state',
@@ -234,6 +247,7 @@ def main(argv=None):
                                                  else profile), profile).start()
         if opts.smoke_test:
             smoke_test(backend)
+            smoke_test_native()
             return 0
         # Deliberately lazy: CI smoke test does not require installed WebView2.
         import webview

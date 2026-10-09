@@ -68,6 +68,11 @@ class DesktopTests(unittest.TestCase):
             self.assertFalse(principal.http_thread.is_alive())
             self.assertFalse(secondary.http_thread.is_alive())
 
+    def test_native_backend_smoke_imports_only_on_windows(self):
+        from desktop import smoke_test_native
+        if os.name != 'nt':
+            self.assertTrue(smoke_test_native())
+
     def test_headless_smoke_test_without_desktop_dependencies(self):
         with tempfile.TemporaryDirectory() as folder:
             with patch.dict(os.environ, {'LOCALAPPDATA': folder}):
