@@ -25,5 +25,6 @@ assert.match(app, /class=\"sprite-fallback\" hidden>#/);
 assert.match(app, /Método modificado por pk3DS Progressive/);
 assert.match(app, /Estadísticas base · pk3DS Progressive/);
 assert.match(app, /saved_connection/);
-assert.match(app, /session_saved|save_session/);
+assert.match(app, /exportWithDialog\('session'\)/);
+assert.match(app, /window\.pywebview\.api\.save_export/);
 console.log('UI pk3DS: script válido, selectores, importación, ficha de evolución y sesión OK');
