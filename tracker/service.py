@@ -92,10 +92,10 @@ class TrackerService:
             target=evo['target']
             result_form=evo.get('target_form',0)
             name=self.catalog.name('species',target)
-            if result_form==1 and target in (20,26,28,38,51,53,75,76,78,80,89,103,105):
+            if result_form==1 and target in (20,26,28,38,51,53,75,76,89,103,105):
                 name+=' de Alola'
             # PokeAPI maintains regional forms under distinct Pokémon IDs.
-            regional_sprites={20:10092,26:10100,28:10102,38:10104,51:10106,53:10108,75:10110,76:10111,78:10112,80:10113,89:10114,103:10115,105:10116}
+            regional_sprites={20:10092,26:10100,28:10102,38:10104,51:10106,53:10108,75:10110,76:10111,89:10113,103:10114,105:10115}
             evo_data={**evo,'target_name':name,'sprite_id':regional_sprites.get(target,target) if result_form==1 else target}
             evolutions.append(evo_data)
         data['evolutions']=evolutions
