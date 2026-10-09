@@ -33,7 +33,8 @@
         } else {
           const hp = mk('div','overlay-health',node);
           const track = mk('div','hp-outline',hp);
-          mk('div','hp-fill',track);
+          const fill=mk('div','hp-fill',track);
+          mk('div','hp-fill-art',fill);
           mk('span','hp-label',hp);
         }
       }
@@ -54,6 +55,11 @@
     css('--border',settings.hp_border_width+'px');css('--border-color',settings.hp_border);
     css('--track',settings.hp_background);css('--hp-text',settings.hp_text_color);
     css('--hp-size',settings.hp_text_size+'px');
+    const versions=settings.hp_asset_versions||{};
+    const png=(kind)=>'url("/overlay/hp-image/'+kind+'.png?v='+encodeURIComponent(versions[kind]||'0')+'")';
+    css('--hp-fill-image',settings.hp_custom_fill?png('fill'):'none');
+    css('--hp-frame-image',settings.hp_custom_frame?png('frame'):'none');
+    css('--hp-art-width','calc('+settings.slot_width+'px - '+(2*settings.hp_border_width)+'px)');
     let font=settings.font === 'monospace'?'monospace':'"'+settings.font.replaceAll('"','')+'",sans-serif';
     if(settings.font_file) {
       const family='UserOverlayFont';
@@ -99,7 +105,9 @@
              pct<=settings.hp_mid_threshold?settings.hp_mid:settings.hp_good);
           line.style.setProperty('--hp-color',healthColor);
           track.classList.toggle('reverse',settings.hp_reverse);
-          fill.className='hp-fill '+settings.hp_style+(settings.hp_glow?' glow':'');
+          track.classList.toggle('custom-frame',settings.hp_custom_frame);
+          fill.className='hp-fill '+(settings.hp_custom_fill?'custom-fill':settings.hp_style)+
+            (settings.hp_glow?' glow':'');
           fill.style.width=(p.present?Math.min(100,Math.max(0,pct)):0)+'%';
           caption.textContent=p.present?healthLabel(p):'';
           caption.style.display=settings.hp_label==='none'?'none':'';
