@@ -32,4 +32,17 @@ assert.match(edit,/\/api\/overlay\/font/);
 assert.match(edit,/\/api\/overlay\/settings/);
 assert.match(edit,/setTimeout\(save,350\)/);
 assert.match(edit,/new Option/);
+const editorCss=read('overlay-editor.css'),appCss=read('style.css');
+for(const token of ['--page:#101010','--surface:#191919','--text:#f5f5f5',
+  '--muted:#aaa','--accent:#f05b65','--border:#ffffff20',
+  '--page:#fff','--accent:#be1d28']){
+  assert.ok(editorCss.includes(token), 'Paleta OBS: '+token);
+  assert.ok(appCss.includes(token), 'Paleta principal: '+token);
+}
+assert.match(editorCss,/\[data-theme="light"\]/);
+assert.match(editorCss,/\[data-theme="dark"\]/);
+assert.doesNotMatch(editorCss,/#101318|#1a1f29|#111721|#303949/i);
+assert.match(editor,/progressive-theme/);
+assert.match(editor,/addEventListener\('storage'/);
+assert.match(edit,/status\.dataset\.error=String\(problem\)/);
 console.log('OBS overlay: capas separadas, personalización y sintaxis JavaScript OK');
