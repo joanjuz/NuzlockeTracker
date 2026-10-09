@@ -52,7 +52,8 @@ ctx.placeSignature='';
 ctx.renderPlaces();
 assert.equal(get('places').children.length,4,'Ruta + Fósil + Regalo + Huevo');
 assert.match(get('places').children[0].innerHTML, /Goty/);
-assert.doesNotMatch(get('places').children[0].innerHTML,/Restos fósiles|Regalito|Criado/);
+assert.match(get('places').children[0].innerHTML,/Restos fósiles/,'La ruta conserva una huella Fósil');
+assert.doesNotMatch(get('places').children[0].innerHTML,/Regalito|Criado/);
 assert.match(get('places').children[1].innerHTML,/Fósiles/);
 assert.match(get('places').children[1].innerHTML,/Restos fósiles/);
 assert.match(get('places').children[2].innerHTML,/Regalos/);
@@ -84,4 +85,62 @@ assert.doesNotMatch(get('places').children[0].innerHTML,/data-route-death/);
 assert.match(get('places').children[0].innerHTML,/Solo lectura/);
 get('places').events.click(click);
 assert.equal(calls.length,2, 'Nunca editar manualmente la partida del compañero');
-console.log('Rutas: auto huevos, fósiles/regalos/trade manual, cambio persistente y solo lectura OK');
+// Cuando el Pokémon desaparece, la ruta mantiene su historial sin asumir intercambio.
+ctx.companionView=false;
+ctx.state.party=[null,null,null,null,null,null];
+ctx.state.boxes={};
+ctx.state.progress.origins={};
+ctx.state.progress.route_marks={};
+ctx.state.progress.encounters={'33:12':{...mon}};
+ctx.state.progress.deaths={};
+ctx.placeSignature='';
+ctx.renderPlaces();
+let route=get('places').children[0].innerHTML;
+assert.match(route,/Ya no está en las lecturas/);
+assert.match(route,/data-route-mark="33:12" data-kind="trade"/);
+assert.doesNotMatch(route,/Intercambiado<\/small>/,'No deducir intercambios solo por desaparecer');
+const tradeClick={target:{closest:selector=>selector==='[data-route-mark]'?
+ {dataset:{routeMark:'33:12',kind:'trade'}}:null}};
+get('places').events.click(tradeClick);
+assert.deepEqual(JSON.parse(JSON.stringify(calls[2])),
+ {action:'mark_route',key:'33:12',kind:'trade'});
+// Una vez confirmado el intercambio, el estado de la ruta sigue visible.
+ctx.state.progress.route_marks={'33:12':{kind:'trade',pokemon:mon}};
+ctx.placeSignature='';
+ctx.renderPlaces();
+route=get('places').children[0].innerHTML;
+assert.match(route,/Intercambiado/);
+assert.match(route,/Goty/);
+assert.doesNotMatch(route,/empty-pokemon/);
+assert.match(get('places-count').textContent,/zonas con historial/);
+const undoClick={target:{closest:selector=>selector==='[data-route-undo]'?
+ {dataset:{routeUndo:'33:12'}}:null}};
+get('places').events.click(undoClick);
+assert.deepEqual(JSON.parse(JSON.stringify(calls[3])),
+ {action:'clear_route_mark',key:'33:12'});
+// La acción Fósil es un botón; crea una huella y sección sin hardcodear especie.
+ctx.state.party=[fossil,null,null,null,null,null];
+ctx.state.progress.origins={};
+ctx.state.progress.encounters={'33:66':{...fossil}};
+ctx.state.progress.route_marks={};
+ctx.placeSignature='';
+ctx.renderPlaces();
+route=get('places').children[0].innerHTML;
+assert.match(route,/data-route-mark="33:66" data-kind="fossil"/);
+const fossilClick={target:{closest:selector=>selector==='[data-route-mark]'?
+ {dataset:{routeMark:'33:66',kind:'fossil'}}:null}};
+get('places').events.click(fossilClick);
+assert.deepEqual(JSON.parse(JSON.stringify(calls[4])),
+ {action:'mark_route',key:'33:66',kind:'fossil'});
+ctx.state.progress.origins={'33:66':'fossil'};
+ctx.state.progress.route_marks={'33:66':{kind:'fossil',pokemon:fossil}};
+ctx.placeSignature='';
+ctx.renderPlaces();
+assert.match(get('places').children[0].innerHTML,/Fósil/);
+assert.match(get('places').children[1].innerHTML,/Fósiles/);
+ctx.companionView=true;
+ctx.placeSignature='';
+ctx.renderPlaces();
+assert.doesNotMatch(get('places').children[0].innerHTML,/data-route-undo|data-route-mark/);
+
+console.log('Rutas: historial, intercambio confirmado, botón Fósil, deshacer y solo lectura OK');
