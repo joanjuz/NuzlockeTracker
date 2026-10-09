@@ -334,5 +334,10 @@ class TemplateManager:
             return output
         output = [entry for entry in output if entry['target'] not in grouped]
         for variants in grouped.values():
-            output.extend(variants)
+            # Where both a generic (-1) and an explicit matching form exist,
+            # the explicit evolution takes priority. Preserve multiple
+            # alternatives for a target when their resulting form is identical.
+            explicit = [v for v in variants if v['form'] == source_form]
+            generic = [v for v in variants if v['form'] == -1]
+            output.extend(explicit or generic or variants)
         return output
