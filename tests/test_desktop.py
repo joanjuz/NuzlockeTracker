@@ -43,7 +43,7 @@ class DesktopTests(unittest.TestCase):
             (root/'runtime'/'state.json').write_text('{"game":"Ultra Moon 1.0"}')
             exe = root/'dist'/'PokemonTracker'/'PokemonTracker.exe'
             exe.parent.mkdir(parents=True)
-            self.assertIn(root/'runtime', list(legacy_runtime_candidates(exe)))
+            self.assertIn((root/'runtime').resolve(), list(legacy_runtime_candidates(exe)))
             home = root/'userdata'
             self.assertTrue(auto_migrate_local_checkout(home, exe))
             self.assertFalse(auto_migrate_local_checkout(home, exe))
