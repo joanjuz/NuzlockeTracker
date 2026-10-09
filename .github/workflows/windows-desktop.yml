@@ -3,7 +3,7 @@ name: Windows - App de escritorio
 on:
   workflow_dispatch:
   push:
-    branches: [feature/app-escritorio-windows]
+    branches: [feature/app-escritorio-windows, feature/obs-overlays-locales]
   pull_request:
     branches: [development, master]
     paths:

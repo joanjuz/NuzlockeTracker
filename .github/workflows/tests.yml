@@ -1,7 +1,7 @@
 name: Pruebas Pokemon Tracker
 on:
   push:
-    branches: [master, development]
+    branches: [master, development, feature/obs-overlays-locales]
   pull_request:
     branches: [master, development]
 jobs:
