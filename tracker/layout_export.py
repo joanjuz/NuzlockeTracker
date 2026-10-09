@@ -1,7 +1,7 @@
-"""Six PNG sprites for OBS layouts, updated from the LOCAL party only.
+"""Six stable image slots for OBS, preserving both static PNG and animated GIF.
 
-No save modification, browser needed or cloud credentials included. Empty slots
-are transparent 96x96 PNG files. Downloads are asynchronous and cached.
+Local-only layout output; all six slots always have PNG + GIF counterparts.
+Never mutate source sprites, game saves, emulator memory or cloud credentials.
 """
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ import zlib
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, UnidentifiedImageError
 from .progress import pokemon_key
 
 # PokeAPI sprite IDs for Gen7 Alolan variants. Do not show the Kanto sprite
@@ -28,6 +28,11 @@ ALOLA_SPRITES = {
     89: 10113, 103: 10114, 105: 10115,
 }
 PNG_MAGIC = b'\x89PNG\r\n\x1a\n'
+GIF_MAGIC = (b'GIF87a', b'GIF89a')
+MAX_GIF_BYTES = 5_000_000
+MAX_GIF_FRAMES = 120
+MAX_GIF_FRAME_PIXELS = 512 * 512
+MAX_GIF_TOTAL_PIXELS = 12_000_000
 
 
 def _chunk(name, data):
@@ -77,6 +82,76 @@ def grayscale_png(data):
         out = io.BytesIO()
         result.save(out, format='PNG')
     return validate_png(out.getvalue())
+
+
+
+def validate_gif(data):
+    """Validate small finite GIFs before decoding user-generated animations."""
+    if not isinstance(data, bytes) or len(data) < 19 or len(data) > MAX_GIF_BYTES:
+        raise ValueError('GIF personalizado demasiado grande o inválido')
+    if not data.startswith(GIF_MAGIC):
+        raise ValueError('El archivo no contiene un GIF')
+    try:
+        with Image.open(io.BytesIO(data)) as image:
+            width, height = image.size
+            count = image.n_frames
+            if (image.format != 'GIF' or not 1 <= width <= 512 or
+                    not 1 <= height <= 512 or not 1 <= count <= MAX_GIF_FRAMES or
+                    width * height * count > MAX_GIF_TOTAL_PIXELS):
+                raise ValueError('GIF fuera de los límites de fotogramas o resolución')
+            # Decoding now avoids accepting truncated files as valid custom assets.
+            for index in range(count):
+                image.seek(index)
+                image.load()
+    except (UnidentifiedImageError, OSError, EOFError) as exc:
+        raise ValueError('GIF dañado o incompleto') from exc
+    return data
+
+
+def animation_frames(data, dead=False):
+    validate_gif(data)
+    frames = []
+    durations = []
+    with Image.open(io.BytesIO(data)) as animation:
+        for index in range(animation.n_frames):
+            animation.seek(index)
+            rgba = animation.convert('RGBA')
+            if dead:
+                gray = ImageOps.grayscale(rgba)
+                rgba = Image.merge('RGBA', (gray, gray, gray, rgba.getchannel('A')))
+            frames.append(rgba)
+            duration = int(animation.info.get('duration', 100) or 100)
+            durations.append(max(20, min(duration, 5000)))
+    return frames, durations
+
+
+def gif_to_outputs(data, dead=False):
+    """Produce an animated GIF + its first PNG frame for legacy OBS layouts."""
+    frames, durations = animation_frames(data, dead=dead)
+    first_png = io.BytesIO()
+    frames[0].save(first_png, format='PNG')
+    output = io.BytesIO()
+    # GIF only has binary transparency, unlike PNG. Re-encode all frames
+    # with loop=0 so OBS loops continuously, including grayscale dead sprites.
+    frames[0].save(output, format='GIF', save_all=True,
+                   append_images=frames[1:], duration=durations,
+                   loop=0, disposal=2)
+    return validate_png(first_png.getvalue()), validate_gif(output.getvalue())
+
+
+def png_to_gif(data):
+    """Single-frame GIF gives OBS a fixed .gif path for nonanimated species."""
+    validate_png(data)
+    with Image.open(io.BytesIO(data)) as src:
+        output = io.BytesIO()
+        src.convert('RGBA').save(output, format='GIF', loop=0)
+        return validate_gif(output.getvalue())
+
+
+def custom_media_names(mon, ident):
+    """Prefer animated GIF, then existing PNG; regional variants before base."""
+    original = custom_names(mon, ident)
+    return tuple(name[:-4] + '.gif' for name in original) + original
 
 
 def custom_names(mon, ident):
@@ -132,11 +207,15 @@ class PartyLayoutExporter:
         self.retry_after = {}
         self.slots = [None] * 6
         self.contents = [None] * 6
+        self.gif_contents = [None] * 6
+        self.render_signatures = [None] * 6
         self.directory.mkdir(parents=True, exist_ok=True)
         self.custom.mkdir(parents=True, exist_ok=True)
         # Guarantee six files immediately, including slots that are empty.
+        self.blank_gif = png_to_gif(BLANK_PNG)
         for index in range(6):
             self.write_slot(index, BLANK_PNG)
+            self.write_gif_slot(index, self.blank_gif)
 
     def write_slot(self, index, data):
         if self.contents[index] == data:
@@ -151,6 +230,38 @@ class PartyLayoutExporter:
             if tmp.exists():
                 tmp.unlink()
 
+    def write_gif_slot(self, index, data):
+        if self.gif_contents[index] == data:
+            return
+        name = self.directory / f'pokemon_{index+1}.gif'
+        tmp = self.directory / f'.pokemon_{index+1}.{os.getpid()}.gif.tmp'
+        try:
+            tmp.write_bytes(data)
+            os.replace(tmp, name)
+            self.gif_contents[index] = data
+        finally:
+            if tmp.exists():
+                tmp.unlink()
+
+    def publish(self, index, ident, source, animated=False, dead=False):
+        """Only reprocess animation frames on a source/slot/death change."""
+        signature = (ident, dead, animated, source)
+        if self.render_signatures[index] == signature:
+            return
+        if animated:
+            png, gif = gif_to_outputs(source, dead=dead)
+        else:
+            png = self.render_sprite(source, dead)
+            gif = png_to_gif(png)
+        self.write_slot(index, png)
+        self.write_gif_slot(index, gif)
+        self.render_signatures[index] = signature
+
+    def clear_slot(self, index):
+        self.render_signatures[index] = None
+        self.write_slot(index, BLANK_PNG)
+        self.write_gif_slot(index, self.blank_gif)
+
     def local_sprite(self, ident):
         for folder in (self.cache, self.bundled):
             candidate = folder / f'{ident}.png'
@@ -161,16 +272,23 @@ class PartyLayoutExporter:
                     continue
         return None
 
-    def custom_sprite(self, mon, ident):
-        for name in custom_names(mon, ident):
+    def custom_media(self, mon, ident):
+        for name in custom_media_names(mon, ident):
             candidate = self.custom / name
-            if candidate.is_file():
-                try:
-                    return validate_png(candidate.read_bytes())
-                except (OSError, ValueError):
-                    # A broken user image never stops the tracker or hides the
-                    # regular Pokémon sprite.
+            if not candidate.is_file():
+                continue
+            try:
+                limit = MAX_GIF_BYTES if candidate.suffix == '.gif' else 500_000
+                if candidate.stat().st_size > limit:
                     continue
+                data = candidate.read_bytes()
+                if candidate.suffix == '.gif':
+                    return validate_gif(data), True
+                return validate_png(data), False
+            except (OSError, ValueError):
+                # Invalid image is ignored: fallback to the next custom file
+                # or the official sprite without stopping memory scanning.
+                continue
         return None
 
     def render_sprite(self, data, dead):
@@ -198,31 +316,32 @@ class PartyLayoutExporter:
             ident = sprite_id(mon)
             if ident is None:
                 self.slots[i] = None
-                self.write_slot(i, BLANK_PNG)
+                self.clear_slot(i)
                 continue
             dead = pokemon_key(mon) in deaths
-            # Refresh custom files on every state check: adding or replacing a
-            # PNG takes effect without restarting the app. No source mutation.
-            user_png = self.custom_sprite(mon, ident)
-            if user_png is not None:
+            # User PNG/GIF changes are picked up on the next refresh.
+            # Animation conversion is cached when all inputs are unchanged.
+            custom = self.custom_media(mon, ident)
+            if custom is not None:
+                raw, animated = custom
                 self.slots[i] = ident
-                self.write_slot(i, self.render_sprite(user_png, dead))
+                self.publish(i, ident, raw, animated=animated, dead=dead)
                 continue
             local = self.local_sprite(ident)
             if local is not None:
                 self.slots[i] = ident
-                self.write_slot(i, self.render_sprite(local, dead))
+                self.publish(i, ident, local, dead=dead)
                 continue
             if self.slots[i] != ident:
                 self.slots[i] = ident
-                self.write_slot(i, BLANK_PNG)
+                self.clear_slot(i)
             future = self.futures.get(ident)
             if future and future.done():
                 del self.futures[ident]
                 try:
                     # Only use the downloaded sprite for the species currently
                     # occupying this slot; keep custom priority intact.
-                    self.write_slot(i, self.render_sprite(future.result(), dead))
+                    self.publish(i, ident, future.result(), dead=dead)
                 except Exception:
                     self.retry_after[ident] = now + 30
             elif future is None and now >= self.retry_after.get(ident, 0):
