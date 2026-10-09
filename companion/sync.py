@@ -14,6 +14,9 @@ from urllib.request import Request, urlopen
 
 from .snapshot import snapshot, viewer_state
 
+# Only the public endpoint is preconfigured, never the administrative CREATE_KEY.
+DEFAULT_WORKER_URL = 'https://pokemon-tracker-companion.pokemon-tracker.workers.dev'
+
 
 def validate_worker_url(url):
     if not isinstance(url, str):
@@ -75,6 +78,7 @@ class CompanionSync:
         self.partner = None
         self.error = ''
         self.last_uploaded_hash = None
+        self.last_core_hash = None
         self.last_upload_at = 0.0
         if self.settings_path.is_file():
             try:
@@ -103,10 +107,26 @@ class CompanionSync:
             pass
         os.replace(tmp, path)
 
+    def default_worker_url(self):
+        # A second profile may inherit the public address, never private tokens.
+        principal = self.directory.parent.parent if self.directory.parent.name == 'profiles' else self.directory
+        path = principal / 'companion-credentials.json'
+        if path.is_file():
+            try:
+                info = json.loads(path.read_text(encoding='utf-8'))
+                return validate_worker_url(info.get('worker_url'))
+            except (ValueError, OSError):
+                pass
+        return DEFAULT_WORKER_URL
+
     def status(self):
         with self.lock:
+            worker_url = self.settings.get('worker_url') or self.default_worker_url()
+            invite = self.settings.get('invite_code', '')
             return {'configured': bool(self.settings),
                     'worker_url': self.settings.get('worker_url', ''),
+                    'default_worker_url': worker_url,
+                    'invite_link': worker_url + '/join#' + invite if invite else '',
                     'my_name': self.settings.get('name', ''),
                     'game': self.settings.get('game', ''),
                     'invite_code': self.settings.get('invite_code', ''),
@@ -114,7 +134,19 @@ class CompanionSync:
                     'error': self.error}
 
     def _create_or_join(self, action, options):
-        worker_url = validate_worker_url(options.get('worker_url'))
+        invite = options.get('invite_code', '')
+        if not isinstance(invite, str):
+            raise ValueError('Código de invitación inválido')
+        invite = invite.strip()
+        worker_hint = options.get('worker_url') or self.default_worker_url()
+        # Full invitations include the public Worker URL and one-use code.
+        if action == 'join' and invite.startswith('https://'):
+            parts = urlsplit(invite)
+            if parts.path != '/join' or parts.query or not parts.fragment:
+                raise ValueError('Enlace de invitación inválido')
+            worker_hint = parts._replace(path='', query='', fragment='').geturl()
+            invite = parts.fragment
+        worker_url = validate_worker_url(worker_hint)
         name = options.get('name', '').strip()
         if not 1 <= len(name) <= 32 or any(ord(c) < 32 or c in '<>' for c in name):
             raise ValueError('Escribe un nombre entre 1 y 32 caracteres')
@@ -127,7 +159,6 @@ class CompanionSync:
                 raise ValueError('La clave de creación de Cloudflare debe tener al menos 16 caracteres')
             result = self.transport(worker_url + '/v1/pairs', 'POST', {'name': name, 'game': game}, setup_key=setup_key)
         else:
-            invite = options.get('invite_code', '').strip()
             if not 12 <= len(invite) <= 100:
                 raise ValueError('Introduce el código de invitación completo')
             result = self.transport(worker_url + '/v1/pairs/join', 'POST', {'name': name, 'game': game, 'invite_code': invite})
@@ -143,6 +174,7 @@ class CompanionSync:
             self.settings = new_settings
             self.partner = None
             self.last_uploaded_hash = None
+            self.last_core_hash = None
             self.error = ''
             if self.cache_path.exists():
                 self.cache_path.unlink()
@@ -172,6 +204,7 @@ class CompanionSync:
                 self.settings = {}
                 self.partner = None
                 self.last_uploaded_hash = None
+                self.last_core_hash = None
                 self.error = ''
                 for path in (self.settings_path, self.cache_path):
                     if path.exists():
@@ -189,7 +222,8 @@ class CompanionSync:
             return
         now = time.monotonic()
         try:
-            local = snapshot(self.service.snapshot())
+            current = self.service.snapshot()
+            local = snapshot(current)
             if local['game'] != settings['game']:
                 raise ValueError('Selecciona ' + settings['game'] + ' para sincronizar tu partida')
         except ValueError as error:
@@ -201,13 +235,21 @@ class CompanionSync:
         try:
             if local is not None:
                 signature = hashlib.sha256(json.dumps(local, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
+                # Coalesce box-only updates during the automatic 32-box sweep,
+                # but upload HP, party and death changes without waiting.
+                core_hash = hashlib.sha256(json.dumps([local['party'], local['progress'], local['battle_hp']], ensure_ascii=False, sort_keys=True).encode()).hexdigest()
+                scanning = (current.get('scan') or {}).get('active') is True
                 with self.lock:
                     should_upload = force or signature != self.last_uploaded_hash or now - self.last_upload_at > 300
+                    if scanning and core_hash == self.last_core_hash and not force:
+                        should_upload = False
                 if should_upload:
                     self.transport(settings['worker_url'] + '/v1/state', 'PUT', {'state': local}, token=settings['token'])
                     with self.lock:
-                        self.last_uploaded_hash = signature
-                        self.last_upload_at = now
+                        if self.settings.get('token') == settings['token']:
+                            self.last_uploaded_hash = signature
+                            self.last_core_hash = core_hash
+                            self.last_upload_at = now
             remote = self.transport(settings['worker_url'] + '/v1/partner', 'GET', token=settings['token'])
             partner = remote.get('partner')
             if partner is not None and partner.get('state') is not None:
@@ -239,10 +281,24 @@ class CompanionSync:
         self.thread.start()
 
     def _run(self):
+        # Observe local state revisions via TrackerService.condition; poll remote
+        # every five seconds even without local changes.
+        last_revision = None
+        next_poll = 0.0
         while not self.stop.is_set():
-            self.sync_once()
-            self.wake.wait(20)
+            with self.service.condition:
+                revision = self.service.state['revision']
+                changed = revision != last_revision
+                if not changed and not self.wake.is_set() and time.monotonic() < next_poll:
+                    self.service.condition.wait(timeout=min(0.5, max(0.0, next_poll - time.monotonic())))
+                    continue
+                last_revision = revision
             self.wake.clear()
+            # Short debounce avoids excessive writes from consecutive RAM reads.
+            if changed and self.stop.wait(0.35):
+                break
+            self.sync_once()
+            next_poll = time.monotonic() + 5.0
 
     def close(self):
         self.stop.set()
