@@ -74,3 +74,12 @@ La última prueba usa `node:sqlite` experimental de Node 22 y no realiza solicit
 ## Por qué sigue existiendo CREATE_KEY
 
 `CREATE_KEY` es la credencial **administrativa del Worker**, no una contraseña de pareja. Elegir una contraseña arbitraria en la interfaz sin comprobar permisos permitiría a cualquiera crear parejas y consumir la cuota pública de D1. Por seguridad, no se incrusta la clave maestra en el programa ni en el enlace compartido. Una futura alternativa de autoservicio requeriría autenticación o protección contra abuso (por ejemplo Turnstile y límites de creación). Las parejas que ya existen no necesitan volver a crearse para estas mejoras.
+
+## Muerte manual por ruta y cajas sin conexión (v0.23.1)
+
+- En **Rutas**, cada Pokémon válido y vivo tiene su propio botón **☠ Muerte**, debajo de su sprite. La app pide confirmación antes de registrar la muerte en **Muertos**. El registro se guarda localmente y se comparte al volver a sincronizar la sesión. Puedes corregir un error con **Revivir** desde Muertos.
+- **No existe muerte enlazada automática**: marcar a un Pokémon solo cambia el registro de tu tracker, no los Pokémon del otro jugador ni sus ROM. La detección preexistente de PS=0 para tu propio equipo permanece activa.
+- El botón no permite modificar la **vista Compañero**, que continúa siendo de solo lectura.
+- El texto «Lectura automática de 32 cajas» se retiró de la barra de Cajas; la lectura automática permanece activa en segundo plano.
+- Las últimas cajas leídas **se conservan al desconectar Lime3DS, ante un error de lectura o al cerrar/reabrir el tracker**. La interfaz las identifica como **Última lectura guardada (sin conexión)**, nunca como lectura en vivo. Cada perfil local conserva su propio archivo `runtime/state.json` (o `runtime/profiles/<perfil>/state.json`). Si eliges otro juego se vacía el conjunto anterior para evitar mezclar Ultra Sol y Ultra Luna.
+- Al desconectar no se envía al Worker un estado obsoleto: Cloudflare conserva la última sesión válida ya sincronizada para tu compañero, incluidos los Pokémon de sus cajas leídas.

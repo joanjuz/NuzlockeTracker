@@ -71,6 +71,18 @@ class ServiceTests(unittest.TestCase):
   reboot.config={'game':'Ultra Sun 1.0','mode':'memory'}
   reboot.connect()
   self.assertEqual(reboot.snapshot()['boxes'],{})
+ def test_cached_boxes_remain_on_read_error(self):
+  mon={'species_id':448,'nickname':'Goty'}
+  self.service.update(boxes={str(i):[mon]+[None]*29 for i in range(1,33)})
+  self.service.config={'mode':'memory','game':'Ultra Moon 1.0'}
+  self.service.reader=object()
+  self.service.next_box_refresh_at=99999999999
+  with patch.object(self.service,'poll',side_effect=RuntimeError('Lime3DS terminó')):
+   with patch.object(self.service.stop,'wait',side_effect=lambda interval: self.service.stop.set()):
+    self.service.run()
+  self.assertEqual(len(self.service.snapshot()['boxes']),32)
+  self.assertEqual(self.service.snapshot()['connection']['status'],'retrying')
+  self.assertTrue(self.service.snapshot()['stale'])
  def test_reject_manual_death_for_unverified_or_egg(self):
   self.service.update(party=[{'origin_version':33,'encryption_constant':1,'checksum_valid':False}]+[None]*5)
   with self.assertRaises(ValueError):self.service.validate_mark_dead({'key':'33:1'})

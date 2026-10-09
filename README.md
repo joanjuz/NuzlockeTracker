@@ -63,3 +63,7 @@ Para ejecutar Ultra Sol y Ultra Luna simultáneamente en la misma computadora, u
 ## Companion v0.23.0
 
 La sincronización reacciona a cambios en la partida y consulta el estado del compañero cada cinco segundos. Las 32 cajas se leen automáticamente al conectar y se revisan en segundo plano. Se comparte un único enlace de invitación con el Worker y el código (sin credenciales administrativas); la URL pública predeterminada está configurada en `companion/sync.py`. `CREATE_KEY` continúa siendo una clave de administración privada.
+
+## Soul Link Companion v0.23.1
+
+La sección **Rutas** incorpora **☠ Muerte** debajo de cada sprite para registrar manualmente Pokémon en **Muertos**; no mata automáticamente a su pareja Soul Link. **Cajas** conserva la última lectura al desconectar o reiniciar el tracker, diferenciándola de la RAM en vivo. Se retiró el texto de lectura automática, pero el escaneo en segundo plano se mantiene.
