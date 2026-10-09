@@ -3,6 +3,7 @@ import copy
 import json
 import os
 import re
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -45,7 +46,7 @@ def pokemon_key(p):
 class RunProgress:
     def __init__(self, path):
         self.path = Path(path)
-        self.data = {'deaths': {}, 'missed_routes': [], 'origins': {}, 'encounters': {}, 'route_marks': {}}
+        self.data = {'deaths': {}, 'missed_routes': [], 'origins': {}, 'encounters': {}, 'route_marks': {}, 'traded_routes': []}
         if self.path.exists():
             data = json.loads(self.path.read_text(encoding='utf-8'))
             if not isinstance(data.get('deaths'), dict) or not isinstance(data.get('missed_routes'), list):
@@ -75,6 +76,17 @@ class RunProgress:
                 or type(mark['pokemon'].get('species_id')) is not int
                 or not 1 <= mark['pokemon']['species_id'] <= 1025):
                 raise ValueError('Marca de ruta inválida')
+        traded = self.data.setdefault('traded_routes', [])
+        if (not isinstance(traded,list) or len(traded)>200 or any(
+            not isinstance(route,str) or not route.isdigit() or len(route)>10
+            for route in traded)):
+            raise ValueError('Rutas intercambiadas inválidas')
+        baseline = self.data.setdefault('full_scan_baseline', {})
+        if not isinstance(baseline,dict) or len(baseline)>MAX_ENCOUNTERS or any(
+            not isinstance(key,str) or ORIGIN_KEY_PATTERN.fullmatch(key) is None
+            or (value is not None and (type(value) is not int or not 0<=value<=0xffffffff))
+            for key,value in baseline.items()):
+            raise ValueError('Lectura histórica de cajas inválida')
         self.data.setdefault('revived_pending', [])
         self.data.setdefault('death_count', len(self.data['deaths']))
 
@@ -111,16 +123,85 @@ class RunProgress:
             self.save()
         return changed
 
-    def mark_route(self, pokemon, kind):
+    def observe_full_scan(self, party, boxes):
+        """Auto-confirm only 1-for-1 trade-like replacements after TWO full verified scans.
+
+        Neither moving to another box nor disappearing from a partial PC scan
+        is proof. A different OT on the incoming Pokémon is additional evidence;
+        without it, leave a human decision in the route tile.
+        """
+        if (not isinstance(boxes,dict) or set(boxes)!={str(i) for i in range(1,33)}
+            or any(not isinstance(v,list) or len(v)!=30 for v in boxes.values())
+            or not isinstance(party,list) or len(party)!=6):
+            return False
+        current={}
+        for p in [*party,*(mon for box in boxes.values() for mon in box)]:
+            rec=self.encounter_record(p)
+            if rec is None:
+                if p is not None:
+                    return False
+                continue
+            key=pokemon_key(p)
+            if key in current and current[key]!=p.get('ot_id'):
+                return False
+            ot=p.get('ot_id')
+            current[key]=ot if type(ot) is int and 0<=ot<=0xffffffff else None
+        previous=self.data.get('full_scan_baseline',{})
+        if previous==current:
+            return False
+        if not previous:
+            self.data['full_scan_baseline']=current
+            self.save()
+            return False
+        removed=set(previous)-set(current)
+        arrived=set(current)-set(previous)
+        ot_counts=Counter(ot for ot in previous.values() if ot is not None)
+        owner=None
+        if ot_counts:
+            common=ot_counts.most_common(2)
+            if common[0][1]>=2 and (len(common)==1 or common[0][1]>common[1][1]):
+                owner=common[0][0]
+        marked=False
+        if len(removed)==1 and len(arrived)==1 and owner is not None:
+            gone=next(iter(removed));new=next(iter(arrived))
+            # A real trade replaces our Pokémon with one from a different OT.
+            if (previous[gone]==owner and current[new] is not None
+                and current[new]!=owner and gone not in self.data['deaths']
+                and gone not in self.data['route_marks']
+                and self.data['origins'].get(gone,'route')=='route'):
+                record=self.data['encounters'].get(gone)
+                if record:
+                    self.mark_route({**record,'checksum_valid':True},'trade',source='auto')
+                    marked=True
+        self.data['full_scan_baseline']=current
+        self.save()
+        return marked
+
+    def set_traded_route(self, route, traded):
+        routes=set(self.data['traded_routes'])
+        if traded:
+            routes.add(route)
+            # This route now has a trade record, not a missed encounter.
+            self.data['missed_routes']=[r for r in self.data['missed_routes'] if r!=route]
+        else:
+            routes.discard(route)
+        value=sorted(routes,key=int)
+        if value!=self.data['traded_routes']:
+            self.data['traded_routes']=value
+            self.save()
+            return True
+        return False
+
+    def mark_route(self, pokemon, kind, source='manual'):
         """Mark the route of an OUTGOING trade or a fossil; reversible."""
-        if kind not in ('trade', 'fossil'):
-            raise ValueError('Tipo de marca de ruta inválido')
+        if kind not in ('trade','fossil') or source not in ('manual','auto'):
+            raise ValueError('Tipo u origen de marca inválido')
         record = self.encounter_record(pokemon)
         if record is None:
             raise ValueError('El Pokémon no tiene una lectura válida')
         key = pokemon_key(pokemon)
         marks = self.data['route_marks']
-        value = {'kind': kind, 'pokemon': record,
+        value = {'kind': kind, 'pokemon': record, 'source': source,
                  'recorded_at': datetime.now(timezone.utc).isoformat()}
         if key not in marks and len(marks) >= MAX_ENCOUNTERS:
             raise ValueError('El historial de rutas está lleno')
