@@ -32,7 +32,7 @@ class ProcessMemoryTests(unittest.TestCase):
   api.OpenProcess.return_value=None
   with patch('tracker.process_memory.windows_api',return_value=api), \
        patch('tracker.process_memory.list_lime_processes',return_value=[(1432,'azahar-qt.exe')]), \
-       patch('tracker.process_memory.C.get_last_error',return_value=5):
+       patch('tracker.process_memory.C.get_last_error',return_value=5,create=True):
    with self.assertRaises(DiscoveryError) as caught:
     WindowsProcess(pid=1432)
   error=caught.exception
