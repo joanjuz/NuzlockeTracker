@@ -50,13 +50,16 @@ def snapshot(state):
             raise ValueError('Registro de debilitados incorrecto')
         safe_deaths[key] = {'pokemon': pokemon(entry.get('pokemon')),
                             'recorded_at': str(entry.get('recorded_at', ''))[:40]}
+    count = progress.get('death_count', len(safe_deaths))
+    if type(count) is not int or not 0 <= count <= 100000:
+        raise ValueError('Contador de muertes no válido')
     missed = progress.get('missed_routes') or []
     if not isinstance(missed, list) or len(missed) > 200 or any(not isinstance(x, str) or len(x) > 20 for x in missed):
         raise ValueError('Rutas Miss incorrectas')
     data = {
         'schema_version': 1, 'game': state['game'],
         'party': [pokemon(p) for p in party], 'boxes': result_boxes,
-        'progress': {'deaths': safe_deaths, 'missed_routes': missed},
+        'progress': {'deaths': safe_deaths, 'missed_routes': missed, 'death_count': count},
         'battle_hp': state.get('battle_hp') is True,
     }
     raw = json.dumps(data, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
