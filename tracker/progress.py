@@ -179,18 +179,20 @@ class RunProgress:
 
     def set_traded_route(self, route, traded):
         routes=set(self.data['traded_routes'])
+        prior_misses=list(self.data['missed_routes'])
         if traded:
             routes.add(route)
-            # This route now has a trade record, not a missed encounter.
-            self.data['missed_routes']=[r for r in self.data['missed_routes'] if r!=route]
+            # An encounter cannot be both missed and exchanged in the UI.
+            self.data['missed_routes']=[r for r in prior_misses if r!=route]
         else:
             routes.discard(route)
         value=sorted(routes,key=int)
-        if value!=self.data['traded_routes']:
+        changed=(value!=self.data['traded_routes'] or
+                 prior_misses!=self.data['missed_routes'])
+        if changed:
             self.data['traded_routes']=value
             self.save()
-            return True
-        return False
+        return changed
 
     def mark_route(self, pokemon, kind, source='manual'):
         """Mark the route of an OUTGOING trade or a fossil; reversible."""
