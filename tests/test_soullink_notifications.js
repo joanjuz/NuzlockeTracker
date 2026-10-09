@@ -83,6 +83,8 @@ async function settle(){await new Promise(resolve=>setImmediate(resolve));}
  await kill.onclick();await settle();
  assert.equal(posted.length,1);
  assert.equal(posted[0].key,'33:202','Marked the explicitly selected second Pokémon');
+ assert.equal(posted[0].source,'soullink-response',
+              'Soul Link popup must tag this death as a reply, not a fresh death');
  assert.equal(notice.hidden,true);
  own.progress.deaths['33:202']={};
  partnerState.progress.deaths['remote-2']={pokemon:dead,recorded_at:'2026-10-10'};
@@ -98,5 +100,21 @@ async function settle(){await new Promise(resolve=>setImmediate(resolve));}
  assert.equal(notice.hidden,true);
  await poll();await settle();
  assert.equal(notice.hidden,true,'Ignore remains ignored');
- console.log('Soul Link: selección de ruta, sprite/fallback y muerte manual OK');
+ // Another player's corresponding death arrives through sync: it is in Muertos
+ // but MUST NOT create another prompt, regardless of route/candidate matches.
+ partnerState.progress.deaths['remote-reply']={
+   pokemon:dead,recorded_at:'2026-10-11',source:'soullink-response'
+ };
+ await poll();await settle();
+ assert.equal(notice.hidden,true,'No rebound notification for Soul Link replies');
+ await poll();await settle();
+ assert.equal(notice.hidden,true,'No repeated notification after polling');
+ // A genuinely new loss from the same partner must still prompt.
+ partnerState.progress.deaths['remote-new']={
+   pokemon:dead,recorded_at:'2026-10-12',source:'manual'
+ };
+ await poll();await settle();
+ assert.equal(notice.hidden,false,'Independent manual loss still prompts');
+ node('soullink-dismiss').onclick();
+ console.log('Soul Link: selección, sprite, fuente de muerte y anti-rebote OK');
 })().catch(error=>{console.error(error);process.exitCode=1});
