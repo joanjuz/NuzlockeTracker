@@ -54,6 +54,17 @@ def snapshot(state):
         # in Muertos, without creating a second Soul Link notification.
         if entry.get('source') == 'soullink-response':
             safe_deaths[key]['source'] = 'soullink-response'
+    # Solo categorías elegidas manualmente; el auto-detectado se calcula en la UI.
+    # No se comparte metadato adicional, únicamente la clave EC ya presente.
+    origins = progress.get('origins') or {}
+    categories = ('route', 'fossil', 'gift', 'egg', 'trade')
+    if not isinstance(origins, dict) or len(origins) > 1200:
+        raise ValueError('Clasificaciones de origen inválidas')
+    if any(not isinstance(key, str) or len(key) > 64 or
+           not isinstance(value, str) or value not in categories
+           for key, value in origins.items()):
+        raise ValueError('Clasificación de origen no válida')
+    safe_origins = dict(origins)
     count = progress.get('death_count', len(safe_deaths))
     if type(count) is not int or not 0 <= count <= 100000:
         raise ValueError('Contador de muertes no válido')
@@ -63,7 +74,8 @@ def snapshot(state):
     data = {
         'schema_version': 1, 'game': state['game'],
         'party': [pokemon(p) for p in party], 'boxes': result_boxes,
-        'progress': {'deaths': safe_deaths, 'missed_routes': missed, 'death_count': count},
+        'progress': {'deaths': safe_deaths, 'missed_routes': missed,
+                     'death_count': count, 'origins': safe_origins},
         'battle_hp': state.get('battle_hp') is True,
     }
     raw = json.dumps(data, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
