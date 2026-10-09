@@ -51,8 +51,14 @@ class RunProgress:
             self.save()
         return changed
 
-    def mark_dead(self, pokemon):
-        """Manually record a death; never alter the ROM or a partner's save."""
+    def mark_dead(self, pokemon, source='manual'):
+        """Record a death, distinguishing a partner response from a new loss.
+
+        Soul Link responses still count as deaths, but must not trigger
+        reciprocal notifications when the partner fetches this snapshot.
+        """
+        if source not in ('manual', 'soullink-response'):
+            raise ValueError('Origen de muerte inválido')
         key = pokemon_key(pokemon)
         if key is None or key in self.data['deaths']:
             return False
@@ -60,7 +66,7 @@ class RunProgress:
         self.data['deaths'][key] = {
             'pokemon': copy.deepcopy(pokemon),
             'recorded_at': datetime.now(timezone.utc).isoformat(),
-            'source': 'manual',
+            'source': source,
         }
         # A manual death overrides any temporary revive safeguard.
         if key in self.data['revived_pending']:
