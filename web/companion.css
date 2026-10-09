@@ -24,3 +24,5 @@ nav .death-counter{align-self:center;padding:3px 6px;font-size:11px;border-radiu
 
 /* Tally between six mini sprites and Equipo, not inside the nav. */
 .topbar-inner > .death-counter{font-size:10px;padding:5px 7px;gap:4px;flex-shrink:0;border-radius:7px;line-height:1.1}.topbar-inner > .death-counter strong{font-size:12px}
+
+#overlay-view{min-height:660px}#overlay-editor-frame{width:100%;height:min(80vh,1150px);min-height:660px;border:1px solid var(--border,#ffffff20);border-radius:14px;background:#101318}nav button[data-tab=overlay]{letter-spacing:.04em}
