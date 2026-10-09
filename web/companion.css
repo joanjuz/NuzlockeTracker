@@ -21,3 +21,6 @@
 
 /* Compact death tally alongside Equipo, never in the mini-sprite strip. */
 nav .death-counter{align-self:center;padding:3px 6px;font-size:11px;border-radius:7px;gap:4px;margin:0 3px;line-height:1;flex:0 0 auto}nav .death-counter strong{font-size:12px}.connection-diagnostic{margin-top:12px}.export-feedback{font-size:12px;max-width:100%;padding:7px 10px;margin:5px 0 10px;border-radius:8px;border:1px solid #5c6b77;overflow-wrap:anywhere}.export-feedback[hidden]{display:none}
+
+/* Tally between six mini sprites and Equipo, not inside the nav. */
+.topbar-inner > .death-counter{font-size:10px;padding:5px 7px;gap:4px;flex-shrink:0;border-radius:7px;line-height:1.1}.topbar-inner > .death-counter strong{font-size:12px}
