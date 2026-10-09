@@ -9,6 +9,8 @@
   let viewingPartner = false;
   let lastUpdate = -1;
   let working = false;
+  let snoozedEvent = null;
+  let currentEvent = null;
 
   function asView(p) {
     if (!p?.state || p.state.schema_version !== 1) return null;
@@ -26,6 +28,26 @@
     const p = info.partner;
     if (info.default_worker_url && !el('companion-url').value) el('companion-url').value = info.default_worker_url;
     const hasPartner = Boolean(p);
+    el('soul-link-enabled').checked = info.soul_link_enabled === true;
+    const pending = info.soul_link_enabled ? info.pending_deaths || [] : [];
+    currentEvent = pending[0] || null;
+    el('soul-link-show').hidden = !currentEvent;
+    const notice = el('soul-link-notice');
+    notice.hidden = !currentEvent || snoozedEvent === currentEvent.id;
+    if (currentEvent && !notice.hidden) {
+      const source = currentEvent.pokemon || {};
+      el('soul-link-death-name').textContent = (source.nickname || source.species || 'Pokémon') + ' de tu compañero';
+      el('soul-link-death-route').textContent = 'Ruta: ' + (source.met_location || 'Sin lugar registrado');
+      const options = (currentEvent.choices || []).filter(c => !c.already_dead);
+      const select = el('soul-link-match');
+      const previous = select.value;
+      select.replaceChildren();
+      for (const option of options) select.add(new Option(option.name + ' · ' + option.route, option.key));
+      if (options.some(option=>option.key===previous)) select.value=previous;
+      el('soul-link-match-label').hidden = options.length===0;
+      el('soul-link-no-match').hidden = options.length!==0;
+      el('soul-link-mark').disabled = options.length===0;
+    }
     const snapshot = asView(p);
     const hasView = hasPartner && Boolean(snapshot);
     toggle.hidden = !hasPartner;
@@ -67,7 +89,7 @@
   async function action(actionName, extra = {}) {
     if (working) return;
     working = true;
-    for(const id of ['companion-create','companion-join','companion-refresh','companion-leave']) el(id).disabled = true;
+    for(const id of ['companion-create','companion-join','companion-refresh','companion-leave','soul-link-ignore','soul-link-mark']) el(id).disabled = true;
     indicator.textContent = 'Procesando…';
     try {
       if (!token) throw Error('Espera a que conecte el servidor local.');
@@ -77,16 +99,22 @@
       });
       const body = await response.json();
       if (!response.ok) throw Error(body.error || 'No se completó la operación');
-      if (actionName === 'leave') {viewingPartner = false;remote = null;window.setCompanionView(false);}
+      if (actionName === 'leave') {viewingPartner = false;remote = null;window.setCompanionView(false);snoozedEvent=null;}
+      if (actionName === 'death_decision') snoozedEvent=null;
       updatePage(body);
     } catch(error) {
       indicator.textContent = error.message;
     } finally {
       el('companion-setup-key').value = '';
       working = false;
-      for(const id of ['companion-create','companion-join','companion-refresh','companion-leave']) el(id).disabled = false;
+      for(const id of ['companion-create','companion-join','companion-refresh','companion-leave','soul-link-ignore','soul-link-mark']) el(id).disabled = false;
     }
   }
+  el('soul-link-enabled').onchange = () => action('soul_link',{enabled:el('soul-link-enabled').checked});
+  el('soul-link-dismiss').onclick = () => {if(currentEvent){snoozedEvent=currentEvent.id;el('soul-link-notice').hidden=true}};
+  el('soul-link-show').onclick = () => {snoozedEvent=null;el('soul-link-notice').hidden=!currentEvent;dialog.close();getStatus()};
+  el('soul-link-ignore').onclick = () => {if(currentEvent)action('death_decision',{event_id:currentEvent.id,decision:'ignore'})};
+  el('soul-link-mark').onclick = () => {if(currentEvent)action('death_decision',{event_id:currentEvent.id,decision:'mark',pokemon_key:el('soul-link-match').value})};
   const fields = () => ({
     worker_url:el('companion-url').value.trim(),
     name:el('companion-name').value.trim(),
