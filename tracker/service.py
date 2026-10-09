@@ -168,6 +168,13 @@ class TrackerService:
             if ('party' in changes or 'boxes' in changes) and not changes.get('stale',self.state['stale']):
                 self.progress.remember(changes.get('party',self.state['party']),
                                        changes.get('boxes',self.state['boxes']))
+            scan=changes.get('scan')
+            if (isinstance(scan,dict) and scan.get('active') is False
+                and scan.get('completed')==32 and changes.get('box_verified') is True
+                and not changes.get('stale',self.state['stale'])
+                and self.state['connection'].get('status')=='connected'):
+                self.progress.observe_full_scan(changes.get('party',self.state['party']),
+                                                changes.get('boxes',self.state['boxes']))
             changes['progress']=copy.deepcopy(self.progress.data)
             if all(self.state.get(k)==v for k,v in changes.items()):return False
             self.state.update(changes);self.state['revision']+=1
@@ -255,6 +262,8 @@ class TrackerService:
             self.revive(cmd)
         elif action=='route_miss':
             self.set_route_miss(cmd)
+        elif action=='route_trade':
+            self.set_route_trade(cmd)
         elif action=='set_origin':
             self.set_origin(cmd)
         elif action=='mark_route':
@@ -374,6 +383,16 @@ class TrackerService:
         if cmd['category']!='fossil' and self.progress.data['route_marks'].get(key,{}).get('kind')=='fossil':
             changed=self.progress.clear_route_mark(key) or changed
         if changed:
+            self.update()
+
+    def validate_route_trade(self,cmd):
+        ids={str(r['id']) for r in self.reference.routes(self.state['game'])['routes']}
+        if cmd.get('route') not in ids or type(cmd.get('traded')) is not bool:
+            raise ValueError('Ruta o estado Intercambiado inválido')
+
+    def set_route_trade(self,cmd):
+        self.validate_route_trade(cmd)
+        if self.progress.set_traded_route(cmd['route'],cmd['traded']):
             self.update()
 
     def validate_route_miss(self,cmd):
