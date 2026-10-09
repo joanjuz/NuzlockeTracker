@@ -46,7 +46,7 @@ class TrackerService:
         self.progress=RunProgress(self.output.with_name(self.output.stem+suffix+'-progress.json'))
         self.state['progress']=copy.deepcopy(self.progress.data)
         self.profile=PROFILES[self.state['game']]
-        self.reader=None;self.config=None;self.retry_at=0;self.scan_next=None;self.diagnostic=None
+        self.reader=None;self.config=None;self.retry_at=0;self.scan_next=None;self.diagnostic=None;self.sun_box_base=None
         self.next_box_refresh_at=0.0
         # Companion credentials already persist independently. Restore the emulator
         # selection without requiring the user to re-pair on every launch.
