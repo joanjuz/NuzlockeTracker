@@ -21,6 +21,7 @@ from companion.sync import CompanionSync
 from server import make_handler, runtime_directory
 from tracker.service import TrackerService
 from tracker.layout_export import PartyLayoutExporter, layout_directory
+from tracker.desktop_export import DesktopExportApi
 
 APP_NAME = 'PokemonTracker'
 PROFILE_CHOICES = ('principal', 'segundo-jugador')  # Internal only; never shown in the UI.
@@ -190,11 +191,14 @@ def smoke_test_native():
 
 def smoke_test(backend):
     """CI check on Windows: verify actual frozen HTTP/resources without opening a GUI."""
-    for endpoint in ('', 'app.js', 'style.css', 'api/state',
+    for endpoint in ('', 'app.js', 'app-icon.png', 'style.css', 'api/state',
                      'api/session', 'api/templates', 'api/routes'):
         with urlopen(backend.url + endpoint, timeout=12) as response:
             assert response.status == 200, endpoint
-            assert response.read(120), endpoint
+            data=response.read(120)
+            assert data, endpoint
+            if endpoint == 'app-icon.png':
+                assert data.startswith(b'\x89PNG\r\n\x1a\n'), 'Icono PNG inválido'
     with urlopen(backend.url + 'api/session', timeout=12) as response:
         session = json.load(response)
     assert session['profile'] == backend.profile
@@ -245,9 +249,12 @@ def main(argv=None):
             return 0
         # Deliberately lazy: CI smoke test does not require installed WebView2.
         import webview
-        webview.create_window('Pokémon Tracker',
-                              backend.url, width=1220, height=850,
-                              min_size=(820, 560), background_color='#15191e')
+        desktop_api = DesktopExportApi(backend.service)
+        window = webview.create_window('Pokémon Tracker',
+                    backend.url, js_api=desktop_api,
+                    width=1220, height=850,
+                    min_size=(820, 560), background_color='#15191e')
+        desktop_api.window = window
         webview.start(gui='edgechromium', debug=False)
         return 0
     except Exception as error:
