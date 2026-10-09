@@ -119,6 +119,19 @@ class ProgressTests(unittest.TestCase):
   with self.assertRaises(ValueError):
    app.validate_route_mark({'key':'33:123'},undo=True)
 
+ def test_full_scan_requires_every_box_verified_in_this_scan(self):
+  app=TrackerService(Path(self.tmp.name)/'scan-safety.json')
+  p=copy.deepcopy(self.service.team[0]);p.update(ot_id=12345,checksum_valid=True)
+  boxes={str(i):[None]*30 for i in range(1,33)}
+  app.update(connection={'status':'connected','message':'Prueba'},
+             party=[p]+[None]*5,boxes=boxes,stale=False)
+  completed={'active':False,'completed':32}
+  app.update(scan=completed,box_verified=True)
+  self.assertEqual(app.progress.data['full_scan_baseline'],{})
+  app.scan_verified=set(range(1,33))
+  app.update(scan=completed,box_verified=True)
+  self.assertIn('33:'+str(p['encryption_constant']),app.progress.data['full_scan_baseline'])
+
  def test_full_scan_auto_trade_requires_exchange_and_foreign_ot(self):
   from tracker.progress import RunProgress, pokemon_key
   path=Path(self.tmp.name)/'full-scan-progress.json'
