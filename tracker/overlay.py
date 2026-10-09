@@ -177,7 +177,20 @@ class OverlayManager:
         return png_to_gif(BLANK_PNG)
 
     def public_state(self):
-        state = self.service.snapshot()
+        # OBS may poll from several sources twice per second. Copy only the six
+        # party slots, never the entire 32-box cache (~960 Pokémon).
+        if hasattr(self.service, 'condition') and hasattr(self.service, 'state'):
+            with self.service.condition:
+                original = self.service.state
+                state = {
+                    'party': copy.deepcopy(original.get('party') or []),
+                    'progress': {'deaths': list(((original.get('progress') or {}).get('deaths') or {}))},
+                    'stale': original.get('stale', True),
+                    'game': original.get('game'),
+                    'revision': original.get('revision', 0),
+                }
+        else:
+            state = self.service.snapshot()
         deaths = (state.get('progress') or {}).get('deaths') or {}
         result = []
         party = state.get('party') or []
