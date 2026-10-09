@@ -119,6 +119,66 @@ class ProgressTests(unittest.TestCase):
   with self.assertRaises(ValueError):
    app.validate_route_mark({'key':'33:123'},undo=True)
 
+ def test_full_scan_auto_trade_requires_exchange_and_foreign_ot(self):
+  from tracker.progress import RunProgress, pokemon_key
+  path=Path(self.tmp.name)/'full-scan-progress.json'
+  progress=RunProgress(path)
+  own=[copy.deepcopy(self.service.team[i]) for i in range(3)]
+  for i,p in enumerate(own):
+   p.update(encryption_constant=501+i,ot_id=1234567,checksum_valid=True)
+  received=copy.deepcopy(own[0])
+  received.update(encryption_constant=7777,ot_id=9999999,nickname='Regalo por intercambio')
+  boxes={str(i):[None]*30 for i in range(1,33)}
+  party=own+[None]*3
+  progress.remember(party,boxes)
+  self.assertFalse(progress.observe_full_scan(party,boxes))
+  # Con cajas incompletas NO puede concluir intercambio.
+  missing=[own[1],own[2],received,None,None,None]
+  progress.remember(missing,boxes)
+  self.assertFalse(progress.observe_full_scan(missing,{'1':[None]*30}))
+  self.assertNotIn(pokemon_key(own[0]),progress.data['route_marks'])
+  self.assertTrue(progress.observe_full_scan(missing,boxes))
+  key=pokemon_key(own[0])
+  self.assertEqual(progress.data['route_marks'][key]['kind'],'trade')
+  self.assertEqual(progress.data['route_marks'][key]['source'],'auto')
+  self.assertEqual(progress.data['route_marks'][key]['pokemon']['nickname'],own[0]['nickname'])
+  self.assertTrue(RunProgress(path).data['full_scan_baseline'])
+  # No se vuelve a generar por escanear dos veces el mismo estado.
+  self.assertFalse(progress.observe_full_scan(missing,boxes))
+
+ def test_full_scan_does_not_guess_trade_on_missing_or_same_ot(self):
+  from tracker.progress import RunProgress
+  path=Path(self.tmp.name)/'no-trade.json'
+  progress=RunProgress(path)
+  own=[copy.deepcopy(self.service.team[i]) for i in range(3)]
+  for i,p in enumerate(own):
+   p.update(encryption_constant=900+i,ot_id=456,checksum_valid=True)
+  boxes={str(i):[None]*30 for i in range(1,33)}
+  party=own+[None]*3
+  progress.remember(party,boxes)
+  progress.observe_full_scan(party,boxes)
+  same=copy.deepcopy(own[0]);same['encryption_constant']=919
+  changed=[same,own[1],own[2],None,None,None]
+  self.assertFalse(progress.observe_full_scan(changed,boxes))
+  self.assertEqual(progress.data['route_marks'],{})
+  # La simple desaparición tampoco da evidencia de intercambio.
+  self.assertFalse(progress.observe_full_scan([None,own[1],own[2],None,None,None],boxes))
+  self.assertEqual(progress.data['route_marks'],{})
+
+ def test_route_trade_flag_can_be_undone_without_affecting_miss(self):
+  path=Path(self.tmp.name)/'flag-progress.json'
+  app=TrackerService(path)
+  command={'action':'route_trade','route':'8','traded':True}
+  app.handle(command)
+  self.assertIn('8',app.snapshot()['progress']['traded_routes'])
+  app.handle({'action':'route_miss','route':'8','missed':True})
+  app.handle(command)
+  self.assertIn('8',app.snapshot()['progress']['traded_routes'])
+  app.handle({**command,'traded':False})
+  self.assertNotIn('8',app.snapshot()['progress']['traded_routes'])
+  for invalid in (dict(command,route='inventada'),dict(command,traded='true')):
+   with self.assertRaises(ValueError):app.validate_route_trade(invalid)
+
  def test_miss_reversible_persistent_and_validated(self):
   cmd={'action':'route_miss','route':'8','missed':True};self.service.handle(cmd);self.service.handle(cmd)
   self.assertEqual(DemoService(self.path).snapshot()['progress']['missed_routes'],['8'])
