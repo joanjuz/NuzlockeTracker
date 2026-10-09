@@ -193,7 +193,7 @@ class OverlayManager:
             raise ValueError('Imagen demasiado grande (máximo 2 MB)')
         try:
             raw = base64.b64decode(data, validate=True)
-            if len(raw) > 2_000_000 or not raw.startswith(b'\\x89PNG\\r\\n\\x1a\\n'):
+            if len(raw) > 2_000_000 or not raw.startswith(b'\x89PNG\r\n\x1a\n'):
                 raise ValueError('Se necesita una imagen PNG válida de hasta 2 MB')
             with Image.open(io.BytesIO(raw)) as image:
                 w, h = image.size
