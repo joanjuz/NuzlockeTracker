@@ -12,7 +12,7 @@
   const checkFields=new Set(['hp_reverse','hp_glow','show_empty']);
   const status=$('status');
   let token='',pending=null,defaultConfig=null,loading=true;
-  function say(text,problem=false){status.textContent=text;status.style.color=problem?'#ff9a9a':'#8bd5b1'}
+  function say(text,problem=false){status.textContent=text;status.dataset.error=String(problem)}
   function setupLinks(){
     const slot=$('slot').value,container=$('links');container.replaceChildren();
     for(const [label,layer] of [['Composición','all'],['Sprites','sprites'],['Motes','names'],['Vida','hp']]){
