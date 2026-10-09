@@ -32,14 +32,15 @@ const ctx={
   sprite:p=>'<span class="dummy-sprite">'+p.nickname+'</span>',
   document:{createElement:()=>new Node()},
   command:cmd=>calls.push(cmd),
-  confirm:()=>{confirmed++;return true},
+  confirm:()=>{throw new Error('No debe pedir confirmación para marcar muerte')},
 };
-const calls=[];let confirmed=0;
+const calls=[];
 vm.createContext(ctx);
 vm.runInContext(src.slice(start,end),ctx);
 ctx.renderPlaces();
 assert.match(get('places').children[0].innerHTML, /data-route-death="33:12"/);
-assert.match(get('places').children[0].innerHTML, /Muerte/);
+assert.match(get('places').children[0].innerHTML, />Muerte<\/button>/);
+assert.doesNotMatch(get('places').children[0].innerHTML, /☠/);
 assert.match(get('places').children[0].innerHTML, /Goty/);
 const eventStart=src.indexOf("$('places').addEventListener('click'");
 const eventEnd=src.indexOf("\n$('detail-content')",eventStart);
@@ -47,7 +48,6 @@ assert.ok(eventStart>=0&&eventEnd>eventStart);
 vm.runInContext(src.slice(eventStart,eventEnd),ctx);
 const click={target:{closest:selector=>selector==='[data-route-death]'?{dataset:{routeDeath:'33:12'}}:null}};
 get('places').events.click(click);
-assert.equal(confirmed,1);
 assert.deepEqual(JSON.parse(JSON.stringify(calls[0])),{action:'mark_dead',key:'33:12'});
 ctx.state.progress.deaths={'33:12':{pokemon:mon}};
 ctx.placeSignature='';
@@ -62,4 +62,4 @@ assert.doesNotMatch(get('places').children[0].innerHTML,/data-route-death/);
 assert.match(get('places').children[0].innerHTML,/Solo lectura/);
 get('places').events.click(click);
 assert.equal(calls.length,1, 'Nunca editar manualmente la partida del compañero');
-console.log('Rutas: muerte manual, registro individual y compañero de solo lectura OK');
+console.log('Rutas: botón sin icono ni confirmación, muerte individual y compañero de solo lectura OK');

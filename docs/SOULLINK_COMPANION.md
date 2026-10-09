@@ -77,7 +77,7 @@ La última prueba usa `node:sqlite` experimental de Node 22 y no realiza solicit
 
 ## Muerte manual por ruta y cajas sin conexión (v0.23.1)
 
-- En **Rutas**, cada Pokémon válido y vivo tiene su propio botón **☠ Muerte**, debajo de su sprite. La app pide confirmación antes de registrar la muerte en **Muertos**. El registro se guarda localmente y se comparte al volver a sincronizar la sesión. Puedes corregir un error con **Revivir** desde Muertos.
+- En **Rutas**, cada Pokémon válido y vivo tiene su propio botón **Muerte**, sin icono, debajo de su sprite. La muerte se registra directamente en **Muertos**, sin pedir confirmación. El registro se guarda localmente y se comparte al volver a sincronizar la sesión. Puedes corregir un error con **Revivir** desde Muertos.
 - **No existe muerte enlazada automática**: marcar a un Pokémon solo cambia el registro de tu tracker, no los Pokémon del otro jugador ni sus ROM. La detección preexistente de PS=0 para tu propio equipo permanece activa.
 - El botón no permite modificar la **vista Compañero**, que continúa siendo de solo lectura.
 - El texto «Lectura automática de 32 cajas» se retiró de la barra de Cajas; la lectura automática permanece activa en segundo plano.
