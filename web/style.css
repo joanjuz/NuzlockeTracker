@@ -85,3 +85,8 @@ h1,h2,h3,.brand{font-weight:700;letter-spacing:.01em}.topbar nav button{font-wei
 .evolution-option p{font-size:12px;margin:5px 0}
 .evolution-modified{font-size:11px;color:var(--accent)}
 @media(max-width:600px){.template-base-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* Evolutions: same local -> PokeAPI -> numeric fallback as the team portraits. */
+.evolution-option .sprite-fallback{height:56px;width:56px;flex:0 0 56px;align-items:center;justify-content:center;font-size:13px;border-radius:8px}
+.evolution-option .sprite-fallback:not([hidden]){display:flex}
+.evolution-option .sprite-fallback[hidden]{display:none}

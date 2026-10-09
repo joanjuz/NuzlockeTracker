@@ -11,6 +11,11 @@ for(const id of ['template-moves','template-stats','template-evolutions','import
 assert.match(app, /\/api\/templates/);
 assert.match(app, /function detail\(p\)/);
 assert.match(app, /Cómo evoluciona/);
+// Broken local sprite files must retry PokeAPI and then reveal the number.
+assert.match(app, /class=\"evolution-option\"/);
+assert.match(app, /this\.dataset\.remote='1'/);
+assert.match(app, /this\.nextElementSibling\.hidden=false/);
+assert.match(app, /class=\"sprite-fallback\" hidden>#/);
 assert.match(app, /Método modificado por pk3DS Progressive/);
 assert.match(app, /Estadísticas base · pk3DS Progressive/);
 assert.match(app, /saved_connection/);
