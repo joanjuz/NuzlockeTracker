@@ -11,6 +11,8 @@ for(const id of ['template-moves','template-stats','template-evolutions','import
 assert.match(app, /\/api\/templates/);
 assert.match(app, /function detail\(p\)/);
 assert.match(app, /Cómo evoluciona/);
+assert.match(app, /p\.evolutions\?\.length/);
+assert.doesNotMatch(app, /No tiene evoluciones registradas para esta especie/);
 // Broken local sprite files must retry PokeAPI and then reveal the number.
 assert.match(app, /class=\"evolution-option\"/);
 assert.match(app, /this\.dataset\.remote='1'/);

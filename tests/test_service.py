@@ -50,6 +50,29 @@ class ServiceTests(unittest.TestCase):
   self.assertTrue(self.service.snapshot()['progress']['revived_pending'])
   self.service.handle({'action':'mark_dead','key':key})
   self.assertNotIn(key,self.service.snapshot()['progress']['revived_pending'])
+ def test_last_party_survives_disconnect_restart_and_template_refresh(self):
+  mon={'species_id':37,'species':'Vulpix','form':1,'nickname':'Nevada','hp':24,'max_hp':70,
+       'origin_version':33,'encryption_constant':1234,'moves':[0,0,0,0]}
+  self.service.update(game='Ultra Moon 1.0',party=[mon]+[None]*5,stale=False)
+  self.service.handle({'action':'disconnect'})
+  self.assertEqual(self.service.snapshot()['party'][0]['nickname'],'Nevada')
+  self.assertTrue(self.service.snapshot()['stale'])
+  again=TrackerService(self.path)
+  snap=again.snapshot()
+  self.assertTrue(snap['stale'])
+  self.assertEqual(snap['connection']['status'],'disconnected')
+  self.assertEqual(snap['party'][0]['hp'],24)
+  self.assertEqual(snap['party'][0]['nickname'],'Nevada')
+  self.assertEqual(snap['party'][0]['evolutions'][0]['target_name'],'Ninetales de Alola')
+  self.assertEqual(snap['party'][0]['evolutions'][0]['sprite_id'],10104)
+  self.assertEqual(snap['party'][0]['evolutions'][0]['method'],'Usar piedra hielo')
+  self.service.handle({'action':'disconnect'})
+  self.assertEqual(self.service.snapshot()['party'][0]['hp'],24)
+  again.factory=lambda config:object()
+  again.config={'game':'Ultra Sun 1.0','mode':'memory'}
+  again.connect()
+  self.assertTrue(all(p is None for p in again.snapshot()['party']))
+
  def test_cached_boxes_survive_disconnect_and_restart(self):
   mon={'species_id':448,'nickname':'Lucario','origin_version':33,'encryption_constant':123,'checksum_valid':True}
   full={str(n):[mon]+[None]*29 for n in range(1,33)}

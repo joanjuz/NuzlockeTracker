@@ -47,7 +47,7 @@ class TemplateTests(unittest.TestCase):
             targets = {e['target'] for e in mgr.evolutions(79)}
             self.assertEqual(targets, {80, 199})  # Preserve unedited Slowbro branch.
             new = next(x for x in mgr.evolutions(79) if x['target'] == 199)
-            self.assertIn('Piedra Agua', new['method'])
+            self.assertIn('piedra agua', new['method'])
             self.assertEqual(new['source'], 'pk3DS Progressive')
             self.assertEqual(sum(e['target'] == 186 for e in mgr.evolutions(61)), 2)
             methods=[e['method'] for e in mgr.evolutions(61) if e['target'] == 186]
@@ -56,6 +56,36 @@ class TemplateTests(unittest.TestCase):
             self.assertIn(62, {e['target'] for e in mgr.evolutions(61)})  # Poliwrath stays available.
             self.assertEqual(mgr.evolutions(75, 0)[0]['method'], 'Subir de nivel al nivel 37')
             self.assertEqual(mgr.evolutions(75, 1)[0]['method'], 'Subir de nivel al nivel 39')
+
+    def test_alolan_vulpix_and_sandshrew_have_distinct_evolutions(self):
+        with tempfile.TemporaryDirectory() as folder:
+            mgr = TemplateManager(Path(folder) / 'templates.json')
+            vulpix = mgr.evolutions(37, 0)
+            alolan = mgr.evolutions(37, 1)
+            self.assertEqual(len(vulpix), 1)
+            self.assertEqual(len(alolan), 1)
+            self.assertEqual(vulpix[0]['target'], 38)
+            self.assertEqual(alolan[0]['target'], 38)
+            self.assertEqual(vulpix[0]['method'], 'Usar piedra fuego')
+            self.assertEqual(alolan[0]['method'], 'Usar piedra hielo')
+            self.assertEqual(alolan[0]['target_form'], 1)
+            self.assertEqual(vulpix[0]['target_form'], 0)
+            self.assertNotIn('ID', alolan[0]['method'])
+            self.assertEqual(mgr.evolutions(28, 0), [])
+            self.assertEqual(mgr.evolutions(38, 1), [])
+            self.assertEqual(mgr.evolutions(27, 1)[0]['target'], 28)
+
+    def test_pk3ds_item_names_and_form_target(self):
+        from tracker.templates import evolutions_csv
+        csv = ("Source,Target,Method,Level,Argument,Form,ItemName,AltItemName\n"
+               "356,477,19,,325,-1,,\n"
+               "356,477,20,,325,-1,,\n"
+               "37,38,UsedItem,,885,1,Ice Stone,\n")
+        rows = evolutions_csv(csv, Catalog())
+        self.assertEqual(rows['356'][0]['method'], 'Subir de nivel de día llevando Tela Terrible')
+        self.assertEqual(rows['356'][1]['method'], 'Subir de nivel de noche llevando Tela Terrible')
+        self.assertNotIn('325', rows['356'][0]['method'])
+        self.assertEqual(rows['37'][0]['form'], 1)
 
     def test_template_persistence_and_atomic_invalid(self):
         with tempfile.TemporaryDirectory() as folder:
