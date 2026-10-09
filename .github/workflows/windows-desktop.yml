@@ -2,6 +2,8 @@ name: Windows - App de escritorio
 
 on:
   workflow_dispatch:
+  push:
+    branches: [feature/app-escritorio-windows]
   pull_request:
     branches: [development, master]
     paths:
