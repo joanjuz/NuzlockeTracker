@@ -34,7 +34,9 @@ def validate_worker_url(url):
 
 def fetch_json(url, method='GET', payload=None, token=None, setup_key=None):
     body = json.dumps(payload, ensure_ascii=False).encode('utf-8') if payload is not None else None
-    headers = {'Accept': 'application/json'}
+    # Cloudflare workers.dev may reject urllib's default Python-urllib User-Agent.
+    # Mozilla/5.0 is the value verified to work against our public /health endpoint.
+    headers = {'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0'}
     if body is not None:
         headers['Content-Type'] = 'application/json'
     if token:
