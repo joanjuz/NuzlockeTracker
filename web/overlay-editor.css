@@ -78,18 +78,15 @@ button.secondary:hover{background:var(--border)}
 .preview-panel{grid-column:1/-1}
 .preview-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .preview-title h2{margin:0 auto 0 0}
-.checker{
-  height:350px;position:relative;overflow:auto;border-radius:10px;
-  border:1px solid var(--border);background-color:var(--checker-bg);
-  background-image:
-    linear-gradient(45deg,var(--checker-tile) 25%,transparent 25%),
-    linear-gradient(-45deg,var(--checker-tile) 25%,transparent 25%),
-    linear-gradient(45deg,transparent 75%,var(--checker-tile) 75%),
-    linear-gradient(-45deg,transparent 75%,var(--checker-tile) 75%);
-  background-size:22px 22px;
-  background-position:0 0,0 11px,11px -11px,-11px 0
-}
-iframe{width:100%;height:100%;border:0;background:transparent}
+.actions-panel{grid-column:1/-1}
+.share-tools{border:1px solid var(--border);background:var(--panel);border-radius:10px;padding:12px;margin-bottom:18px;display:grid;gap:12px}
+.share-tools>strong{color:var(--text);font-size:13px}
+.share-tools p{margin:0;color:var(--muted);font-size:12px}
+.share-buttons{display:flex;gap:8px;flex-wrap:wrap}
+.share-buttons button{flex:1;min-width:120px}
+#share-status{color:var(--accent);overflow-wrap:anywhere}
+button:disabled{opacity:.45;cursor:not-allowed}
+
 @media(max-width:600px){
   .controls{grid-template-columns:1fr}
   body{padding:8px}
