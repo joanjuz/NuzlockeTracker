@@ -196,7 +196,7 @@ def smoke_test_native():
     In particular this detects pythonnet / Python.Runtime.dll packaging failures
     that an HTTP-only smoke test misses. No windows are opened by this check.
     """
-    if sys.platform == 'win32':
+    if sys.platform == 'win32' and getattr(sys, 'frozen', False):
         import webview.platforms.winforms as winforms
         if not hasattr(winforms, 'BrowserView'):
             raise RuntimeError('Backend gráfico WinForms incompleto')
