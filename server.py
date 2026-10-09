@@ -232,7 +232,7 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None,
             files={'/fonts/Oxanium.ttf':('web/fonts/Oxanium.ttf','font/ttf'),'/':('web/index.html','text/html; charset=utf-8'),'/app.js':('web/app.js','text/javascript; charset=utf-8'),'/analysis.js':('web/analysis.js','text/javascript; charset=utf-8'),'/companion.js':('web/companion.js','text/javascript; charset=utf-8'),'/companion.css':('web/companion.css','text/css; charset=utf-8'),'/style.css':('web/style.css','text/css; charset=utf-8'),'/empty-pokemon.svg':('web/empty-pokemon.svg','image/svg+xml'),'/app-icon.png':('web/app-icon.png','image/png')}
             if path in files:
                 name,kind=files[path];self.reply(200,(ROOT/name).read_bytes(),kind);return
-            match=re.fullmatch(r'/sprites/([1-9][0-9]{0,4})\\.png',path)
+            match=re.fullmatch(r'/sprites/([1-9][0-9]{0,4})\.png',path)
             if match and 1<=int(match[1])<=10115:
                 raw=sprite_bytes(int(match[1]))
                 if raw is not None:
