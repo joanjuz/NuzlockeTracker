@@ -72,6 +72,24 @@ class CompanionTests(unittest.TestCase):
                 local['progress']['origins']=origins
                 snapshot(local)
 
+    def test_traded_away_route_mark_reaches_partner_without_history(self):
+        local=state()
+        pokemon=mon()
+        local['progress']['encounters']={'33:1234':pokemon}
+        local['progress']['route_marks']={'33:1234':{
+          'kind':'trade','pokemon':pokemon,'recorded_at':'2026-10-09',
+          'private_token':'NEVER_SEND'}}
+        shared=snapshot(local)
+        self.assertNotIn('encounters',shared['progress'])
+        self.assertNotIn('private_token',json.dumps(shared))
+        mark=viewer_state(shared)['progress']['route_marks']['33:1234']
+        self.assertEqual(mark['kind'],'trade')
+        self.assertEqual(mark['pokemon']['nickname'],'Goty')
+        self.assertEqual(mark['pokemon']['met_location_id'],8)
+        local['progress']['route_marks']['33:1234']['kind']='unknown'
+        with self.assertRaises(ValueError):
+            snapshot(local)
+
     def test_viewer_can_render_last_session(self):
         old = snapshot(state('Ultra Moon 1.0'))
         view = viewer_state(old)
