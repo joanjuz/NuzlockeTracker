@@ -20,3 +20,5 @@ jobs:
       - name: Pruebas JavaScript
         run: |
           for file in tests/*.js; do node "$file"; done
+      - name: Pruebas Cloudflare Worker (SQL local)
+        run: node --test cloudflare/companion-worker/tests.mjs

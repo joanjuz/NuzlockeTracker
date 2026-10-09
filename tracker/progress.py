@@ -49,6 +49,22 @@ class RunProgress:
             self.save()
         return changed
 
+    def mark_dead(self, pokemon):
+        """Manually record a death; never alter the ROM or a partner's save."""
+        key = pokemon_key(pokemon)
+        if key is None or key in self.data['deaths']:
+            return False
+        self.data['deaths'][key] = {
+            'pokemon': copy.deepcopy(pokemon),
+            'recorded_at': datetime.now(timezone.utc).isoformat(),
+            'source': 'manual',
+        }
+        # A manual death overrides any temporary revive safeguard.
+        if key in self.data['revived_pending']:
+            self.data['revived_pending'].remove(key)
+        self.save()
+        return True
+
     def revive(self, key):
         if key not in self.data['deaths']:
             return
