@@ -16,7 +16,7 @@ import threading
 from pathlib import Path
 
 from .progress import pokemon_key
-from .layout_export import BLANK_PNG
+from .layout_export import BLANK_PNG, png_to_gif
 
 PALETTE = {
     'high': '#5de09a', 'medium': '#f2c15c', 'low': '#ef5967',
@@ -173,8 +173,8 @@ class OverlayManager:
             pass
         if suffix == 'png':
             return BLANK_PNG
-        # Minimal transparent 1x1 GIF, for OBS startup before the exporter runs.
-        return base64.b64decode('R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=')
+        # Valid single-frame transparent GIF before the sprite exporter starts.
+        return png_to_gif(BLANK_PNG)
 
     def public_state(self):
         state = self.service.snapshot()
