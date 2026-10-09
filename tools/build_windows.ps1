@@ -30,8 +30,10 @@ $oldAppData = $env:LOCALAPPDATA
 try {
     $env:LOCALAPPDATA = Join-Path $root 'build\ci-appdata'
     New-Item -ItemType Directory -Path $env:LOCALAPPDATA -Force | Out-Null
-    & $exe --smoke-test --profile principal
-    if ($LASTEXITCODE -ne 0) {
+    # Windowed EXEs are launched asynchronously by PowerShell; wait for the
+    # real process (and PyInstaller onefile child) before touching the EXE.
+    $probe = Start-Process -FilePath $exe -ArgumentList @('--smoke-test', '--profile', 'principal') -Wait -PassThru
+    if ($probe.ExitCode -ne 0) {
         $logFile = Join-Path $env:LOCALAPPDATA 'PokemonTracker\desktop-error.log'
         if (Test-Path $logFile) { Get-Content $logFile | Write-Host }
         throw 'Falló la prueba del EXE: API o Python.NET / WinForms.'
