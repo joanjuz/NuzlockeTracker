@@ -8,7 +8,7 @@ POKEMON_FIELDS = {
     'ability', 'item', 'move_names', 'moves', 'nature', 'iv', 'ev', 'met_location',
     'met_location_id', 'met_level', 'met_date', 'egg_location', 'egg_location_id',
     'origin_version', 'encryption_constant', 'egg', 'form', 'type_source', 'types',
-    'ability_id', 'item_id', 'move_pp', 'move_pp_ups',
+    'ability_id', 'item_id', 'move_pp', 'move_pp_ups', 'base_stats', 'evolutions',
 }
 
 
