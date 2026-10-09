@@ -100,3 +100,6 @@ h1,h2,h3,.brand{font-weight:700;letter-spacing:.01em}.topbar nav button{font-wei
 .evolution-pokemon-title{gap:10px}
 .evolution-pokemon-title strong{font-size:14px}
 .evolution-pokemon-title .evolution-wiki{font-size:10px}
+
+/* Death count to the left of compact team icons. */
+.mini-summary{display:flex;align-items:center;gap:10px;margin-left:auto;min-width:0}.mini-summary .mini-team{margin-left:0}.death-tally{display:flex;align-items:center;gap:7px;border:1px solid var(--border);border-radius:10px;padding:6px 9px;white-space:nowrap;font-size:10px;color:var(--muted)}.death-tally strong{font-size:15px;color:var(--text)}.revive-count-actions{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0 12px}.revive-count-actions button{flex:1;min-width:160px}@media(max-width:1400px){.mini-summary .mini-team{display:none}}@media(max-width:900px){.death-tally span{display:none}.death-tally{padding:6px}}
