@@ -22,8 +22,8 @@ class TrackerService:
         self.session_path=self.output.with_name('session-profile.json')
         self.condition=threading.Condition();self.commands=queue.Queue();self.stop=threading.Event();self.connection_generation=0;self.connection_lock=threading.Lock()
         self.state={'schema_version':1,'revision':0,'game':'Ultra Moon 1.0','connection':{'status':'disconnected','message':'Conecta con la partida cargada.'},'party':[None]*6,'boxes':{},'selected_box':1,'scan':{'active':False,'completed':0},'stale':True}
-        # Restore the last validated boxes after a tracker restart, but keep
-        # connection='disconnected' and stale=True: cached is never live RAM.
+        # Restore the last known party AND boxes after a restart. They remain
+        # stale and can never be mistaken for a live emulator reading.
         if self.output.is_file():
             try:
                 saved=json.loads(self.output.read_text(encoding='utf-8'))
@@ -32,6 +32,9 @@ class TrackerService:
                     if len(boxes)<=32 and all(isinstance(k,str) and k.isdigit() and 1<=int(k)<=32 and isinstance(v,list) and len(v)==30 and all(m is None or isinstance(m,dict) for m in v) for k,v in boxes.items()):
                         self.state['game']=saved['game']
                         self.state['boxes']=copy.deepcopy(boxes)
+                        party=saved.get('party')
+                        if isinstance(party,list) and len(party)==6 and all(mon is None or isinstance(mon,dict) and type(mon.get('species_id')) is int and 1<=mon['species_id']<=807 for mon in party):
+                            self.state['party']=copy.deepcopy(party)
                         self.state['box_verified']=saved.get('box_verified') is not False
                         if type(saved.get('selected_box')) is int and 1<=saved['selected_box']<=32:
                             self.state['selected_box']=saved['selected_box']
@@ -84,8 +87,18 @@ class TrackerService:
         data=dict(p)
         species=p.get('species_id')
         data['base_stats']=self.templates.data['stats'].get(str(species))
-        data['evolutions']=[{**e,'target_name':self.catalog.name('species',e['target'])}
-                            for e in self.templates.evolutions(species,p.get('form',0))]
+        evolutions=[]
+        for evo in self.templates.evolutions(species,p.get('form',0)):
+            target=evo['target']
+            result_form=evo.get('target_form',0)
+            name=self.catalog.name('species',target)
+            if result_form==1 and target in (20,26,28,38,51,53,75,76,78,80,89,103,105):
+                name+=' de Alola'
+            # PokeAPI maintains regional forms under distinct Pokémon IDs.
+            regional_sprites={20:10092,26:10100,28:10102,38:10104,51:10106,53:10108,75:10110,76:10111,78:10112,80:10113,89:10114,103:10115,105:10116}
+            evo_data={**evo,'target_name':name,'sprite_id':regional_sprites.get(target,target) if result_form==1 else target}
+            evolutions.append(evo_data)
+        data['evolutions']=evolutions
         moves=p.get('moves')
         if isinstance(moves,list) and len(moves)==4:
             data['analysis_moves']=[self.reference.move(i,self.catalog) if i else None for i in moves]
