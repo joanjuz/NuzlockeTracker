@@ -9,7 +9,14 @@ if ($LASTEXITCODE -ne 0) { throw 'No se pudieron instalar dependencias de escrit
 # --onefile prevents downloaded/extracted pythonnet DLLs from retaining the
 # Windows Mark-of-the-Web that can block Python.Runtime.Loader.Initialize.
 # Loading WebView2/WinForms is now part of the frozen smoke test.
-$pyi = @('--noconfirm', '--clean', '--windowed', '--onefile',
+# The image was supplied by the project owner. Build a multi-resolution ICO
+# so Windows taskbar, Alt+Tab and Explorer show the same app emblem.
+$iconSource = Join-Path $root 'assets\app_icon.png'
+$iconFile = Join-Path $root 'build\PokemonTracker.ico'
+New-Item -ItemType Directory -Force (Split-Path $iconFile) | Out-Null
+python -c "from PIL import Image; import sys; i=Image.open(sys.argv[1]).convert('RGBA'); i.save(sys.argv[2],format='ICO',sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])" $iconSource $iconFile
+if ($LASTEXITCODE -ne 0) { throw 'No se pudo convertir el icono del programa.' }
+$pyi = @('--noconfirm', '--clean', '--windowed', '--onefile', '--icon', $iconFile,
     '--name', 'PokemonTracker', '--collect-all', 'webview',
     '--hidden-import', 'clr', '--exclude-module', 'PyQt5',
     '--exclude-module', 'PyQt6', '--exclude-module', 'PySide2',
