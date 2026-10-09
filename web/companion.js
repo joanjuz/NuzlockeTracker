@@ -24,11 +24,11 @@
   const soulToggle = el('soullink-enabled');
   const soulNotice = el('soullink-notification');
   const soulDescription = el('soullink-description');
-  const souls = {seen:new Set(),pair:'',pending:null,initialized:false};
+  const souls = {seen:new Set(),pair:'',pending:null,queue:[],initialized:false};
   soulToggle.checked = localStorage.getItem('soullink-manual-enabled') === 'true';
   soulToggle.onchange = () => {
     localStorage.setItem('soullink-manual-enabled',String(soulToggle.checked));
-    soulNotice.hidden = true; souls.pending = null;
+    soulNotice.hidden = true; souls.pending = null; souls.queue = [];
     // Enabling observes the current set, and only new remote deaths notify.
     souls.initialized = false;
   };
@@ -38,10 +38,17 @@
     const ids = routeCatalog.find(r=>(r.ids||[r.id]).includes(a.met_location_id))?.ids;
     return ids ? ids.includes(b.met_location_id) : a.met_location_id===b.met_location_id;
   }
+  function showNextProposal(){
+    if(souls.pending || !soulToggle.checked || !souls.queue.length)return;
+    souls.pending=souls.queue.shift();
+    el('soullink-pokemon-icon').src='/sprites/'+Number(souls.pending.species)+'.png';
+    soulDescription.textContent=souls.pending.description;
+    soulNotice.hidden=false;
+  }
   function observePartnerDeaths(info){
     if(!info.configured || !info.partner?.state?.progress?.deaths) return;
-    const pair=String(info.invite_link||info.my_name)+'|'+String(info.partner.name);
-    if(souls.pair!==pair){souls.pair=pair;souls.seen.clear();souls.initialized=false;soulNotice.hidden=true;}
+    const pair=String(info.worker_url||info.default_worker_url)+'|'+String(info.my_name)+'|'+String(info.partner.name);
+    if(souls.pair!==pair){souls.pair=pair;souls.seen.clear();souls.initialized=false;souls.queue=[];souls.pending=null;soulNotice.hidden=true;}
     const deaths=info.partner.state.progress.deaths;
     if(!souls.initialized || !soulToggle.checked){
       for(const [key,entry] of Object.entries(deaths))souls.seen.add(deathIdentity(entry,key));
@@ -58,16 +65,17 @@
       const matched=candidates.find(mon=>sameRoute(mon,remoteMon) &&
         !mon.egg && Number.isInteger(mon.encryption_constant) &&
         !own.progress?.deaths?.[String(mon.origin_version??33)+':'+mon.encryption_constant]);
-      if(!matched || souls.pending)continue;
-      souls.pending={key:String(matched.origin_version??33)+':'+matched.encryption_constant,id};
-      el('soullink-pokemon-icon').src='/sprites/'+Number(matched.species_id)+'.png';
-      soulDescription.textContent=info.partner.name+' registró la muerte de '+(remoteMon.nickname||remoteMon.species)+
-        '. En esa ruta tienes a '+(matched.nickname||matched.species)+'. ¿Quieres marcar su muerte?';
-      soulNotice.hidden=false;
-      break;
+      if(!matched)continue;
+      souls.queue.push({
+        key:String(matched.origin_version??33)+':'+matched.encryption_constant,
+        id, species:matched.species_id,
+        description:info.partner.name+' registró la muerte de '+(remoteMon.nickname||remoteMon.species)+
+          '. En esa ruta tienes a '+(matched.nickname||matched.species)+'. ¿Quieres marcar su muerte?'
+      });
     }
+    showNextProposal();
   }
-  el('soullink-dismiss').onclick=()=>{souls.pending=null;soulNotice.hidden=true;};
+  el('soullink-dismiss').onclick=()=>{souls.pending=null;soulNotice.hidden=true;showNextProposal();};
   el('soullink-kill').onclick=async()=>{
     const current=souls.pending;
     souls.pending=null;soulNotice.hidden=true;
@@ -79,6 +87,7 @@
       const payload=await response.json();
       if(!response.ok)throw Error(payload.error||'No se pudo registrar la muerte');
     }catch(err){indicator.textContent='Aviso Soul Link: '+err.message;}
+    showNextProposal();
   };
   const stamp = ms => ms ? new Date(ms).toLocaleString('es-CR') : 'Aún no ha compartido una sesión';
   function updatePage(info) {
