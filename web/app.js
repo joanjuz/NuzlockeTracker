@@ -36,7 +36,7 @@ function setCompanionView(enabled,remote){
   if(companionView&&document.querySelector('nav button.active')?.dataset.tab==='connection')switchTab('party');
 }
 window.setCompanionView=setCompanionView;
-function renderMini(){const signature=JSON.stringify(state.party.map(p=>p?[p.species_id,p.nickname,p.hp===0]:null));$('party-count').textContent=state.party.filter(Boolean).length;$('box-count').textContent=Object.keys(state.boxes).length;if(signature===miniSignature)return;miniSignature=signature;$('mini-team').replaceChildren();state.party.forEach((p,i)=>{const b=document.createElement('button');b.title=p?`${p.nickname||p.species} · ${p.species}`:`Slot ${i+1} vacío`;b.className=p?.hp===0?'fainted':'';b.innerHTML=p?`<img src="/sprites/${p.species_id}.png" alt="${esc(p.species)}" onerror="if(!this.dataset.remote){this.dataset.remote='1';this.src='https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.species_id}.png'}else{this.hidden=true;this.nextElementSibling.hidden=false}"><span hidden>${i+1}</span>`:`<span>·</span>`;b.onclick=()=>{switchTab('party');if(p)openDetail(state.party[i],`party:${i}`)};$('mini-team').append(b)})}
+function renderMini(){if($('death-counter-value'))$('death-counter-value').textContent=String(state.progress?.death_count??Object.keys(state.progress?.deaths||{}).length);const signature=JSON.stringify(state.party.map(p=>p?[p.species_id,p.nickname,p.hp===0]:null));$('party-count').textContent=state.party.filter(Boolean).length;$('box-count').textContent=Object.keys(state.boxes).length;if(signature===miniSignature)return;miniSignature=signature;$('mini-team').replaceChildren();state.party.forEach((p,i)=>{const b=document.createElement('button');b.title=p?`${p.nickname||p.species} · ${p.species}`:`Slot ${i+1} vacío`;b.className=p?.hp===0?'fainted':'';b.innerHTML=p?`<img src="/sprites/${p.species_id}.png" alt="${esc(p.species)}" onerror="if(!this.dataset.remote){this.dataset.remote='1';this.src='https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.species_id}.png'}else{this.hidden=true;this.nextElementSibling.hidden=false}"><span hidden>${i+1}</span>`:`<span>·</span>`;b.onclick=()=>{switchTab('party');if(p)openDetail(state.party[i],`party:${i}`)};$('mini-team').append(b)})}
 function pokemonKey(p){return `${p.origin_version??33}:${p.encryption_constant}`}
 function isDead(p){return Boolean(state?.progress?.deaths?.[pokemonKey(p)])}
 function renderDead(){
@@ -50,7 +50,7 @@ function renderDead(){
   detailButton.onclick=()=>openDetail(p,`dead:${key}`);
   reviveButton.className='revive-button';reviveButton.textContent='Revivir';reviveButton.setAttribute('aria-label',`Revivir a ${p.nickname||p.species}`);
   reviveButton.title='Quitar de Muertos. No cambia los PS del juego.';
-  reviveButton.disabled=typeof companionView!=='undefined'&&companionView;reviveButton.onclick=async()=>{reviveButton.disabled=true;try{await command({action:'revive',key})}finally{reviveButton.disabled=false}};
+  reviveButton.disabled=typeof companionView!=='undefined'&&companionView;reviveButton.onclick=async()=>{reviveButton.disabled=true;try{const lower=confirm('¿Quieres reducir también el contador de muertes en 1?');await command({action:'revive',key,decrement_counter:lower})}finally{reviveButton.disabled=false}};
   entry.append(detailButton,reviveButton);$('dead').append(entry);
  }
  if(!Object.keys(deaths).length)$('dead').innerHTML='<p class="subtitle">Sin muertes registradas.</p>';

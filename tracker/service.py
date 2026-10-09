@@ -267,7 +267,9 @@ class TrackerService:
             raise ValueError('Pokémon no registrado en Muertos')
     def revive(self,cmd):
         self.validate_revive(cmd)
-        self.progress.revive(cmd['key'])
+        if type(cmd.get('decrement_counter',False)) is not bool:
+            raise ValueError('Opción de contador inválida')
+        self.progress.revive(cmd['key'],cmd.get('decrement_counter',False))
         snapshot=self.snapshot()
         # A healed, current party member can be rearmed immediately.
         self.update(party=snapshot['party'],stale=snapshot['stale'])

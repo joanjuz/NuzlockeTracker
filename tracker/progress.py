@@ -24,6 +24,7 @@ class RunProgress:
                 raise ValueError('El registro de la aventura no tiene un formato válido.')
             self.data = data
         self.data.setdefault('revived_pending', [])
+        self.data.setdefault('death_count', len(self.data['deaths']))
 
     def observe(self, party):
         changed = False
@@ -40,6 +41,7 @@ class RunProgress:
                     changed = True
                 continue
             if p.get('hp') == 0 and (p.get('max_hp') or 0) > 0:
+                self.data['death_count'] += 1
                 self.data['deaths'][key] = {
                     'pokemon': copy.deepcopy(p),
                     'recorded_at': datetime.now(timezone.utc).isoformat(),
@@ -54,6 +56,7 @@ class RunProgress:
         key = pokemon_key(pokemon)
         if key is None or key in self.data['deaths']:
             return False
+        self.data['death_count'] += 1
         self.data['deaths'][key] = {
             'pokemon': copy.deepcopy(pokemon),
             'recorded_at': datetime.now(timezone.utc).isoformat(),
@@ -65,10 +68,12 @@ class RunProgress:
         self.save()
         return True
 
-    def revive(self, key):
+    def revive(self, key, decrement_counter=False):
         if key not in self.data['deaths']:
             return
         del self.data['deaths'][key]
+        if decrement_counter:
+            self.data['death_count'] = max(0, self.data['death_count'] - 1)
         if key not in self.data['revived_pending']:
             self.data['revived_pending'].append(key)
         self.save()
