@@ -85,105 +85,142 @@ function originCategory(p){
   // No inferimos fósiles ni regalos por la especie o la ruta.
   return p.egg===true||(Number.isInteger(p.egg_location_id)&&p.egg_location_id>0)?'egg':'route';
 }
-function routePokemon(p){
-  const key=pokemonKey(p),dead=isDead(p);
-  const valid=Number.isInteger(p.encryption_constant)&&p.checksum_valid===true;
-  const control=dead?'<small class="route-death-status">Muerto</small>':
-    companionView?'<small class="route-death-status">Solo lectura</small>':
-    valid&&!p.egg?`<button class="route-death" type="button" data-route-death="${esc(key)}" aria-label="Marcar muerte de ${esc(p.nickname||p.species)}">Muerte</button>`:'';
-  const classified=originCategory(p);
+
+function routePokemon(p, historical=false){
+  const key=pokemonKey(p),dead=isDead(p),marked=state.progress?.route_marks?.[key];
+  const valid=(historical||p.checksum_valid===true)&&Number.isInteger(p.encryption_constant);
+  const category=originCategory(p);
+  const actions=[];
+  if(marked){
+    actions.push(`<small class="route-marked" title="Esta ruta conserva el historial">${marked.kind==='trade'?'Intercambiado':'Fósil'}</small>`);
+    if(!companionView)actions.push(`<button class="route-death" type="button" data-route-undo="${esc(key)}">Deshacer</button>`);
+  }else if(!companionView&&valid){
+    if(!dead&&!historical&&!p.egg)actions.push(`<button class="route-death" type="button" data-route-death="${esc(key)}">Muerte</button>`);
+    if(historical)actions.push('<small class="route-not-found">Ya no está en las lecturas</small>');
+    actions.push(`<button class="route-death" type="button" data-route-mark="${esc(key)}" data-kind="trade" title="Confirmar que entregaste este Pokémon en un intercambio">Intercambiado</button>`);
+    if(category==='route'||category==='fossil')
+      actions.push(`<button class="route-death" type="button" data-route-mark="${esc(key)}" data-kind="fossil" title="Clasificar este Pokémon como fósil sin perder la ruta">Fósil</button>`);
+  }else if(historical&&!marked)actions.push('<small class="route-not-found">Ya no está en las lecturas</small>');
+  else if(dead)actions.push('<small class="route-death-status">Muerto</small>');
+  else if(companionView)actions.push('<small class="route-death-status">Solo lectura</small>');
   const override=state.progress?.origins?.[key]||'auto';
-  const choices=[['auto','Auto ('+ORIGIN_TYPES[p.egg===true||(Number.isInteger(p.egg_location_id)&&p.egg_location_id>0)?'egg':'route']+')'],
-    ...Object.entries(ORIGIN_TYPES)];
-  const select=companionView||!valid
-    ?`<small class="origin-type-label">${esc(ORIGIN_TYPES[classified])}</small>`
+  const detected=p.egg===true||(Number.isInteger(p.egg_location_id)&&p.egg_location_id>0)?'egg':'route';
+  const choices=[['auto','Auto ('+ORIGIN_TYPES[detected]+')'],...Object.entries(ORIGIN_TYPES)];
+  const select=companionView||!valid||historical||marked
+    ?`<small class="origin-type-label">${esc(ORIGIN_TYPES[category])}</small>`
     :`<select class="origin-select" data-origin-key="${esc(key)}"
        aria-label="Tipo de obtención de ${esc(p.nickname||p.species)}"
-       title="Cambia la clasificación sin modificar el lugar original de obtención">
+       title="Cambia esta categoría sin modificar el lugar original">
        ${choices.map(([value,label])=>`<option value="${value}" ${override===value?'selected':''}>${esc(label)}</option>`).join('')}</select>`;
-  return `<div class="route-pokemon-entry">${sprite(p)}${control}${select}</div>`;
+  return `<div class="route-pokemon-entry ${historical?'route-historical':''}">
+    ${sprite(p)}${actions.join('')}${select}</div>`;
+}
+function routeFootprint(p,kind){
+  const key=pokemonKey(p),name=p.nickname||p.species||('Pokémon #'+p.species_id);
+  return `<div class="route-footprint" title="${esc(name)} · origen registrado: ${esc(p.met_location||'Desconocido')}">
+    <span class="route-footprint-symbol">${kind==='trade'?'↔':'◆'}</span>
+    <small>${kind==='trade'?'Intercambiado':'Fósil'}</small>
+    <span class="route-footprint-name">${esc(name)}</span>
+    ${!companionView?`<button class="route-death" data-route-undo="${esc(key)}" type="button">Deshacer</button>`:''}
+  </div>`;
 }
 function renderPlaces(){
   if(!state)return;
   const query=normalize($('route-search').value||'').trim();
-  const entries=[...state.party,...Object.values(state.boxes).flat(),
-    ...Object.values(state.progress?.deaths||{}).map(r=>r.pokemon)];
-  const seen=new Set(),routesByLocation=new Map(),special=new Map();
+  const entries=[...state.party,...Object.values(state.boxes||{}).flat(),
+    ...Object.values(state.progress?.deaths||{}).map(d=>d.pokemon)];
+  const active=new Map();
   for(const p of entries){
     if(!p)continue;
-    const id=pokemonKey(p);
-    if(!id||seen.has(id))continue;
-    seen.add(id);
-    const category=originCategory(p);
-    if(category!=='route'){
-      if(!special.has(category))special.set(category,[]);
-      special.get(category).push(p);
+    const key=pokemonKey(p);
+    if(!active.has(key))active.set(key,p);
+  }
+  const history=state.progress?.encounters||{};
+  const marks=state.progress?.route_marks||{};
+  const locations=new Map(),special=new Map();
+  const addLocation=(p,type,kind)=>{const key=`${p.origin_version}:${p.met_location_id}`;
+    if(!locations.has(key))locations.set(key,[]);
+    locations.get(key).push({p,type,kind});
+  };
+  const addSpecial=(p,kind,historical)=>{if(!special.has(kind))special.set(kind,[]);
+    special.get(kind).push({p,historical});
+  };
+  const keys=new Set([...Object.keys(history),...active.keys(),...Object.keys(marks)]);
+  for(const key of keys){
+    const p=active.get(key)||history[key]||marks[key]?.pokemon;
+    if(!p)continue;
+    const marked=marks[key];
+    if(marked?.kind==='trade'){
+      addLocation(marked.pokemon||p,'mark','trade');
       continue;
     }
-    const key=`${p.origin_version}:${p.met_location_id}`;
-    if(!routesByLocation.has(key))routesByLocation.set(key,[]);
-    routesByLocation.get(key).push(p);
+    const category=originCategory(p);
+    const historical=!active.has(key);
+    if(category==='fossil'||marked?.kind==='fossil'){
+      addSpecial(p,'fossil',historical);
+      addLocation(p,'mark','fossil');
+    }else if(category!=='route'){
+      addSpecial(p,category,historical);
+    }else{
+      addLocation(p,'pokemon',historical?'historical':'active');
+    }
   }
   const signature=JSON.stringify([routeCatalog,query,companionView,state.progress,
-    entries.filter(Boolean).map(p=>[pokemonKey(p),p.species_id,p.nickname,p.met_location_id,
+    [...active.values()].map(p=>[pokemonKey(p),p.species_id,p.nickname,p.met_location_id,
       p.egg_location_id,p.origin_version,p.egg,p.checksum_valid])]);
   if(signature===placeSignature)return;
   placeSignature=signature;
   $('places').replaceChildren();
   let filled=0;
   for(const r of routeCatalog)
-    if([30,31,32,33].some(v=>(r.ids||[r.id]).some(id=>routesByLocation.has(`${v}:${id}`))))filled++;
-  $('places-count').textContent=`${filled} / ${routeCatalog.length} zonas con Pokémon`;
+    if([30,31,32,33].some(v=>(r.ids||[r.id]).some(id=>locations.has(`${v}:${id}`))))filled++;
+  $('places-count').textContent=`${filled} / ${routeCatalog.length} zonas con historial`;
   const routes=routeCatalog.filter(r=>normalize(r.name).includes(query));
   if(routes.length){
-    const section=document.createElement('section');
-    section.className='route-section';
+    const section=document.createElement('section');section.className='route-section';
     section.innerHTML=`<div class="route-grid">${routes.map(r=>{
-      const pokemon=[30,31,32,33].flatMap(v=>(r.ids||[r.id]).flatMap(id=>routesByLocation.get(`${v}:${id}`)||[]));
+      const list=[30,31,32,33].flatMap(v=>(r.ids||[r.id]).flatMap(id=>locations.get(`${v}:${id}`)||[]));
       const missed=(state.progress?.missed_routes||[]).includes(String(r.id));
-      const note=r.manual_only?'El juego comparte este lugar de encuentro con otra zona; no puede asignarse automáticamente.':'';
-      return `<article class="route-tile ${pokemon.length?'occupied':'unfilled'}" title="${esc(note)}">
-        <div class="route-sprites">${pokemon.length?pokemon.map(routePokemon).join(''):
+      const note=r.manual_only?'El juego comparte esta ubicación con otra zona; la asignación puede ser ambigua.':'';
+      return `<article class="route-tile ${list.length?'occupied':'unfilled'}" title="${esc(note)}">
+       <div class="route-sprites">${list.length?list.map(({p,type,kind})=>type==='mark'?routeFootprint(p,kind):routePokemon(p,kind==='historical')).join(''):
           missed?'<span class="miss-mark" aria-label="Encuentro perdido">MISS</span>':
           '<img class="empty-sprite" src="/empty-pokemon.svg" alt="Sin Pokémon registrado">'}</div>
-        <h4>${esc(r.name)}</h4>
-        <button class="miss-toggle" data-route-miss="${esc(r.id)}" ${companionView?'disabled':''}
-          aria-pressed="${missed}" aria-label="${missed?'Quitar Miss de':'Marcar Miss en'} ${esc(r.name)}">${missed?'↶ Quitar Miss':'Marcar Miss'}</button>
-        ${missed&&pokemon.length?'<small class="miss-label">MISS</small>':''}</article>`;
+       <h4>${esc(r.name)}</h4>
+       <button class="miss-toggle" data-route-miss="${esc(r.id)}" ${companionView?'disabled':''}
+         aria-pressed="${missed}" aria-label="${missed?'Quitar Miss de':'Marcar Miss en'} ${esc(r.name)}">${missed?'↶ Quitar Miss':'Marcar Miss'}</button>
+       ${missed&&list.length?'<small class="miss-label">MISS</small>':''}
+      </article>`;
     }).join('')}</div>`;
     $('places').append(section);
   }
-  const headings={fossil:'Fósiles',gift:'Regalos',egg:'Huevos',trade:'Intercambios'};
-  for(const [category,title] of Object.entries(headings)){
-    const pokemon=(special.get(category)||[]).filter(p=>[p.nickname,p.species,p.met_location]
+  const headings={fossil:'Fósiles',gift:'Regalos',egg:'Huevos',trade:'Intercambios recibidos'};
+  for(const [kind,title] of Object.entries(headings)){
+    const matching=(special.get(kind)||[]).filter(({p})=>[p.nickname,p.species,p.met_location]
       .some(s=>normalize(s||'').includes(query))||normalize(title).includes(query));
-    if(!pokemon.length)continue;
-    const section=document.createElement('section');
-    section.className='route-section origin-section';
-    section.dataset.origin=category;
-    section.innerHTML=`<h3>${title} <span class="origin-count">${pokemon.length}</span></h3>
-      <div class="route-grid">${pokemon.map(p=>`<article class="route-tile occupied">
-        <div class="route-sprites">${routePokemon(p)}</div>
-        <h4>${esc(p.nickname||p.species)}</h4>
-        <small class="origin-location" title="Lugar registrado en el juego">${esc(p.met_location||'Lugar desconocido')}</small>
+    if(!matching.length)continue;
+    const section=document.createElement('section');section.className='route-section origin-section';section.dataset.origin=kind;
+    section.innerHTML=`<h3>${title} <span class="origin-count">${matching.length}</span></h3>
+      <div class="route-grid">${matching.map(({p,historical})=>`<article class="route-tile occupied">
+      <div class="route-sprites">${routePokemon(p,historical)}</div>
+      <h4>${esc(p.nickname||p.species)}</h4>
+      <small class="origin-location">${esc(p.met_location||'Lugar desconocido')}</small>
       </article>`).join('')}</div>`;
     $('places').append(section);
   }
-  const extras=[...routesByLocation.values()].filter(ps=>
-    !routeCatalog.some(r=>(r.ids||[r.id]).includes(ps[0].met_location_id))
-      &&[30,31,32,33].includes(ps[0].origin_version)||
-      ![30,31,32,33].includes(ps[0].origin_version));
-  if(extras.length){
-    const visible=extras.filter(ps=>normalize(ps[0].met_location||'').includes(query));
-    if(visible.length){
-      const section=document.createElement('section');
-      section.className='route-section';
-      section.innerHTML=`<h3>Otros orígenes registrados</h3><div class="route-grid">
-        ${visible.map(ps=>`<article class="route-tile occupied">
-          <div class="route-sprites">${ps.map(routePokemon).join('')}</div>
-          <h4>${esc(ps[0].met_location||'Origen desconocido')}</h4></article>`).join('')}</div>`;
-      $('places').append(section);
-    }
+  const extras=[...locations.values()].filter(items=>
+    !routeCatalog.some(r=>(r.ids||[r.id]).includes(items[0].p.met_location_id)) &&
+      [30,31,32,33].includes(items[0].p.origin_version)
+    ||![30,31,32,33].includes(items[0].p.origin_version));
+  const visible=extras.filter(items=>normalize(items[0].p.met_location||'').includes(query));
+  if(visible.length){
+    const section=document.createElement('section');section.className='route-section';
+    section.innerHTML=`<h3>Otros orígenes registrados</h3><div class="route-grid">
+      ${visible.map(items=>`<article class="route-tile occupied">
+        <div class="route-sprites">${items.map(({p,type,kind})=>type==='mark'?routeFootprint(p,kind):routePokemon(p,kind==='historical')).join('')}</div>
+        <h4>${esc(items[0].p.met_location||'Origen desconocido')}</h4>
+      </article>`).join('')}</div>`;
+    $('places').append(section);
   }
   if(!$('places').children.length)$('places').innerHTML='<p class="subtitle">Sin rutas coincidentes.</p>';
 }
@@ -202,6 +239,16 @@ $('places').addEventListener('change',event=>{
 });
 $('places').addEventListener('click',event=>{
   if(companionView)return;
+  const marker=event.target.closest('[data-route-mark]');
+  if(marker){
+    command({action:'mark_route',key:marker.dataset.routeMark,kind:marker.dataset.kind});
+    return;
+  }
+  const undo=event.target.closest('[data-route-undo]');
+  if(undo){
+    command({action:'clear_route_mark',key:undo.dataset.routeUndo});
+    return;
+  }
   const death=event.target.closest('[data-route-death]');
   if(death){
     const key=death.dataset.routeDeath;
