@@ -215,7 +215,7 @@ class CompanionSync:
             return self.status()
         raise ValueError('Acción de compañero inválida')
 
-    def sync_once(self, force=False):
+    def sync_once(self, force=False, fetch_partner=True):
         with self.lock:
             settings = dict(self.settings)
         if not settings:
@@ -250,6 +250,8 @@ class CompanionSync:
                             self.last_uploaded_hash = signature
                             self.last_core_hash = core_hash
                             self.last_upload_at = now
+            if not fetch_partner:
+                return  # Keep Cloudflare reads bounded during rapid RAM changes.
             remote = self.transport(settings['worker_url'] + '/v1/partner', 'GET', token=settings['token'])
             partner = remote.get('partner')
             if partner is not None and partner.get('state') is not None:
@@ -297,8 +299,10 @@ class CompanionSync:
             # Short debounce avoids excessive writes from consecutive RAM reads.
             if changed and self.stop.wait(0.35):
                 break
-            self.sync_once()
-            next_poll = time.monotonic() + 5.0
+            poll_remote = time.monotonic() >= next_poll
+            self.sync_once(fetch_partner=poll_remote)
+            if poll_remote:
+                next_poll = time.monotonic() + 5.0
 
     def close(self):
         self.stop.set()
