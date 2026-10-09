@@ -56,7 +56,8 @@ def snapshot(state):
     data = {
         'schema_version': 1, 'game': state['game'],
         'party': [pokemon(p) for p in party], 'boxes': result_boxes,
-        'progress': {'deaths': safe_deaths, 'missed_routes': missed},
+        'progress': {'deaths': safe_deaths, 'missed_routes': missed,
+                     'death_count':max(0,min(99999,progress.get('death_count',len(safe_deaths))))},
         'battle_hp': state.get('battle_hp') is True,
     }
     raw = json.dumps(data, ensure_ascii=False, separators=(',', ':')).encode('utf-8')

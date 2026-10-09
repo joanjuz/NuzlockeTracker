@@ -21,21 +21,23 @@ function call(path,method='GET',body,headers={}){
 }
 const bearer=t=>({'Authorization':'Bearer '+t});
 
-test('pair, join opposite game, save and retrieve last session, revoke',async()=>{
+test('pair, join same or different game, save and retrieve last session, revoke',async()=>{
   let res=await call('/v1/pairs','POST',{name:'Sol',game:'Ultra Sun 1.0'},{'X-Setup-Key':env.CREATE_KEY});
   assert.equal(res.status,201);const owner=await res.json();
   assert.equal((await call('/v1/partner','GET',undefined,bearer(owner.token))).status,200);
   res=await call('/v1/pairs/join','POST',{name:'Luna',game:'Ultra Sun 1.0',invite_code:owner.invite_code});
-  assert.equal(res.status,409);
+  assert.equal(res.status,201);const sameGameGuest=await res.json();
+  assert.ok(sameGameGuest.token);
+  // A code is one-use, regardless of game chosen.
   res=await call('/v1/pairs/join','POST',{name:'Luna',game:'Ultra Moon 1.0',invite_code:owner.invite_code});
-  assert.equal(res.status,201);const guest=await res.json();
-  const obj={schema_version:1,game:'Ultra Moon 1.0',party:[{species_id:448,nickname:'Lucario'} ,null,null,null,null,null],
+  assert.equal(res.status,409);const guest=sameGameGuest;
+  const obj={schema_version:1,game:'Ultra Sun 1.0',party:[{species_id:448,nickname:'Lucario'} ,null,null,null,null,null],
     boxes:{},progress:{deaths:{},missed_routes:[]},battle_hp:false};
   res=await call('/v1/state','PUT',{state:obj},bearer(guest.token));assert.equal(res.status,200);
   res=await call('/v1/partner','GET',undefined,bearer(owner.token));assert.equal(res.status,200);
   let partner=(await res.json()).partner;
   assert.equal(partner.name,'Luna');assert.equal(partner.state.party[0].species_id,448);
-  res=await call('/v1/state','PUT',{state:{...obj,game:'Ultra Sun 1.0'}},bearer(guest.token));assert.equal(res.status,400);
+  res=await call('/v1/state','PUT',{state:{...obj,game:'Ultra Moon 1.0'}},bearer(guest.token));assert.equal(res.status,400);
   res=await call('/v1/state','PUT',{state:obj},bearer('badtoken'));assert.equal(res.status,401);
   res=await call('/v1/pairs/join','POST',{name:'Luna2',game:'Ultra Moon 1.0',invite_code:owner.invite_code});assert.equal(res.status,409);
   res=await call('/v1/leave','POST',{},bearer(owner.token));assert.equal(res.status,200);

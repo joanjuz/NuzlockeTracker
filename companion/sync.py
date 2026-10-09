@@ -13,6 +13,7 @@ from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 from .snapshot import snapshot, viewer_state
+from .soullink import SoulLinkEvents
 
 # Only the public endpoint is preconfigured, never the administrative CREATE_KEY.
 DEFAULT_WORKER_URL = 'https://pokemon-tracker-companion.pokemon-tracker.workers.dev'
@@ -69,6 +70,7 @@ class CompanionSync:
         self.directory = Path(directory)
         self.settings_path = self.directory / 'companion-credentials.json'
         self.cache_path = self.directory / 'companion-cache.json'
+        self.soullink = SoulLinkEvents(self.directory / 'soul-link-events.json')
         self.transport = transport
         self.lock = threading.RLock()
         self.stop = threading.Event()
@@ -87,6 +89,8 @@ class CompanionSync:
                     self.settings = settings
             except (ValueError, OSError):
                 self.error = 'No se pudo recuperar la configuración de compañero'
+        if self.settings:
+            self.soullink.set_pair(self.settings.get('pair_id'))
         if self.cache_path.is_file():
             try:
                 data = json.loads(self.cache_path.read_text(encoding='utf-8'))
@@ -131,6 +135,8 @@ class CompanionSync:
                     'game': self.settings.get('game', ''),
                     'invite_code': self.settings.get('invite_code', ''),
                     'partner': self.partner,
+                    'soul_link_enabled': self.soullink.enabled,
+                    'pending_deaths': self.soullink.status(self.service.snapshot()),
                     'error': self.error}
 
     def _create_or_join(self, action, options):
@@ -172,6 +178,7 @@ class CompanionSync:
                 raise ValueError('Ya existe una pareja; desvincúlala primero')
             self._store(self.settings_path, new_settings)
             self.settings = new_settings
+            self.soullink.set_pair(new_settings['pair_id'])
             self.partner = None
             self.last_uploaded_hash = None
             self.last_core_hash = None
@@ -188,6 +195,17 @@ class CompanionSync:
                 if self.settings:
                     raise ValueError('Ya existe una pareja; desvincúlala primero')
             return self._create_or_join(action, options)
+        if action == 'soul_link':
+            with self.lock:
+                if not self.settings:
+                    raise ValueError('Vincula primero a tu compañero')
+                self.soullink.enable(options.get('enabled'), self.partner)
+            return self.status()
+        if action == 'death_decision':
+            with self.lock:
+                self.soullink.decide(options.get('event_id'), options.get('decision'),
+                                     options.get('pokemon_key'), self.service)
+            return self.status()
         if action == 'leave':
             with self.lock:
                 settings = dict(self.settings)
@@ -202,6 +220,8 @@ class CompanionSync:
                     raise
             with self.lock:
                 self.settings = {}
+                self.soullink.set_pair(None)
+                self.soullink.enable(False)
                 self.partner = None
                 self.last_uploaded_hash = None
                 self.last_core_hash = None
@@ -259,6 +279,7 @@ class CompanionSync:
                 with self.lock:
                     self._store(self.cache_path, {'partner': partner})
                     self.partner = partner
+                    self.soullink.observe(partner)
             elif partner is not None:
                 with self.lock:
                     self.partner = partner

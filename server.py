@@ -84,7 +84,7 @@ def make_handler(service,token,companion=None,profile='principal'):
                     cmd=json.loads(self.rfile.read(size))
                     if not isinstance(cmd,dict):raise ValueError('JSON incorrecto')
                     action=cmd.get('action')
-                    if action not in ('create','join','refresh','leave'):raise ValueError('Acción inválida')
+                    if action not in ('create','join','refresh','leave','soul_link','death_decision'):raise ValueError('Acción inválida')
                     self.reply(200,companion.perform(action,cmd))
                 except (ValueError,TypeError) as exc:self.reply(400,{'error':str(exc)})
                 return
