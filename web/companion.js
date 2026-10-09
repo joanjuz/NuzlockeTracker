@@ -60,6 +60,7 @@
         !own.progress?.deaths?.[String(mon.origin_version??33)+':'+mon.encryption_constant]);
       if(!matched || souls.pending)continue;
       souls.pending={key:String(matched.origin_version??33)+':'+matched.encryption_constant,id};
+      el('soullink-pokemon-icon').src='/sprites/'+Number(matched.species_id)+'.png';
       soulDescription.textContent=info.partner.name+' registró la muerte de '+(remoteMon.nickname||remoteMon.species)+
         '. En esa ruta tienes a '+(matched.nickname||matched.species)+'. ¿Quieres marcar su muerte?';
       soulNotice.hidden=false;
