@@ -1,5 +1,5 @@
 import struct,unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 from tracker.process_memory import NEEDLE,PARTY,LINEAR,BOX_BASE,BOX_SIZE,validate_anchor,LimeProcessMemory,DiscoveryError,discover_ram,supported_emulator
 from tracker.pokemon import crypt
 
@@ -25,6 +25,23 @@ class ProcessMemoryTests(unittest.TestCase):
    self.assertTrue(supported_emulator(name),name)
   for name in ('lime3ds.dat','python.exe','citra-helper.dll','not-azahar.exe','azahar.exe.exe.bat'):
    self.assertFalse(supported_emulator(name),name)
+
+ def test_azahar_access_denied_is_actionable_and_read_only(self):
+  from tracker.process_memory import WindowsProcess, DiscoveryError
+  api=Mock()
+  api.OpenProcess.return_value=None
+  with patch('tracker.process_memory.windows_api',return_value=api), \
+       patch('tracker.process_memory.list_lime_processes',return_value=[(1432,'azahar-qt.exe')]), \
+       patch('tracker.process_memory.C.get_last_error',return_value=5):
+   with self.assertRaises(DiscoveryError) as caught:
+    WindowsProcess(pid=1432)
+  error=caught.exception
+  self.assertIn('Azahar',str(error))
+  self.assertIn('PID 1432',str(error))
+  self.assertIn('WinError 5',str(error))
+  self.assertEqual(error.diagnostic['stage'],'OpenProcess')
+  self.assertEqual(error.diagnostic['winerror'],5)
+  api.OpenProcess.assert_called_once_with(0x0400|0x0010,False,1432)
 
  def test_anchor_translation(self):
   p=FakeProcess();self.assertEqual(validate_anchor(p,p.base+PARTY-LINEAR),p.base)

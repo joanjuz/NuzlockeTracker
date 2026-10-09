@@ -3,6 +3,8 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from io import BytesIO
+from PIL import Image
 from unittest.mock import patch
 import threading
 
@@ -88,6 +90,85 @@ class LayoutTests(unittest.TestCase):
                 self.assertEqual(seen, [10103])
                 self.assertEqual((exp.directory/'pokemon_1.png').read_bytes(),blank_sprite(12))
                 self.assertTrue((Path(root)/'cache'/'10103.png').is_file())
+            finally:
+                exp.close()
+
+    def test_custom_png_precedence_live_replacement_and_gray_on_death(self):
+        from tracker.layout_export import grayscale_png
+        def png(color):
+            src = Image.new('RGBA', (2, 2), color)
+            data = BytesIO()
+            src.save(data, format='PNG')
+            return data.getvalue()
+        custom_red = png((240, 40, 10, 128))
+        custom_blue = png((20, 40, 220, 128))
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp)
+            custom_dir = folder / 'sprites_personalizados'
+            custom_dir.mkdir()
+            cache = folder / 'cache'
+            cache.mkdir()
+            normal = png((10, 220, 10, 255))
+            (cache/'25.png').write_bytes(normal)
+            mon = {'species_id':25, 'form':0, 'origin_version':33,
+                   'encryption_constant':8123}
+            service = FakeService([mon]+[None]*5)
+            service.progress = {'deaths': {}}
+            original_snapshot = service.snapshot
+            service.snapshot = lambda: {**original_snapshot(),
+                                        'progress': service.progress}
+            exporter = PartyLayoutExporter(
+                service, folder/'layout', cache_dir=cache, custom_dir=custom_dir)
+            target = exporter.directory/'pokemon_1.png'
+            try:
+                exporter.refresh()
+                self.assertEqual(target.read_bytes(), normal)
+                custom = custom_dir/'25.png'
+                custom.write_bytes(custom_red)
+                exporter.refresh()
+                self.assertEqual(target.read_bytes(), custom_red)
+                service.progress['deaths']['33:8123'] = {'pokemon': mon}
+                exporter.refresh()
+                gray_data = target.read_bytes()
+                self.assertEqual(gray_data, grayscale_png(custom_red))
+                with Image.open(BytesIO(gray_data)) as gray:
+                    r, g, b, a = gray.getpixel((0,0))
+                    self.assertEqual(r, g)
+                    self.assertEqual(g, b)
+                    self.assertEqual(a, 128)
+                self.assertEqual(custom.read_bytes(), custom_red)
+                custom.write_bytes(custom_blue)
+                exporter.refresh()
+                self.assertEqual(target.read_bytes(), grayscale_png(custom_blue))
+                del service.progress['deaths']['33:8123']
+                exporter.refresh()
+                self.assertEqual(target.read_bytes(), custom_blue)
+                custom.unlink()
+                exporter.refresh()
+                self.assertEqual(target.read_bytes(), normal)
+            finally:
+                exporter.close()
+
+    def test_alola_filename_and_fallback_without_network(self):
+        from tracker.layout_export import custom_names
+        mon = {'species_id':37, 'form':1}
+        self.assertEqual(custom_names(mon, 10103),
+                         ('37-alola.png', '10103.png'))
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp)
+            custom = folder / 'sprites_personalizados'
+            custom.mkdir()
+            png = blank_sprite(13)
+            (custom/'10103.png').write_bytes(png)
+            service = FakeService([mon]+[None]*5)
+            exp = PartyLayoutExporter(service, folder/'layout',
+                                      custom_dir=custom, cache_dir=folder/'cache')
+            try:
+                exp.refresh()
+                self.assertEqual((exp.directory/'pokemon_1.png').read_bytes(),png)
+                (custom/'37-alola.png').write_bytes(blank_sprite(14))
+                exp.refresh()
+                self.assertEqual((exp.directory/'pokemon_1.png').read_bytes(),blank_sprite(14))
             finally:
                 exp.close()
 
