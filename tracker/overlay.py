@@ -190,8 +190,14 @@ class OverlayManager:
             maximum = mon.get('max_hp')
             valid = type(hp) is int and type(maximum) is int and maximum > 0
             hp = max(0, min(hp, maximum)) if valid else None
+            sprite = self.layout / f'pokemon_{i+1}.gif'
+            try:
+                image_rev = str(sprite.stat().st_mtime_ns)
+            except OSError:
+                image_rev = '0'
             result.append({
                 'slot':i+1, 'present': True, 'species_id': mon['species_id'],
+                'image_rev': image_rev,
                 'nickname': str(mon.get('nickname') or mon.get('species') or '')[:40],
                 'hp': hp, 'max_hp': maximum if valid else None,
                 'percent': round(100*hp/maximum, 2) if valid else None,
