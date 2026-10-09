@@ -24,6 +24,10 @@ class RunProgress:
                 raise ValueError('El registro de la aventura no tiene un formato válido.')
             self.data = data
         self.data.setdefault('revived_pending', [])
+        # Legacy progress files contained only currently dead Pokémon. Start the
+        # lifetime count from that known minimum, never discard earlier progress.
+        if type(self.data.get('death_count')) is not int or self.data['death_count'] < 0:
+            self.data['death_count'] = len(self.data['deaths'])
 
     def observe(self, party):
         changed = False
@@ -44,6 +48,7 @@ class RunProgress:
                     'pokemon': copy.deepcopy(p),
                     'recorded_at': datetime.now(timezone.utc).isoformat(),
                 }
+                self.data['death_count'] += 1
                 changed = True
         if changed:
             self.save()
@@ -59,16 +64,19 @@ class RunProgress:
             'recorded_at': datetime.now(timezone.utc).isoformat(),
             'source': 'manual',
         }
+        self.data['death_count'] += 1
         # A manual death overrides any temporary revive safeguard.
         if key in self.data['revived_pending']:
             self.data['revived_pending'].remove(key)
         self.save()
         return True
 
-    def revive(self, key):
+    def revive(self, key, decrement_count=False):
         if key not in self.data['deaths']:
             return
         del self.data['deaths'][key]
+        if decrement_count:
+            self.data['death_count'] = max(0, self.data['death_count'] - 1)
         if key not in self.data['revived_pending']:
             self.data['revived_pending'].append(key)
         self.save()
