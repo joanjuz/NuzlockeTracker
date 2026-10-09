@@ -98,23 +98,15 @@ function routePokemon(p, historical=false){
   }else if(!companionView&&valid){
     if(!dead&&!historical&&!p.egg)actions.push(`<button class="route-death" type="button" data-route-death="${esc(key)}">Muerte</button>`);
     if(historical)actions.push('<small class="route-not-found">Ya no está en las lecturas</small>');
-    actions.push(`<button class="route-death" type="button" data-route-mark="${esc(key)}" data-kind="trade" title="Confirmar que entregaste este Pokémon en un intercambio">Intercambiado</button>`);
     if(category==='route'||category==='fossil')
       actions.push(`<button class="route-death" type="button" data-route-mark="${esc(key)}" data-kind="fossil" title="Clasificar este Pokémon como fósil sin perder la ruta">Fósil</button>`);
   }else if(historical&&!marked)actions.push('<small class="route-not-found">Ya no está en las lecturas</small>');
   else if(dead)actions.push('<small class="route-death-status">Muerto</small>');
   else if(companionView)actions.push('<small class="route-death-status">Solo lectura</small>');
-  const override=state.progress?.origins?.[key]||'auto';
-  const detected=p.egg===true||(Number.isInteger(p.egg_location_id)&&p.egg_location_id>0)?'egg':'route';
-  const choices=[['auto','Auto ('+ORIGIN_TYPES[detected]+')'],...Object.entries(ORIGIN_TYPES)];
-  const select=companionView||!valid||historical||marked
-    ?`<small class="origin-type-label">${esc(ORIGIN_TYPES[category])}</small>`
-    :`<select class="origin-select" data-origin-key="${esc(key)}"
-       aria-label="Tipo de obtención de ${esc(p.nickname||p.species)}"
-       title="Cambia esta categoría sin modificar el lugar original">
-       ${choices.map(([value,label])=>`<option value="${value}" ${override===value?'selected':''}>${esc(label)}</option>`).join('')}</select>`;
+  // Sin listas desplegables: acciones directas y una etiqueta solo para orígenes especiales.
+  const label=category!=='route'?`<small class="origin-type-label">${esc(ORIGIN_TYPES[category])}</small>`:'';
   return `<div class="route-pokemon-entry ${historical?'route-historical':''}">
-    ${sprite(p)}${actions.join('')}${select}</div>`;
+    ${sprite(p)}${actions.join('')}${label}</div>`;
 }
 function routeFootprint(p,kind){
   const key=pokemonKey(p),name=p.nickname||p.species||('Pokémon #'+p.species_id);
@@ -137,6 +129,7 @@ function renderPlaces(){
     if(!active.has(key))active.set(key,p);
   }
   const history=state.progress?.encounters||{};
+  const tradedRoutes=state.progress?.traded_routes||[];
   const marks=state.progress?.route_marks||{};
   const locations=new Map(),special=new Map();
   const addLocation=(p,type,kind)=>{const key=`${p.origin_version}:${p.met_location_id}`;
@@ -174,7 +167,7 @@ function renderPlaces(){
   $('places').replaceChildren();
   let filled=0;
   for(const r of routeCatalog)
-    if([30,31,32,33].some(v=>(r.ids||[r.id]).some(id=>locations.has(`${v}:${id}`))))filled++;
+    if(tradedRoutes.includes(String(r.id))||[30,31,32,33].some(v=>(r.ids||[r.id]).some(id=>locations.has(`${v}:${id}`))))filled++;
   $('places-count').textContent=`${filled} / ${routeCatalog.length} zonas con historial`;
   const routes=routeCatalog.filter(r=>normalize(r.name).includes(query));
   if(routes.length){
@@ -182,14 +175,21 @@ function renderPlaces(){
     section.innerHTML=`<div class="route-grid">${routes.map(r=>{
       const list=[30,31,32,33].flatMap(v=>(r.ids||[r.id]).flatMap(id=>locations.get(`${v}:${id}`)||[]));
       const missed=(state.progress?.missed_routes||[]).includes(String(r.id));
+      const traded=tradedRoutes.includes(String(r.id));
+      const routeVacant=!list.some(item=>item.type==='active'||item.type==='mark');
       const note=r.manual_only?'El juego comparte esta ubicación con otra zona; la asignación puede ser ambigua.':'';
       return `<article class="route-tile ${list.length?'occupied':'unfilled'}" title="${esc(note)}">
        <div class="route-sprites">${list.length?list.map(({p,type,kind})=>type==='mark'?routeFootprint(p,kind):routePokemon(p,kind==='historical')).join(''):
+          traded?'<span class="trade-route-symbol" aria-label="Ruta intercambiada">↔</span>':
           missed?'<span class="miss-mark" aria-label="Encuentro perdido">MISS</span>':
           '<img class="empty-sprite" src="/empty-pokemon.svg" alt="Sin Pokémon registrado">'}</div>
        <h4>${esc(r.name)}</h4>
        <button class="miss-toggle" data-route-miss="${esc(r.id)}" ${companionView?'disabled':''}
          aria-pressed="${missed}" aria-label="${missed?'Quitar Miss de':'Marcar Miss en'} ${esc(r.name)}">${missed?'↶ Quitar Miss':'Marcar Miss'}</button>
+       ${routeVacant?`<button class="miss-toggle route-trade-toggle" type="button"
+         data-route-trade="${esc(r.id)}" ${companionView?'disabled':''}
+         aria-pressed="${traded}">${traded?'↶ Quitar intercambio':'Intercambiado'}</button>`:''}
+       ${traded?'<small class="route-marked">↔ Intercambiado</small>':''}
        ${missed&&list.length?'<small class="miss-label">MISS</small>':''}
       </article>`;
     }).join('')}</div>`;
@@ -226,20 +226,14 @@ function renderPlaces(){
   if(!$('places').children.length)$('places').innerHTML='<p class="subtitle">Sin rutas coincidentes.</p>';
 }
 $('route-search').oninput=renderPlaces;
-$('places').addEventListener('change',event=>{
-  if(companionView)return;
-  const select=event.target.closest('[data-origin-key]');
-  if(!select)return;
-  const key=select.dataset.originKey;
-  const category=select.value;
-  select.disabled=true;
-  // No olvidar el origen anterior si el servidor rechaza la operación.
-  command({action:'set_origin',key,category}).finally(()=>{
-    select.disabled=false;
-  });
-});
 $('places').addEventListener('click',event=>{
   if(companionView)return;
+  const routeTrade=event.target.closest('[data-route-trade]');
+  if(routeTrade){
+    command({action:'route_trade',route:routeTrade.dataset.routeTrade,
+      traded:routeTrade.getAttribute('aria-pressed')!=='true'});
+    return;
+  }
   const marker=event.target.closest('[data-route-mark]');
   if(marker){
     command({action:'mark_route',key:marker.dataset.routeMark,kind:marker.dataset.kind});
