@@ -1,5 +1,24 @@
 <!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Editor OBS · Pokémon Tracker</title><link rel="stylesheet" href="/overlay-editor.css"></head>
+<title>Editor OBS · Pokémon Tracker</title>
+<script>
+/* Mismo tema que la aplicación principal, incluso al cambiarlo con OBS abierto. */
+(() => {
+  const syncTheme = () => {
+    try {
+      const saved = localStorage.getItem('progressive-theme');
+      document.documentElement.dataset.theme = saved === 'light' || saved === 'dark'
+        ? saved : (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    } catch (_) {
+      document.documentElement.dataset.theme = 'dark';
+    }
+  };
+  syncTheme();
+  window.addEventListener('storage', event => {
+    if (event.key === 'progressive-theme' || event.key === null) syncTheme();
+  });
+})();
+</script>
+<link rel="stylesheet" href="/overlay-editor.css"></head>
 <body><header><div><strong>OBS · Overlay del equipo</strong><p>Organiza las capas como quieras. Cada enlace funciona como Fuente de navegador en OBS.</p></div><span id="status">Cargando…</span></header>
 <main>
 <section class="panel"><h2>Fuentes para OBS</h2><p>Las tres filas son independientes: podrás mover sprites, motes y barras donde quieras. También puedes usar <strong>un único Pokémon</strong> por fuente.</p>
