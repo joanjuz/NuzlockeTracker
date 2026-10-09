@@ -1,11 +1,11 @@
 """Loopback HTTP + WebSocket server, using the Python standard library."""
-import argparse,base64,hashlib,json,re,secrets,socket,struct,threading,webbrowser
+import argparse,base64,hashlib,json,re,secrets,socket,struct,sys,threading,webbrowser
 from http.server import ThreadingHTTPServer,BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlsplit
 from tracker.service import TrackerService
 from companion.sync import CompanionSync
-ROOT=Path(__file__).resolve().parent
+ROOT=Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent))
 
 def runtime_directory(root, profile=None):
     """Separate game state, progress, partner credentials and cache for each local player."""
