@@ -22,6 +22,7 @@ class TrackerService:
         self.state['progress']=copy.deepcopy(self.progress.data)
         self.profile=ULTRA_MOON_10
         self.reader=None;self.config=None;self.retry_at=0;self.scan_next=None;self.diagnostic=None
+        self.next_box_refresh_at=0.0
     def request_connection_change(self):
         with self.connection_lock:
             self.connection_generation+=1
@@ -73,7 +74,11 @@ class TrackerService:
             self.diagnostic={'game':self.profile.name,'party_address':hex(self.profile.party_address),'discovery':getattr(self.reader.process,'discovery_report',{})}
         else:
             self.reader=LimeGDB(self.config.get('port',24689));self.reader.identify();self.reader.resume()
-        self.update(connection={'status':'connected','message':'Conectado · '+('Windows sin GDB' if mode=='memory' else 'GDB')})
+        # Start a complete box scan as soon as a game is connected.
+        # Refresh periodically to detect changes made while playing.
+        self.scan_next=1
+        self.next_box_refresh_at=time.monotonic()+180.0
+        self.update(connection={'status':'connected','message':'Conectado · '+('Windows sin GDB' if mode=='memory' else 'GDB')},scan={'active':True,'completed':0})
     def poll(self):
         party=[self.enrich(p) for p in decode_party(capture_party(self.reader,self.profile))]
         party,in_battle=apply_battle_hp(self.reader,party,self.profile.name)
@@ -137,7 +142,12 @@ class TrackerService:
                 try:cmd=self.commands.get(timeout=.15);self.handle(cmd)
                 except queue.Empty:pass
                 if self.config and not self.reader and time.monotonic()>=self.retry_at:self.connect()
-                if self.reader:self.poll()
+                if self.reader:
+                    if self.scan_next is None and time.monotonic()>=self.next_box_refresh_at:
+                        self.scan_next=1
+                        self.next_box_refresh_at=time.monotonic()+180.0
+                        self.update(scan={'active':True,'completed':0})
+                    self.poll()
             except DiscoveryCancelled:
                 self.close_reader();self.scan_next=None;self.retry_at=0
             except ValueError as exc:
