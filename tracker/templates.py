@@ -115,10 +115,10 @@ def evolutions_csv(text):
         elif method.casefold() == 'useditem':
             description = 'Usar ' + (item or 'objeto ID ' + argument)
         elif method in ('19', '20'):
-            # pk3DS numeric method values are preserved; do not claim the same
-            # behavior as a vanilla trade if the ROM uses a custom evolution patch.
-            description = f'Método pk3DS {method}' + (f' · {item}' if item else
-                                                     f' · argumento {argument}' if argument else '')
+            # Verified against pk3DS EvolutionEditor7 evolutionMethods (0-based).
+            # 19: Level Up with Held Item (Day); 20: (...) (Night).
+            moment = 'de día' if method == '19' else 'de noche'
+            description = 'Subir de nivel ' + moment + ' llevando ' + (item or 'objeto ID ' + argument)
         else:
             description = 'Método pk3DS ' + method + (f' · {item}' if item else
                                                        f' · argumento {argument}' if argument else '')
