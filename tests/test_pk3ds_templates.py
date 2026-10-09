@@ -50,6 +50,9 @@ class TemplateTests(unittest.TestCase):
             self.assertIn('Piedra Agua', new['method'])
             self.assertEqual(new['source'], 'pk3DS Progressive')
             self.assertEqual(sum(e['target'] == 186 for e in mgr.evolutions(61)), 2)
+            methods=[e['method'] for e in mgr.evolutions(61) if e['target'] == 186]
+            self.assertTrue(any('de día' in m and 'Roca del Rey' in m for m in methods))
+            self.assertTrue(any('de noche' in m and 'Roca del Rey' in m for m in methods))
             self.assertIn(62, {e['target'] for e in mgr.evolutions(61)})  # Poliwrath stays available.
             self.assertEqual(mgr.evolutions(75, 0)[0]['method'], 'Subir de nivel al nivel 37')
             self.assertEqual(mgr.evolutions(75, 1)[0]['method'], 'Subir de nivel al nivel 39')
