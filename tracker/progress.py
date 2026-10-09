@@ -8,6 +8,12 @@ from pathlib import Path
 
 
 ORIGIN_CATEGORIES = ('route', 'fossil', 'gift', 'egg', 'trade')
+ORIGIN_KEY_PATTERN = re.compile(r'[0-9]{1,3}:[0-9]{1,10}\\Z')
+MAX_ENCOUNTERS = 1200
+# Identity and encounter place only: never persist a full PK7 or expose ROM bytes.
+ENCOUNTER_FIELDS = ('species_id', 'species', 'nickname', 'origin_version',
+                    'encryption_constant', 'met_location_id', 'met_location',
+                    'egg_location_id', 'egg')
 
 
 def origin_category(pokemon, overrides=None):
@@ -39,7 +45,7 @@ def pokemon_key(p):
 class RunProgress:
     def __init__(self, path):
         self.path = Path(path)
-        self.data = {'deaths': {}, 'missed_routes': [], 'origins': {}}
+        self.data = {'deaths': {}, 'missed_routes': [], 'origins': {}, 'encounters': {}, 'route_marks': {}}
         if self.path.exists():
             data = json.loads(self.path.read_text(encoding='utf-8'))
             if not isinstance(data.get('deaths'), dict) or not isinstance(data.get('missed_routes'), list):
@@ -51,8 +57,85 @@ class RunProgress:
             value not in ORIGIN_CATEGORIES for key, value in origins.items()
         ):
             raise ValueError('Clasificaciones de origen inválidas')
+        encounters = self.data.setdefault('encounters', {})
+        marks = self.data.setdefault('route_marks', {})
+        if (not isinstance(encounters, dict) or len(encounters) > MAX_ENCOUNTERS or
+            not isinstance(marks, dict) or len(marks) > MAX_ENCOUNTERS):
+            raise ValueError('Historial de rutas inválido')
+        for key, member in encounters.items():
+            if (not isinstance(key, str) or ORIGIN_KEY_PATTERN.fullmatch(key) is None
+                or not isinstance(member, dict) or
+                type(member.get('species_id')) is not int or
+                not 1 <= member['species_id'] <= 1025):
+                raise ValueError('Registro de encuentro inválido')
+        for key, mark in marks.items():
+            if (not isinstance(key, str) or ORIGIN_KEY_PATTERN.fullmatch(key) is None
+                or not isinstance(mark, dict) or mark.get('kind') not in ('trade', 'fossil')
+                or not isinstance(mark.get('pokemon'), dict)
+                or type(mark['pokemon'].get('species_id')) is not int
+                or not 1 <= mark['pokemon']['species_id'] <= 1025):
+                raise ValueError('Marca de ruta inválida')
         self.data.setdefault('revived_pending', [])
         self.data.setdefault('death_count', len(self.data['deaths']))
+
+    @staticmethod
+    def encounter_record(p):
+        if not isinstance(p, dict) or p.get('checksum_valid') is not True:
+            return None
+        key = pokemon_key(p)
+        if (key is None or ORIGIN_KEY_PATTERN.fullmatch(key) is None or
+            type(p.get('species_id')) is not int or not 1 <= p['species_id'] <= 1025
+            or type(p.get('met_location_id')) is not int):
+            return None
+        return {field: copy.deepcopy(p[field]) for field in ENCOUNTER_FIELDS if field in p}
+
+    def remember(self, party, boxes):
+        """Remember genuine, verified encounters across PC reads and trades.
+
+        A missing Pokémon is not declared traded: the user must confirm that.
+        """
+        known = self.data['encounters']
+        changed = False
+        members = [*(party or []), *(p for box in (boxes or {}).values() for p in box)]
+        for p in members:
+            record = self.encounter_record(p)
+            if record is None:
+                continue
+            key = pokemon_key(p)
+            if key not in known and len(known) >= MAX_ENCOUNTERS:
+                continue
+            if known.get(key) != record:
+                known[key] = record
+                changed = True
+        if changed:
+            self.save()
+        return changed
+
+    def mark_route(self, pokemon, kind):
+        """Mark the route of an OUTGOING trade or a fossil; reversible."""
+        if kind not in ('trade', 'fossil'):
+            raise ValueError('Tipo de marca de ruta inválido')
+        record = self.encounter_record(pokemon)
+        if record is None:
+            raise ValueError('El Pokémon no tiene una lectura válida')
+        key = pokemon_key(pokemon)
+        marks = self.data['route_marks']
+        value = {'kind': kind, 'pokemon': record,
+                 'recorded_at': datetime.now(timezone.utc).isoformat()}
+        if key not in marks and len(marks) >= MAX_ENCOUNTERS:
+            raise ValueError('El historial de rutas está lleno')
+        if marks.get(key, {}).get('kind') == kind:
+            return False
+        marks[key] = value
+        self.save()
+        return True
+
+    def clear_route_mark(self, key):
+        if key not in self.data['route_marks']:
+            return False
+        del self.data['route_marks'][key]
+        self.save()
+        return True
 
     def observe(self, party):
         changed = False
