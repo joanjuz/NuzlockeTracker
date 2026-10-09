@@ -85,6 +85,15 @@ class ServerTests(unittest.TestCase):
   undo=json.dumps({'action':'clear_route_mark','key':'33:1234'})
   self.assertEqual(self.request('POST','/api/command',undo,token)[0],400)
 
+ def test_route_trade_is_authenticated_and_requires_valid_location(self):
+  token={'X-Tracker-Token':'test-token'}
+  body=json.dumps({'action':'route_trade','route':'8','traded':True})
+  self.assertEqual(self.request('POST','/api/command',body)[0],403)
+  bad=json.dumps({'action':'route_trade','route':'99999','traded':True})
+  self.assertEqual(self.request('POST','/api/command',bad,token)[0],400)
+  false=json.dumps({'action':'route_trade','route':'8','traded':'yes'})
+  self.assertEqual(self.request('POST','/api/command',false,token)[0],400)
+
  def test_invalid_box_rejected(self):
   self.assertEqual(self.request('POST','/api/command',json.dumps({'action':'box','number':33}),{'X-Tracker-Token':'test-token'})[0],400)
  def test_websocket_snapshot_and_change(self):
