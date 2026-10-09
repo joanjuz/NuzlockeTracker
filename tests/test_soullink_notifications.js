@@ -11,6 +11,7 @@ assert.match(styles,/background:var\(--surface\)/);
 assert.match(styles,/color:var\(--accent\)/);
 const elements={};
 function node(id=''){
+  if(!id)return {value:'',textContent:'',hidden:false};
   return elements[id]??=(id?{
     id,hidden:true,checked:false,value:'',textContent:'',disabled:false,
     options:[],style:{},replaceChildren(){this.options=[];this.value='';},
