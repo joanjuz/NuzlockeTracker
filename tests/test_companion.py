@@ -42,6 +42,7 @@ class CompanionTests(unittest.TestCase):
         self.assertEqual(result['boxes']['1'][0]['nickname'], 'Goty')
         self.assertEqual(result['progress']['missed_routes'], ['10'])
         self.assertIn('33:1234', result['progress']['deaths'])
+        self.assertEqual(result['progress']['death_count'],1)
 
     def test_viewer_can_render_last_session(self):
         old = snapshot(state('Ultra Moon 1.0'))

@@ -100,3 +100,5 @@ h1,h2,h3,.brand{font-weight:700;letter-spacing:.01em}.topbar nav button{font-wei
 .evolution-pokemon-title{gap:10px}
 .evolution-pokemon-title strong{font-size:14px}
 .evolution-pokemon-title .evolution-wiki{font-size:10px}
+
+.brand .ball img{width:28px;height:28px;display:block;object-fit:contain}.brand .ball{display:inline-flex;align-items:center;justify-content:center}

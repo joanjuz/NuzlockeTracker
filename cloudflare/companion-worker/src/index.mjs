@@ -83,8 +83,8 @@ export default {
           return reply(400, { error: 'Invitación, nombre o juego inválido' });
         const pair = await env.DB.prepare('SELECT id,invite_expires FROM pairs WHERE invite_hash = ?').bind(await digest(data.invite_code)).first();
         if (!pair || pair.invite_expires < Date.now()) return reply(404, { error: 'Invitación incorrecta o vencida (24 h)' });
-        const first = await env.DB.prepare('SELECT game FROM members WHERE pair_id = ? AND slot = 1').bind(pair.id).first();
-        if (!first || first.game === data.game) return reply(409, { error: 'La pareja debe usar el otro juego (Ultra Sol ↔ Ultra Luna)' });
+        const first = await env.DB.prepare('SELECT id FROM members WHERE pair_id = ? AND slot = 1').bind(pair.id).first();
+        if (!first) return reply(409, { error: 'La pareja no está disponible' });
         const token = random(), id = crypto.randomUUID();
         try {
           await env.DB.prepare('INSERT INTO members (id,pair_id,slot,token_hash,name,game) VALUES (?,?,?,?,?,?)')

@@ -21,6 +21,7 @@ from companion.sync import CompanionSync
 from server import make_handler, runtime_directory
 from tracker.service import TrackerService
 from tracker.layout_export import PartyLayoutExporter, layout_directory
+from tracker.desktop_export import DesktopExportApi
 
 APP_NAME = 'PokemonTracker'
 PROFILE_CHOICES = ('principal', 'segundo-jugador')  # Internal only; never shown in the UI.
@@ -190,11 +191,14 @@ def smoke_test_native():
 
 def smoke_test(backend):
     """CI check on Windows: verify actual frozen HTTP/resources without opening a GUI."""
-    for endpoint in ('', 'app.js', 'style.css', 'api/state',
+    for endpoint in ('', 'app.js', 'app-icon.png', 'style.css', 'api/state',
                      'api/session', 'api/templates', 'api/routes'):
         with urlopen(backend.url + endpoint, timeout=12) as response:
             assert response.status == 200, endpoint
-            assert response.read(120), endpoint
+            data=response.read(120)
+            assert data, endpoint
+            if endpoint == 'app-icon.png':
+                assert data.startswith(b'\x89PNG\r\n\x1a\n'), 'Icono PNG inválido'
     with urlopen(backend.url + 'api/session', timeout=12) as response:
         session = json.load(response)
     assert session['profile'] == backend.profile
@@ -210,6 +214,28 @@ def message_error(message):
     else:
         print(message, file=sys.stderr)
 
+
+
+def create_desktop_window(backend, webview):
+    """Expose only a plain function; never let pywebview traverse the backend.
+
+    Passing DesktopExportApi as js_api freezes WebView2 initialization:
+    pywebview recursively inspects public attributes and follows the attached
+    TrackerService and Window object. A narrow window.expose callback does
+    not inspect its closure and preserves the same JS API name.
+    """
+    export_api = DesktopExportApi(backend.service)
+
+    def save_export(kind):
+        return export_api.save_export(kind)
+
+    window = webview.create_window('Pokémon Tracker', backend.url,
+                                  width=1220, height=850,
+                                  min_size=(820, 560),
+                                  background_color='#15191e')
+    export_api.window = window
+    window.expose(save_export)
+    return window
 
 def main(argv=None):
     parser = argparse.ArgumentParser()
@@ -245,9 +271,7 @@ def main(argv=None):
             return 0
         # Deliberately lazy: CI smoke test does not require installed WebView2.
         import webview
-        webview.create_window('Pokémon Tracker',
-                              backend.url, width=1220, height=850,
-                              min_size=(820, 560), background_color='#15191e')
+        create_desktop_window(backend, webview)
         webview.start(gui='edgechromium', debug=False)
         return 0
     except Exception as error:

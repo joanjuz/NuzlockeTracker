@@ -67,7 +67,7 @@ def make_handler(service,token,companion=None,profile='principal'):
                         if service.snapshot()['revision']==revision:self.connection.sendall(frame(b'',9))
                 except OSError:pass
                 self.close_connection=True;return
-            files={'/fonts/Oxanium.ttf':('web/fonts/Oxanium.ttf','font/ttf'),'/':('web/index.html','text/html; charset=utf-8'),'/app.js':('web/app.js','text/javascript; charset=utf-8'),'/analysis.js':('web/analysis.js','text/javascript; charset=utf-8'),'/companion.js':('web/companion.js','text/javascript; charset=utf-8'),'/companion.css':('web/companion.css','text/css; charset=utf-8'),'/style.css':('web/style.css','text/css; charset=utf-8'),'/empty-pokemon.svg':('web/empty-pokemon.svg','image/svg+xml')}
+            files={'/fonts/Oxanium.ttf':('web/fonts/Oxanium.ttf','font/ttf'),'/':('web/index.html','text/html; charset=utf-8'),'/app.js':('web/app.js','text/javascript; charset=utf-8'),'/analysis.js':('web/analysis.js','text/javascript; charset=utf-8'),'/companion.js':('web/companion.js','text/javascript; charset=utf-8'),'/companion.css':('web/companion.css','text/css; charset=utf-8'),'/style.css':('web/style.css','text/css; charset=utf-8'),'/empty-pokemon.svg':('web/empty-pokemon.svg','image/svg+xml'),'/app-icon.png':('web/app-icon.png','image/png')}
             if path in files:
                 name,kind=files[path];self.reply(200,(ROOT/name).read_bytes(),kind);return
             if path.startswith('/sprites/') and path[9:].removesuffix('.png').isdigit() and path.endswith('.png'):

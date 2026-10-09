@@ -14,6 +14,9 @@ const own = {schema_version:1,game:'Ultra Moon 1.0',party:[null,null,null,null,n
 const status = {configured:true,invite_code:'',partner:{name:'Amigo',game:'Ultra Moon 1.0',updated_at:12345,state:own}};
 const context={
   console, token:'local',
+  localStorage:{getItem:()=>null,setItem:()=>{}},
+  localState:{party:[null,null,null,null,null,null],boxes:{},progress:{deaths:{}},connection:{status:'connected'},stale:false},
+  routeCatalog:[],
   document:{getElementById:get,querySelectorAll:()=>[]},
   window:{setCompanionView:(...args)=>events.push(args)},
   fetch:async()=>({ok:true,json:async()=>status}),
