@@ -16,6 +16,20 @@ class ServerTests(unittest.TestCase):
  def test_state_and_static_assets(self):
   code,data=self.request('GET','/api/state');self.assertEqual(code,200);self.assertEqual(json.loads(data)['schema_version'],1)
   self.assertEqual(self.request('GET','/')[0],200);self.assertEqual(self.request('GET','/../server.py')[0],404)
+ def test_save_diagnostic_backend_endpoint_and_permission(self):
+  path='/api/diagnostic/save'
+  self.service.diagnostic={'mode':'dynamic','pid':142,'regions_scanned':1100}
+  self.assertEqual(self.request('POST',path,'{}')[0],403)
+  headers={'X-Tracker-Token':'test-token'}
+  self.assertEqual(self.request('POST',path,'{}',{**headers,'Origin':'https://external.example'})[0],403)
+  code,response=self.request('POST',path,'{}',headers)
+  self.assertEqual(code,200)
+  saved=Path(json.loads(response)['path'])
+  self.assertTrue(saved.is_file())
+  self.assertEqual(saved.parent,self.service.output.parent/'diagnosticos')
+  self.assertEqual(json.loads(saved.read_text(encoding='utf-8'))['diagnostic']['pid'],142)
+  self.assertEqual(self.request('GET','/api/diagnostic')[0],200)
+
  def test_commands_require_token_and_same_origin(self):
   body=json.dumps({'action':'scan'});self.assertEqual(self.request('POST','/api/command',body)[0],403)
   self.assertEqual(self.request('POST','/api/command',body,{'X-Tracker-Token':'test-token','Origin':'https://example.com'})[0],403)

@@ -11,6 +11,14 @@ from desktop import (LocalBackend, app_home, auto_migrate_local_checkout,
 
 
 class DesktopTests(unittest.TestCase):
+    def test_diagnostic_button_saves_to_file_without_browser_download(self):
+        root = Path(__file__).resolve().parent.parent
+        javascript = (root/'web'/'app.js').read_text(encoding='utf-8')
+        html = (root/'web'/'index.html').read_text(encoding='utf-8')
+        self.assertIn('/api/diagnostic/save', javascript)
+        self.assertNotIn('URL.createObjectURL', javascript)
+        self.assertIn('id="diagnostic-result"', html)
+
     def test_localappdata_persists_outside_distribution(self):
         with tempfile.TemporaryDirectory() as temp:
             self.assertEqual(app_home({'LOCALAPPDATA': temp}),

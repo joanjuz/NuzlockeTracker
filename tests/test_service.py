@@ -17,6 +17,21 @@ class ServiceTests(unittest.TestCase):
   with patch('tracker.service.capture_party',return_value=b''),patch('tracker.service.decode_party',return_value=[None]*6),patch('tracker.service.read_box',return_value=b''),patch('tracker.service.decode_box',return_value=[None]*30):
    for _ in range(32):self.service.poll()
   state=self.service.snapshot();self.assertEqual(len(state['boxes']),32);self.assertEqual(state['scan'],{'active':False,'completed':32});self.assertIsNone(self.service.scan_next)
+ def test_diagnostic_saved_to_disk_without_partner_secrets(self):
+  self.service.diagnostic={'error':'No se encontró RAM','pid':5678,
+                            'mode':'dynamic','regions_scanned':1050}
+  file=Path(self.service.save_diagnostic())
+  self.assertTrue(file.is_file())
+  self.assertEqual(file.parent,self.path.parent/'diagnosticos')
+  data=json.loads(file.read_text(encoding='utf-8'))
+  self.assertEqual(data['diagnostic']['regions_scanned'],1050)
+  self.assertNotIn('party',str(data))
+  self.assertNotIn('companion',str(data))
+  self.assertNotIn('token',str(data))
+  self.assertNotIn('password',str(data))
+  self.assertNotIn('boxes',str(data))
+  self.assertTrue(Path(self.service.save_diagnostic()).is_file())
+
  def test_auto_scan_starts_after_connect(self):
   self.service.factory=lambda config: object()
   self.service.config={'game':'Ultra Moon 1.0','mode':'memory'}
