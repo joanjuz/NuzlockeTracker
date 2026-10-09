@@ -16,6 +16,7 @@ class ServerTests(unittest.TestCase):
  def test_state_and_static_assets(self):
   code,data=self.request('GET','/api/state');self.assertEqual(code,200);self.assertEqual(json.loads(data)['schema_version'],1)
   self.assertEqual(self.request('GET','/')[0],200);self.assertEqual(self.request('GET','/../server.py')[0],404)
+  code,png=self.request('GET','/app-icon.png');self.assertEqual(code,200);self.assertTrue(png.startswith(b'\x89PNG\r\n\x1a\n'))
  def test_save_diagnostic_backend_endpoint_and_permission(self):
   path='/api/diagnostic/save'
   self.service.diagnostic={'mode':'dynamic','pid':142,'regions_scanned':1100}
