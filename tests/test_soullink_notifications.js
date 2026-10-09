@@ -70,13 +70,13 @@ async function settle(){await new Promise(resolve=>setImmediate(resolve));}
  assert.equal(choice.options[1].value,'33:101');
  assert.equal(choice.options[2].value,'33:202');
  assert.equal(kill.disabled,true,'No default first-Pokémon death');
- assert.equal(node('soullink-pokemon-icon').src,'/sprites/150.png',
+ assert.equal(node('soullink-pokemon-icon').src,'/soullink/sprite/150.png',
               'Shows remote Pokémon before selection');
  assert.equal(node('soullink-sprite-fallback').hidden,false);
  assert.equal(posted.length,0,'No automatic deaths');
  choice.value='33:202';choice.onchange();
  assert.equal(kill.disabled,false);
- assert.equal(node('soullink-pokemon-icon').src,'/sprites/133.png');
+ assert.equal(node('soullink-pokemon-icon').src,'/soullink/sprite/133.png');
  node('soullink-pokemon-icon').onload();
  assert.equal(node('soullink-sprite-fallback').hidden,true);
  assert.equal(node('soullink-pokemon-icon').hidden,false);
@@ -91,7 +91,7 @@ async function settle(){await new Promise(resolve=>setImmediate(resolve));}
  assert.equal(node('soullink-choice-row').hidden,true,'One eligible Pokémon needs no selector');
  assert.equal(kill.disabled,false);
  assert.match(node('soullink-description').textContent,/Chispa/);
- assert.equal(node('soullink-pokemon-icon').src,'/sprites/25.png');
+ assert.equal(node('soullink-pokemon-icon').src,'/soullink/sprite/25.png');
  node('soullink-pokemon-icon').onerror();
  assert.equal(node('soullink-sprite-fallback').hidden,false);
  node('soullink-dismiss').onclick();
