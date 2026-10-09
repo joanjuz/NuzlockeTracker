@@ -85,9 +85,15 @@
         text+=btoa(String.fromCharCode(...array.subarray(i,i+24000)));
       }
       // Each part's length is divisible by 3, so individual btoa chunks concatenate.
-      const fonts=await post('/api/overlay/font',{name:file.name,data:text});
+      const ext=(file.name.split('.').pop()||'').toLowerCase();
+      if(!['ttf','otf','woff','woff2'].includes(ext))throw new Error('Formato de fuente no compatible');
+      const rawName=file.name.slice(0,-ext.length-1);
+      const stem=(rawName.normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
+        .replace(/[^A-Za-z0-9_-]+/g,'_').slice(0,60))||'Fuente';
+      const safeName=stem+'.'+ext;
+      const fonts=await post('/api/overlay/font',{name:safeName,data:text});
       populateFonts(fonts);
-      $('font_file').value=file.name;
+      $('font_file').value=safeName;
       await save();
     }catch(error){say(error.message,true)}
     $('upload').value='';
