@@ -93,3 +93,11 @@ AZAHAR: ACCESO DENEGADO
 - No intentamos saltarnos los controles de permisos ni forzar acceso.
   Aunque se resuelva el permiso, el mapa RAM de Azahar sigue pendiente
   de validación real para Ultra Sol/Luna.
+
+DIAGNOSTICOS
+- En Azahar/Citra el lector intenta búsqueda dinámica para Ultra Sol y Ultra Luna.
+- El botón «Guardar diagnóstico» guarda directamente un .json en
+  %LOCALAPPDATA%\\PokemonTracker\\runtime\\diagnosticos, sin depender de
+  descargas del navegador. En el segundo perfil se usa su carpeta de runtime.
+- El estado de PS en batalla puede reflejar el cambio antes de que termine
+  la animación del juego; no se añade retraso artificial.

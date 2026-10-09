@@ -163,8 +163,15 @@ class LimeProcessMemory:
     def __init__(self,pid=None,progress=None,dynamic=False,cancel=None):
         self.process=WindowsProcess(pid);self.base=None;self.party_address=PARTY
         try:
-            if dynamic:self.base,self.party_address=discover_dynamic_ram(self.process,progress,cancel=cancel)
-            else:self.base=discover_ram(self.process,progress,cancel=cancel)
+            # Ultra Moon used fixed addresses in Lime3DS. Azahar and Citra can
+            # relocate the guest RAM layout; the same dynamic wrapper search
+            # already validated with Ultra Sun is safer in those processes.
+            auto_dynamic = self.process.name.lower().startswith(('azahar', 'citra'))
+            self.discovery_mode = 'dynamic' if dynamic or auto_dynamic else 'fixed'
+            if self.discovery_mode == 'dynamic':
+                self.base,self.party_address=discover_dynamic_ram(self.process,progress,cancel=cancel)
+            else:
+                self.base=discover_ram(self.process,progress,cancel=cancel)
         except Exception:self.process.close();raise
     def identify(self):return f'Windows · PID {self.process.pid} · RAM localizada'
     def resume(self):pass # No debugger: does not pause or resume the emulator.
@@ -184,15 +191,22 @@ def discover_dynamic_ram(process,progress=None,timeout=90,budget=4*1024**3,cance
     # Two nearby guest pointers; secondary wrapper offsets may differ.
     # Validate the self-reference and the complete decoded party.
     pattern=re.compile(rb'(?=(.{3}[\x30-\x3f].{3}[\x30-\x3f]))',re.DOTALL)
-    report={'schema_version':2,'mode':'dynamic','bytes_scanned':0,'read_errors':0,'wrappers':0,'rejections':[],'candidates':[]}
+    report={'schema_version':2,'mode':'dynamic','pid':getattr(process,'pid',None),
+            'process':getattr(process,'name',None),'bytes_scanned':0,'read_errors':0,
+            'wrappers':0,'rejections':[],'candidates':[],'regions_scanned':0,
+            'elapsed_seconds':0}
     start_time=time.monotonic();matches={}
+    def failed(message):
+        report['elapsed_seconds']=round(time.monotonic()-start_time,2)
+        raise DiscoveryError(message,dict(report))
     for start,size in sorted(process.regions(),key=lambda r:r[1],reverse=True):
         if cancel and cancel():raise DiscoveryCancelled('Búsqueda cancelada por una nueva solicitud.')
+        report['regions_scanned']+=1
         tail=b''
         for offset in range(0,size,4*1024**2):
             if cancel and cancel():raise DiscoveryCancelled('Búsqueda cancelada por una nueva solicitud.')
             if time.monotonic()-start_time>timeout or report['bytes_scanned']>=budget:
-                raise DiscoveryError('Búsqueda dinámica alcanzó su límite. Guarda diagnóstico.',report)
+                failed('Búsqueda dinámica alcanzó su límite. Guarda diagnóstico.')
             length=min(4*1024**2,size-offset,budget-report['bytes_scanned'])
             try:data=process.read(start+offset,length)
             except (OSError,DiscoveryError):report['read_errors']+=1;tail=b'';continue
@@ -202,7 +216,7 @@ def discover_dynamic_ram(process,progress=None,timeout=90,budget=4*1024**3,cance
                 if position%4:continue
                 pk,stats=struct.unpack('<II',match.group(1))
                 if not 0<=stats-pk<=512:continue
-                if time.monotonic()-start_time>timeout:raise DiscoveryError('Búsqueda dinámica alcanzó su límite. Guarda diagnóstico.',report)
+                if time.monotonic()-start_time>timeout:failed('Búsqueda dinámica alcanzó su límite. Guarda diagnóstico.')
                 report['wrappers']+=1
                 anchor=position-68;guest=pk-128;base=anchor-(guest-LINEAR)
                 if not LINEAR<=guest<LINEAR+256*1024**2-2914 or base<=0:continue
@@ -219,7 +233,8 @@ def discover_dynamic_ram(process,progress=None,timeout=90,budget=4*1024**3,cance
         if matches:
             best=max(matches.values());choices=[key for key,count in matches.items() if count==best]
             report['candidates']=[{'base':hex(base),'party':hex(guest),'pokemon':count} for (base,guest),count in matches.items()]
-            if len(choices)!=1:raise DiscoveryError('Varias copias de equipo válidas. Guarda diagnóstico.',report)
+            if len(choices)!=1:failed('Varias copias de equipo válidas. Guarda diagnóstico.')
+            report['elapsed_seconds']=round(time.monotonic()-start_time,2)
             process.discovery_report=report
             return choices[0]
-    raise DiscoveryError('No se encontró un equipo válido. Guarda diagnóstico.',report)
+    failed('No se encontró un equipo válido. Guarda diagnóstico.')

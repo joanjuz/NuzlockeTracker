@@ -88,6 +88,12 @@ def make_handler(service,token,companion=None,profile='principal'):
                     self.reply(200,companion.perform(action,cmd))
                 except (ValueError,TypeError) as exc:self.reply(400,{'error':str(exc)})
                 return
+            if self.path=='/api/diagnostic/save':
+                try:
+                    self.reply(200,{'ok':True,'path':service.save_diagnostic()})
+                except OSError as exc:
+                    self.reply(500,{'error':'No se pudo guardar el archivo: '+str(exc)})
+                return
             if self.path=='/api/templates':
                 try:
                     length=int(self.headers.get('Content-Length','0'))

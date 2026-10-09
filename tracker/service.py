@@ -1,5 +1,6 @@
 """Headless tracker: one memory worker, versioned JSON snapshots."""
 import copy,json,os,queue,threading,time
+from datetime import datetime, timezone
 from dataclasses import replace
 from pathlib import Path
 from .process_memory import LimeProcessMemory,DiscoveryCancelled
@@ -113,6 +114,30 @@ class TrackerService:
         self.update(party=party,boxes=boxes,templates=result)
         return result
 
+    def save_diagnostic(self):
+        """Write a diagnostic without relying on WebView2's download support.
+
+        Never include ROM bytes, save games, partner tokens or other secrets.
+        """
+        state=self.snapshot()
+        data={'schema_version':1,
+              'created_at':datetime.now(timezone.utc).isoformat(),
+              'game':state['game'],'connection':state['connection'],
+              'diagnostic':copy.deepcopy(self.diagnostic) if self.diagnostic else
+                           {'message':'No hay un diagnóstico de conexión disponible.'}}
+        folder=self.output.parent / 'diagnosticos'
+        folder.mkdir(parents=True,exist_ok=True)
+        name='diagnostico_'+datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f')+'.json'
+        path=folder / name
+        tmp=folder / (name+'.tmp')
+        try:
+            tmp.write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding='utf-8')
+            os.replace(tmp,path)
+        finally:
+            if tmp.exists():
+                tmp.unlink()
+        return str(path.resolve())
+
     def request_connection_change(self):
         with self.connection_lock:
             self.connection_generation+=1
@@ -161,7 +186,10 @@ class TrackerService:
             generation=self.config.get('_connection_generation',self.connection_generation)
             self.reader=LimeProcessMemory(self.config.get('pid'),lambda msg:self.update(connection={'status':'connecting','message':msg}),dynamic=self.profile.name=='Ultra Sun 1.0',cancel=lambda:generation!=self.connection_generation or self.stop.is_set())
             self.profile=replace(self.profile,party_address=self.reader.party_address)
-            self.diagnostic={'game':self.profile.name,'party_address':hex(self.profile.party_address),'discovery':getattr(self.reader.process,'discovery_report',{})}
+            self.diagnostic={'game':self.profile.name,
+                             'party_address':hex(self.profile.party_address),
+                             'discovery_mode':getattr(self.reader,'discovery_mode','unknown'),
+                             'discovery':getattr(self.reader.process,'discovery_report',{})}
         else:
             self.reader=LimeGDB(self.config.get('port',24689));self.reader.identify();self.reader.resume()
         # Start a complete box scan as soon as a game is connected.
@@ -267,7 +295,9 @@ class TrackerService:
                 # A torn RAM snapshot must not tear down a healthy transport.
                 self.update(connection={'status':'connected' if self.reader else 'error','message':str(exc)},stale=True)
             except Exception as exc:
-                self.diagnostic=getattr(exc,'diagnostic',None) or {'error':str(exc)}
+                details=getattr(exc,'diagnostic',None) or {}
+                self.diagnostic={'game':self.profile.name,'mode':(self.config or {}).get('mode'),
+                                 'error':str(exc),**details}
                 self.close_reader();self.scan_next=None;self.retry_at=time.monotonic()+3
                 self.update(connection={'status':'retrying' if self.config else 'error','message':str(exc)},stale=True,scan={'active':False,'completed':0})
             self.stop.wait(.35 if self.scan_next else .85)

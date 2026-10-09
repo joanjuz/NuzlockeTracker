@@ -27,3 +27,13 @@ PROCESS_QUERY_LIMITED_INFORMATION no es suficiente para localizar RAM.
 Abrir Azahar normalmente, sin elevación distinta de Pokémon Tracker, y
 seleccionar su PID si existen otros procesos. No se garantiza soporte sin
 pruebas con partidas y versiones concretas.
+
+## Ultra Luna en Azahar: búsqueda dinámica y diagnóstico (experimental)
+
+El tracker utilizaba la búsqueda por dirección fija para Ultra Luna, incluso dentro de Azahar. Esto puede fallar si el emulador reubica la RAM virtual. Se ha cambiado el conector para que **Azahar y Citra usen búsqueda dinámica**, la misma familia de método que Ultra Sol ya utiliza, mientras que **Lime3DS + Ultra Luna conserva la búsqueda fija** para evitar regresiones.
+
+El menú **··· → Guardar diagnóstico** ahora escribe un JSON real en `%LOCALAPPDATA%\\PokemonTracker\\runtime\\diagnosticos` (o `runtime/profiles/segundo-jugador/diagnosticos`) y muestra la ruta, porque WebView2 puede bloquear las descargas iniciadas con blobs. El archivo registra nombre de proceso, PID, regiones exploradas, bytes, firmas y rechazos. No incluye ROM, partidas completas ni tokens Soul Link.
+
+La sincronización de PS puede adelantarse a la animación del combate, porque la lectura de memoria observa los valores internos que el juego actualiza antes de dibujarlos. No se introducen retrasos artificiales que puedan ocultar estados válidos.
+
+Esta corrección sigue pendiente de validar con **Azahar + Ultra Luna** real. Si falla, enviar el JSON generado, sin volcados completos de memoria ni credenciales.
