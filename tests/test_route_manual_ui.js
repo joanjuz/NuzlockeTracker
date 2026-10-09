@@ -11,7 +11,7 @@ const end = src.indexOf("\n$('route-search').oninput", start);
 assert.ok(start >= 0 && end > start, 'routePokemon y renderPlaces deben existir');
 
 class Node {
-  constructor() { this.children=[]; this.innerHTML='';this.textContent='';this.events={}; }
+  constructor() { this.children=[]; this.innerHTML='';this.textContent='';this.events={};this.dataset={}; }
   replaceChildren(){this.children=[]}
   append(child){this.children.push(child)}
   addEventListener(type,cb){this.events[type]=cb}
