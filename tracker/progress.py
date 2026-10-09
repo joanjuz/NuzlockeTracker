@@ -172,6 +172,11 @@ class RunProgress:
                 record=self.data['encounters'].get(gone)
                 if record:
                     self.mark_route({**record,'checksum_valid':True},'trade',source='auto')
+                    # The new Pokémon is the counterpart of the 1-for-1 trade.
+                    # Keep its original encounter location but group it as received.
+                    incoming=self.data['encounters'].get(new)
+                    if incoming:
+                        self.set_origin(incoming,'trade')
                     marked=True
         self.data['full_scan_baseline']=current
         self.save()
