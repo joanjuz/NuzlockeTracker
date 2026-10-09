@@ -1,4 +1,4 @@
-"""Windows read-only Lime3DS connector. No GDB, injection or memory writes."""
+"""Windows read-only 3DS emulator connector (experimental on Azahar/Citra)."""
 import ctypes as C
 from ctypes import wintypes as W
 import os,struct,time
@@ -36,6 +36,14 @@ def windows_api():
         fn=getattr(api,name);fn.argtypes=args;fn.restype=result
     return api
 
+def supported_emulator(name):
+    """Process-name discovery only; RAM layout must still validate per emulator."""
+    if not isinstance(name, str):
+        return False
+    value = name.lower()
+    return value.endswith('.exe') and value.startswith(('lime3ds', 'azahar', 'citra'))
+
+
 def list_lime_processes(api):
     handle=api.CreateToolhelp32Snapshot(2,0)
     if handle in (None,C.c_void_p(-1).value):raise C.WinError(C.get_last_error())
@@ -45,7 +53,7 @@ def list_lime_processes(api):
         success=api.Process32FirstW(handle,C.byref(entry))
         while success:
             name=entry.szExeFile
-            if name.lower().startswith('lime3ds') and name.lower().endswith('.exe'):entries.append((entry.th32ProcessID,name))
+            if supported_emulator(name):entries.append((entry.th32ProcessID,name))
             success=api.Process32NextW(handle,C.byref(entry))
     finally:api.CloseHandle(handle)
     return entries
@@ -55,11 +63,30 @@ class WindowsProcess:
         self.api=windows_api();processes=list_lime_processes(self.api)
         if pid is not None:
             processes=[p for p in processes if p[0]==pid]
-        if not processes:raise DiscoveryError('No se encontró Lime3DS. Abre el juego y carga tu partida.')
-        if len(processes)>1:raise DiscoveryError('Hay varios Lime3DS abiertos. Introduce el PID: '+', '.join(str(p[0]) for p in processes))
+        if not processes:raise DiscoveryError('No se encontró Lime3DS, Azahar ni Citra. Abre un emulador y carga la partida.')
+        if len(processes)>1:raise DiscoveryError('Hay varios emuladores abiertos. Introduce el PID: '+', '.join(str(p[0]) for p in processes))
         self.pid,self.name=processes[0]
+        # VirtualQueryEx requires PROCESS_QUERY_INFORMATION (0x0400), while
+        # ReadProcessMemory requires PROCESS_VM_READ (0x0010). Do not request
+        # PROCESS_ALL_ACCESS or attempt to bypass Windows security.
         self.handle=self.api.OpenProcess(0x0400|0x0010,False,self.pid)
-        if not self.handle:raise C.WinError(C.get_last_error())
+        if not self.handle:
+            error=C.get_last_error()
+            if error==5:
+                raise DiscoveryError(
+                    f'Acceso denegado a {self.name} (PID {self.pid}, WinError 5). '
+                    'Windows no permite leer la memoria de este proceso. '
+                    'Cierra Azahar/Citra y vuelve a abrirlo normalmente, sin '
+                    '«Ejecutar como administrador», igual que Pokémon Tracker. '
+                    'Comprueba el PID en el Administrador de tareas. Si sigue '
+                    'fallando, guarda el diagnóstico; la compatibilidad con '
+                    'este emulador continúa siendo experimental.',
+                    {'process':self.name,'pid':self.pid,'winerror':error,
+                     'stage':'OpenProcess'})
+            raise DiscoveryError(
+                f'No se pudo abrir {self.name} (PID {self.pid}, error Windows {error}).',
+                {'process':self.name,'pid':self.pid,'winerror':error,
+                 'stage':'OpenProcess'})
     def read(self,address,length):
         buffer=C.create_string_buffer(length);received=C.c_size_t()
         ok=self.api.ReadProcessMemory(self.handle,C.c_void_p(address),buffer,length,C.byref(received))
@@ -136,14 +163,21 @@ class LimeProcessMemory:
     def __init__(self,pid=None,progress=None,dynamic=False,cancel=None):
         self.process=WindowsProcess(pid);self.base=None;self.party_address=PARTY
         try:
-            if dynamic:self.base,self.party_address=discover_dynamic_ram(self.process,progress,cancel=cancel)
-            else:self.base=discover_ram(self.process,progress,cancel=cancel)
+            # Ultra Moon used fixed addresses in Lime3DS. Azahar and Citra can
+            # relocate the guest RAM layout; the same dynamic wrapper search
+            # already validated with Ultra Sun is safer in those processes.
+            auto_dynamic = self.process.name.lower().startswith(('azahar', 'citra'))
+            self.discovery_mode = 'dynamic' if dynamic or auto_dynamic else 'fixed'
+            if self.discovery_mode == 'dynamic':
+                self.base,self.party_address=discover_dynamic_ram(self.process,progress,cancel=cancel)
+            else:
+                self.base=discover_ram(self.process,progress,cancel=cancel)
         except Exception:self.process.close();raise
     def identify(self):return f'Windows · PID {self.process.pid} · RAM localizada'
     def resume(self):pass # No debugger: does not pause or resume the emulator.
     def read(self,address,length):
         if not LINEAR<=address or address+length>LINEAR+256*1024**2 or not 1<=length<=65536:raise ValueError('Lectura fuera de la RAM lineal permitida.')
-        if not self.process.alive():raise DiscoveryError('Lime3DS se cerró.')
+        if not self.process.alive():raise DiscoveryError('El emulador se cerró.')
         # Signature catches a cleared/moved RAM allocation after an internal restart.
         if self.process.read(self.base+getattr(self,'party_address',PARTY)-LINEAR+SIGNATURE_OFFSET,4)!=struct.pack('<I',getattr(self,'party_address',PARTY)+128):
             raise DiscoveryError('Partida reiniciada o RAM trasladada. Esperando para localizarla nuevamente.')
@@ -157,15 +191,22 @@ def discover_dynamic_ram(process,progress=None,timeout=90,budget=4*1024**3,cance
     # Two nearby guest pointers; secondary wrapper offsets may differ.
     # Validate the self-reference and the complete decoded party.
     pattern=re.compile(rb'(?=(.{3}[\x30-\x3f].{3}[\x30-\x3f]))',re.DOTALL)
-    report={'schema_version':2,'mode':'dynamic','bytes_scanned':0,'read_errors':0,'wrappers':0,'rejections':[],'candidates':[]}
+    report={'schema_version':2,'mode':'dynamic','pid':getattr(process,'pid',None),
+            'process':getattr(process,'name',None),'bytes_scanned':0,'read_errors':0,
+            'wrappers':0,'rejections':[],'candidates':[],'regions_scanned':0,
+            'elapsed_seconds':0}
     start_time=time.monotonic();matches={}
+    def failed(message):
+        report['elapsed_seconds']=round(time.monotonic()-start_time,2)
+        raise DiscoveryError(message,dict(report))
     for start,size in sorted(process.regions(),key=lambda r:r[1],reverse=True):
         if cancel and cancel():raise DiscoveryCancelled('Búsqueda cancelada por una nueva solicitud.')
+        report['regions_scanned']+=1
         tail=b''
         for offset in range(0,size,4*1024**2):
             if cancel and cancel():raise DiscoveryCancelled('Búsqueda cancelada por una nueva solicitud.')
             if time.monotonic()-start_time>timeout or report['bytes_scanned']>=budget:
-                raise DiscoveryError('Búsqueda dinámica alcanzó su límite. Guarda diagnóstico.',report)
+                failed('Búsqueda dinámica alcanzó su límite. Guarda diagnóstico.')
             length=min(4*1024**2,size-offset,budget-report['bytes_scanned'])
             try:data=process.read(start+offset,length)
             except (OSError,DiscoveryError):report['read_errors']+=1;tail=b'';continue
@@ -175,7 +216,7 @@ def discover_dynamic_ram(process,progress=None,timeout=90,budget=4*1024**3,cance
                 if position%4:continue
                 pk,stats=struct.unpack('<II',match.group(1))
                 if not 0<=stats-pk<=512:continue
-                if time.monotonic()-start_time>timeout:raise DiscoveryError('Búsqueda dinámica alcanzó su límite. Guarda diagnóstico.',report)
+                if time.monotonic()-start_time>timeout:failed('Búsqueda dinámica alcanzó su límite. Guarda diagnóstico.')
                 report['wrappers']+=1
                 anchor=position-68;guest=pk-128;base=anchor-(guest-LINEAR)
                 if not LINEAR<=guest<LINEAR+256*1024**2-2914 or base<=0:continue
@@ -192,7 +233,8 @@ def discover_dynamic_ram(process,progress=None,timeout=90,budget=4*1024**3,cance
         if matches:
             best=max(matches.values());choices=[key for key,count in matches.items() if count==best]
             report['candidates']=[{'base':hex(base),'party':hex(guest),'pokemon':count} for (base,guest),count in matches.items()]
-            if len(choices)!=1:raise DiscoveryError('Varias copias de equipo válidas. Guarda diagnóstico.',report)
+            if len(choices)!=1:failed('Varias copias de equipo válidas. Guarda diagnóstico.')
+            report['elapsed_seconds']=round(time.monotonic()-start_time,2)
             process.discovery_report=report
             return choices[0]
-    raise DiscoveryError('No se encontró un equipo válido. Guarda diagnóstico.',report)
+    failed('No se encontró un equipo válido. Guarda diagnóstico.')

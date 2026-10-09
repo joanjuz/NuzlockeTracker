@@ -1,6 +1,6 @@
 import struct,unittest
-from unittest.mock import patch
-from tracker.process_memory import NEEDLE,PARTY,LINEAR,BOX_BASE,BOX_SIZE,validate_anchor,LimeProcessMemory,DiscoveryError,discover_ram
+from unittest.mock import patch, Mock
+from tracker.process_memory import NEEDLE,PARTY,LINEAR,BOX_BASE,BOX_SIZE,validate_anchor,LimeProcessMemory,DiscoveryError,discover_ram,supported_emulator
 from tracker.pokemon import crypt
 
 def party_data():
@@ -20,6 +20,55 @@ class FakeProcess:
  def alive(self):return not self.closed
  def close(self):self.closed=True
 class ProcessMemoryTests(unittest.TestCase):
+ def test_process_names_lime_citra_azahar(self):
+  for name in ('lime3ds.exe','Lime3DS-Qt.exe','citra-qt.exe','Citra.exe','Azahar.exe','azahar-qt.exe'):
+   self.assertTrue(supported_emulator(name),name)
+  for name in ('lime3ds.dat','python.exe','citra-helper.dll','not-azahar.exe','azahar.exe.exe.bat'):
+   self.assertFalse(supported_emulator(name),name)
+
+ def test_azahar_access_denied_is_actionable_and_read_only(self):
+  from tracker.process_memory import WindowsProcess, DiscoveryError
+  api=Mock()
+  api.OpenProcess.return_value=None
+  with patch('tracker.process_memory.windows_api',return_value=api), \
+       patch('tracker.process_memory.list_lime_processes',return_value=[(1432,'azahar-qt.exe')]), \
+       patch('tracker.process_memory.C.get_last_error',return_value=5,create=True):
+   with self.assertRaises(DiscoveryError) as caught:
+    WindowsProcess(pid=1432)
+  error=caught.exception
+  self.assertIn('Azahar',str(error))
+  self.assertIn('PID 1432',str(error))
+  self.assertIn('WinError 5',str(error))
+  self.assertEqual(error.diagnostic['stage'],'OpenProcess')
+  self.assertEqual(error.diagnostic['winerror'],5)
+  api.OpenProcess.assert_called_once_with(0x0400|0x0010,False,1432)
+
+ def test_ultra_moon_on_azahar_uses_dynamic_while_lime3ds_stays_fixed(self):
+  # The service previously passed dynamic=False for Ultra Moon. The connector
+  # must still select dynamic when the host is Azahar/Citra.
+  class Process:
+   def __init__(self,name):self.name=name;self.pid=100;self.closed=False
+   def close(self):self.closed=True
+  from tracker.process_memory import LimeProcessMemory
+  for name,choose_dynamic in [('azahar-qt.exe',True),('citra-qt.exe',True),
+                              ('lime3ds.exe',False)]:
+   with self.subTest(name=name):
+    proc=Process(name)
+    with patch('tracker.process_memory.WindowsProcess',return_value=proc), \
+         patch('tracker.process_memory.discover_dynamic_ram',return_value=(0x100000000,0x33f7fa44)) as dynamic, \
+         patch('tracker.process_memory.discover_ram',return_value=0x100000000) as fixed:
+     reader=LimeProcessMemory(dynamic=False)
+     self.assertEqual(reader.discovery_mode,'dynamic' if choose_dynamic else 'fixed')
+     self.assertEqual(dynamic.called,choose_dynamic)
+     self.assertEqual(fixed.called,not choose_dynamic)
+     reader.close()
+  proc=Process('azahar-qt.exe')
+  with patch('tracker.process_memory.WindowsProcess',return_value=proc), \
+       patch('tracker.process_memory.discover_dynamic_ram',side_effect=DiscoveryError('sin RAM',{'mode':'dynamic','regions_scanned':1300})):
+   with self.assertRaises(DiscoveryError) as failure:LimeProcessMemory(dynamic=False)
+  self.assertTrue(proc.closed)
+  self.assertEqual(failure.exception.diagnostic['regions_scanned'],1300)
+
  def test_anchor_translation(self):
   p=FakeProcess();self.assertEqual(validate_anchor(p,p.base+PARTY-LINEAR),p.base)
  def test_invalid_signature(self):
