@@ -149,7 +149,7 @@ class LocalBackend:
             self.service, self.overlay, preferred_port=8767 if self.profile == 'principal' else 8768)
         handler = make_handler(self.service, secrets.token_urlsafe(32),
                                self.companion, profile=self.profile,overlay=self.overlay,
-                               share=self.remote_share)
+                               share=self.remote_share,sprite_cache=self.sprite_cache)
         # Stable URL in OBS after restart, with a safe fallback if in use.
         preferred_port = 8765 if self.profile == 'principal' else 8766
         try:
