@@ -43,6 +43,9 @@ ctx.renderPlaces();
 let routes=get('places').children[0].innerHTML;
 assert.match(routes,/data-route-death="33:12"/);
 assert.match(routes,/data-route-mark="33:12" data-kind="fossil"/);
+assert.match(routes,/<fieldset class="route-tile occupied"/,'Una ruta es un recuadro único');
+assert.match(routes,/<legend class="route-legend">Ruta 1<\/legend>/,'Nombre de ruta integrado en el borde');
+assert.doesNotMatch(routes,/<h4>|class="route-footprint-name"/,'No mostrar nombres bajo los sprites');
 assert.doesNotMatch(routes,/<select|data-origin-key/,'Sin menús desplegables');
 assert.doesNotMatch(routes,/data-kind="trade"/,'Sin botón de intercambio por Pokémon');
 assert.match(routes,/data-route-trade="9"/,'Intercambiado en ruta vacía');
@@ -85,8 +88,21 @@ ctx.state.progress.encounters={'33:66':{...fossil}};
 ctx.placeSignature='';ctx.renderPlaces();
 assert.match(get('places').children[0].innerHTML,/Fosilito/);
 assert.match(get('places').children[1].innerHTML,/Fósiles/);
+assert.match(get('places').children[1].innerHTML,/<legend class="route-legend">Ruta 1<\/legend>/);
+assert.doesNotMatch(get('places').children[1].innerHTML,/<h4>|origin-type-label/,
+ 'Sin mote ni etiqueta Fósil debajo de Deshacer');
+assert.match(get('places').children[1].innerHTML,/>Deshacer<\/button><\/div>/,
+ 'Deshacer termina el bloque del Pokémon sin Fósil repetido');
 // Regalos y huevos previamente identificados se respetan sin selector.
 ctx.state.boxes={'1':[gift,egg]};
+// Dos Pokémon obtenidos en la misma ruta comparten recuadro horizontal.
+ctx.state.boxes={'1':[gift,egg,mon(98,'Segundo fósil',8,{species_id:133})]};
+ctx.state.progress.origins['33:98']='fossil';
+ctx.placeSignature='';ctx.renderPlaces();
+const fossilHtml=get('places').children[1].innerHTML;
+assert.equal((fossilHtml.match(/<fieldset/g)||[]).length,1,'Un único marco por ruta entre fósiles');
+assert.equal((fossilHtml.match(/route-pokemon-entry/g)||[]).length,2,'Dos sprites dentro de la misma ruta');
+
 ctx.state.progress.origins['33:67']='gift';
 ctx.placeSignature='';ctx.renderPlaces();
 assert.equal(get('places').children.length,4);
@@ -96,4 +112,9 @@ ctx.companionView=true;ctx.placeSignature='';ctx.renderPlaces();
 routes=get('places').children[0].innerHTML;
 assert.doesNotMatch(routes,/data-route-mark|data-route-undo|<select/);
 assert.match(routes,/data-route-trade="9" disabled/);
-console.log('Rutas: UI limpia, Fósil directo, intercambio automático o manual en ruta vacía, solo lectura OK');
+const css=fs.readFileSync(path.join(__dirname,'../web/style.css'),'utf8');
+assert.match(css,/\.route-tile \.route-sprites\{[\s\S]*?flex-wrap:wrap/,
+ 'Los sprites comparten fila y solo saltan cuando falta ancho');
+assert.match(css,/\.route-tile \.route-legend\{/,'Leyenda integrada en borde de ruta');
+assert.match(css,/\.route-grid\{[\s\S]*?minmax\(min\(100%,310px\),1fr\)/);
+console.log('Rutas: marcos por ruta, sprites horizontales, sin motes ni etiquetas repetidas OK');
