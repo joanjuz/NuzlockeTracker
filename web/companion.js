@@ -24,6 +24,7 @@
   const stamp = ms => ms ? new Date(ms).toLocaleString('es-CR') : 'Aún no ha compartido una sesión';
   function updatePage(info) {
     const p = info.partner;
+    if (info.default_worker_url && !el('companion-url').value) el('companion-url').value = info.default_worker_url;
     const hasPartner = Boolean(p);
     const snapshot = asView(p);
     const hasView = hasPartner && Boolean(snapshot);
@@ -34,7 +35,7 @@
     if (info.configured) {
       const status = hasPartner ? `Sincronizado con ${p.name} · ${p.game}` : 'Esperando a tu compañero';
       el('companion-joined-text').textContent = status + (p?.updated_at ? ` · ${stamp(p.updated_at)}` : '');
-      el('companion-share').value = info.invite_code || (hasPartner ? 'Compañero vinculado' : 'Código utilizado o no disponible');
+      el('companion-share').value = info.invite_link || info.invite_code || (hasPartner ? 'Compañero vinculado' : 'Código utilizado o no disponible');
       el('companion-copy').disabled = !info.invite_code;
     }
     indicator.textContent = info.error ? `Aviso: ${info.error}` :
@@ -116,5 +117,5 @@
     toggle.textContent = viewingPartner?'← Mi partida':'Compañero';
   };
   getStatus();
-  setInterval(getStatus, 15000);
+  setInterval(getStatus, 5000);
 })();
