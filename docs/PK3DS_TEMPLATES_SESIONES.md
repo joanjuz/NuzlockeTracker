@@ -29,3 +29,15 @@ Los templates describen la **configuración deseada del randomizer**. No demuest
 ## Prioridad posterior
 
 Ventana nativa de escritorio (sin abrir manualmente `.bat`). No incluida en esta rama; no cambia el funcionamiento local del servidor HTTP ni la interfaz web.
+
+
+## Correcciones de evoluciones y últimos datos (v0.24 experimental)
+
+- Evoluciones regionales: Vulpix normal → Ninetales con **piedra fuego** y Vulpix de Alola → Ninetales de Alola con **piedra hielo**; cada forma muestra el sprite correspondiente (ID 38 normal o ID 10104 de PokéAPI para Alola). Se evita presentar ambas rutas simultáneamente a un solo Vulpix.
+- El campo `Form` de la plantilla pk3DS Gen7 corresponde a **la forma del Pokémon resultante**; `-1` hereda la forma. Cuando hay método genérico y método específico de la misma especie/formulario, el específico tiene prioridad.
+- Métodos y objetos se presentan en español. Los argumentos numéricos que representan objetos se resuelven mediante el catálogo del propio juego. Por ejemplo, objeto `325` → **Tela Terrible** (Dusclops → Dusknoir por los métodos 19 y 20 modificados). No se afirma que esos métodos sean el comportamiento original de WikiDex, pues son modificaciones de la plantilla.
+- Los Pokémon sin evoluciones aplicables no muestran el encabezado ni la sección «Cómo evoluciona».
+- La última lectura de **Equipo**, igual que Cajas, permanece en el estado local cuando se desconecta el emulador o se reinicia el servidor. Ambos se muestran como información guardada, **no en vivo**. Cambiar de Ultra Sol a Ultra Luna elimina el equipo y cajas del otro juego para que no se mezclen.
+- Se mantienen aislados los dos perfiles locales y el vínculo Soul Link. No se modifican la ROM, el save ni el Worker de Cloudflare.
+
+Fuentes consultadas para la nomenclatura y las reglas base: WikiDex (Vulpix, Vulpix de Alola, Ninetales de Alola y Tela Terrible); pk3DS Gen7 EvolutionEditor7 para índices de métodos; PokéAPI `pokemon.csv` y repositorio de sprites para los identificadores regionales. La plantilla local sigue prevaleciendo sobre el método de referencia.
