@@ -18,7 +18,7 @@ from urllib.request import urlopen
 import secrets
 
 from companion.sync import CompanionSync
-from server import make_handler, runtime_directory
+from server import make_handler, runtime_directory, RemoteOverlayShare
 from tracker.service import TrackerService
 from tracker.layout_export import PartyLayoutExporter, layout_directory
 from tracker.overlay import OverlayManager
@@ -130,6 +130,7 @@ class LocalBackend:
         self.custom_dir = Path(custom_dir) if custom_dir else self.layout_path.parent / 'sprites_personalizados'
         self.layout = None
         self.overlay = None
+        self.remote_share = None
         self.service = None
         self.companion = None
         self.server = None
@@ -144,8 +145,11 @@ class LocalBackend:
         self.service = TrackerService(self.runtime / 'state.json')
         self.companion = CompanionSync(self.service, self.runtime)
         self.overlay = OverlayManager(self.service, self.runtime, self.layout_path)
+        self.remote_share = RemoteOverlayShare(
+            self.service, self.overlay, preferred_port=8767 if self.profile == 'principal' else 8768)
         handler = make_handler(self.service, secrets.token_urlsafe(32),
-                               self.companion, profile=self.profile,overlay=self.overlay)
+                               self.companion, profile=self.profile,overlay=self.overlay,
+                               share=self.remote_share)
         # Stable URL in OBS after restart, with a safe fallback if in use.
         preferred_port = 8765 if self.profile == 'principal' else 8766
         try:
@@ -166,6 +170,8 @@ class LocalBackend:
         return self
 
     def close(self):
+        if self.remote_share:
+            self.remote_share.close()
         if self.layout:
             self.layout.close()
         if self.service:
