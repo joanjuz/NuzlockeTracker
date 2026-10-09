@@ -91,6 +91,7 @@ function routePokemon(p, historical=false){
   const valid=(historical||p.checksum_valid===true)&&Number.isInteger(p.encryption_constant);
   const category=originCategory(p);
   const actions=[];
+  if(dead&&!marked)actions.push('<small class="route-death-status">Muerto</small>');
   if(marked){
     actions.push(`<small class="route-marked" title="Esta ruta conserva el historial">${marked.kind==='trade'?'Intercambiado':'Fósil'}</small>`);
     if(!companionView)actions.push(`<button class="route-death" type="button" data-route-undo="${esc(key)}">Deshacer</button>`);
