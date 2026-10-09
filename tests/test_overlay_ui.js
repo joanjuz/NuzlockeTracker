@@ -25,13 +25,22 @@ assert.doesNotMatch(client,/\/api\/state/);
 for(const id of ['links','slot','order','direction','gap','slot_width',
  'sprite_size','font','font_file','name_color','name_size','hp_height',
  'hp_style','hp_reverse','hp_glow','hp_label','hp_good','hp_low',
- 'hp_mid','upload','save','reset','preview'])
+ 'hp_mid','upload','save','reset','hp_fill_upload','hp_frame_upload',
+ 'hp_custom_fill','hp_custom_frame','share-ip','share-enable','share-disable',
+ 'link-target','share-status'])
  assert.match(editor,new RegExp('id="'+id+'"'),id);
 assert.match(edit,/navigator\.clipboard\.writeText/);
 assert.match(edit,/\/api\/overlay\/font/);
 assert.match(edit,/\/api\/overlay\/settings/);
 assert.match(edit,/setTimeout\(save,350\)/);
 assert.match(edit,/new Option/);
+assert.doesNotMatch(editor,/id="preview"|Vista previa en tiempo real/);
+assert.match(edit,/\/api\/overlay\/hp-image/);
+assert.match(edit,/\/api\/overlay\/share/);
+assert.match(client,/hp_custom_fill/);
+assert.match(client,/hp_custom_frame/);
+assert.match(css,/\.hp-fill\.custom-fill/);
+assert.match(css,/\.hp-outline\.custom-frame::after/);
 const editorCss=read('overlay-editor.css'),appCss=read('style.css');
 for(const token of ['--page:#101010','--surface:#191919','--text:#f5f5f5',
   '--muted:#aaa','--accent:#f05b65','--border:#ffffff20',
