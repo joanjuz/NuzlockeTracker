@@ -1,11 +1,12 @@
 """Loopback HTTP + WebSocket server, using the Python standard library."""
-import argparse,base64,hashlib,ipaddress,json,re,secrets,socket,struct,sys,threading,webbrowser
+import argparse,base64,hashlib,ipaddress,json,re,secrets,socket,struct,sys,threading,time,webbrowser
 from http.server import ThreadingHTTPServer,BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlsplit
 from tracker.service import TrackerService
 from companion.sync import CompanionSync
 from tracker.overlay import OverlayManager, DEFAULT
+from tracker.layout_export import fetch_sprite, validate_png
 ROOT=Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent))
 
 def runtime_directory(root, profile=None):
@@ -91,7 +92,41 @@ class RemoteOverlayShare:
 
 
 def make_handler(service,token,companion=None,profile='principal',overlay=None,
-                 share=None,remote_only=False):
+                 share=None,remote_only=False,sprite_cache=None):
+    # Los avisos Soul Link pueden referirse a un Pokémon guardado en cajas.
+    # Resolver sprites en el servidor evita depender del acceso GitHub/WebView2
+    # de cada cliente y guarda lo descargado para uso sin conexión posterior.
+    sprite_dir=Path(sprite_cache) if sprite_cache is not None else None
+    sprite_retry={}
+    sprite_lock=threading.Lock()
+    def sprite_bytes(ident):
+        candidates=[ROOT/'data'/'sprites'/f'{ident}.png']
+        if sprite_dir is not None:candidates.insert(0,sprite_dir/f'{ident}.png')
+        for path in candidates:
+            try:
+                if path.is_file():return validate_png(path.read_bytes())
+            except (OSError,ValueError):
+                continue
+        with sprite_lock:
+            if time.monotonic()<sprite_retry.get(ident,0):return None
+        try:
+            raw=fetch_sprite(ident)
+        except (OSError,ValueError):
+            with sprite_lock:sprite_retry[ident]=time.monotonic()+45
+            return None
+        if sprite_dir is not None:
+            try:
+                sprite_dir.mkdir(parents=True,exist_ok=True)
+                path=sprite_dir/f'{ident}.png'
+                tmp=sprite_dir/f'.{ident}.{threading.get_ident()}.tmp'
+                try:
+                    tmp.write_bytes(raw)
+                    tmp.replace(path)
+                finally:tmp.unlink(missing_ok=True)
+            except OSError:
+                pass  # Mostrarlo aunque el cache no sea escribible.
+        return raw
+
     class Handler(BaseHTTPRequestHandler):
         def log_message(self,*args):pass
         def allowed(self):
@@ -197,9 +232,12 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None,
             files={'/fonts/Oxanium.ttf':('web/fonts/Oxanium.ttf','font/ttf'),'/':('web/index.html','text/html; charset=utf-8'),'/app.js':('web/app.js','text/javascript; charset=utf-8'),'/analysis.js':('web/analysis.js','text/javascript; charset=utf-8'),'/companion.js':('web/companion.js','text/javascript; charset=utf-8'),'/companion.css':('web/companion.css','text/css; charset=utf-8'),'/style.css':('web/style.css','text/css; charset=utf-8'),'/empty-pokemon.svg':('web/empty-pokemon.svg','image/svg+xml'),'/app-icon.png':('web/app-icon.png','image/png')}
             if path in files:
                 name,kind=files[path];self.reply(200,(ROOT/name).read_bytes(),kind);return
-            if path.startswith('/sprites/') and path[9:].removesuffix('.png').isdigit() and path.endswith('.png'):
-                file=ROOT/'data'/'sprites'/path[9:]
-                if file.is_file():self.reply(200,file.read_bytes(),'image/png');return
+            match=re.fullmatch(r'/sprites/([1-9][0-9]{0,4})\\.png',path)
+            if match and 1<=int(match[1])<=10115:
+                raw=sprite_bytes(int(match[1]))
+                if raw is not None:
+                    self.reply(200,raw,'image/png')
+                    return
             self.reply(404,{})
         def do_POST(self):
             if remote_only:self.reply(403,{'error':'Solo lectura OBS'});return
@@ -297,7 +335,8 @@ def main():
     share=RemoteOverlayShare(service,overlay)
     server=ThreadingHTTPServer(('127.0.0.1',0),
         make_handler(service,secrets.token_urlsafe(32),companion,
-                     profile=args.profile or 'principal',overlay=overlay,share=share))
+                     profile=args.profile or 'principal',overlay=overlay,share=share,
+                     sprite_cache=runtime.parent/'sprite-cache'))
     worker=threading.Thread(target=service.run,daemon=True);worker.start()
     url=f'http://127.0.0.1:{server.server_port}/';print('Tracker local: '+url+'\nPerfil: '+(args.profile or 'principal')+'\nMantén esta ventana abierta. Ctrl+C para cerrar.')
     if not args.no_browser:webbrowser.open(url)
