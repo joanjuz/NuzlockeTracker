@@ -7,8 +7,9 @@ INICIAR
    son documentación. La primera apertura puede tardar más por extracción temporal.
 3. Ejecuta PokemonTracker.exe con doble clic. No exige instalar Python, abrir .bat
    ni ejecutar un servidor en la consola: la ventana usa Microsoft Edge WebView2.
-4. Selecciona "Jugador principal" o "Segundo jugador". Puedes abrir una instancia
-   por cada perfil a la vez. Si abres dos Lime3DS, usa su PID correcto en Conexión.
+4. La ventana abre directamente con tu sesión guardada, sin selector de jugadores.
+   Al abrir una segunda ventana del EXE, se utiliza automáticamente el otro
+   perfil local existente para Soul Link. Si hay dos Lime3DS, conecta cada PID.
 5. Requisitos: Windows 10/11 x64, Microsoft Edge WebView2 Runtime instalado.
 
 PERFILES, PARTIDAS Y SOUL LINK
@@ -16,10 +17,11 @@ PERFILES, PARTIDAS Y SOUL LINK
 - Tus datos se guardan en %LOCALAPPDATA%\PokemonTracker\runtime (fuera del ZIP).
 - Si el EXE está ubicado en dist/PokemonTracker/ dentro del repositorio antiguo,
   se copia automáticamente el directorio runtime al iniciar por primera vez.
-- Si lo extraes desde GitHub a otra carpeta, usa el botón
-  "Importar sesión de la versión anterior..." ANTES de abrir un jugador.
-  Selecciona la carpeta runtime del proyecto anterior, normalmente:
-  D:\Progra\NuzlockeTracker\runtime
+- El primer inicio intenta detectar y copiar el runtime del proyecto antiguo,
+  cuando la carpeta del repositorio es accesible desde la ubicación del EXE.
+  Si no está junto al ejecutable, cierra la app y copia manualmente el runtime
+  antiguo a %LOCALAPPDATA%\PokemonTracker\runtime antes de usarla.
+  Ejemplo del origen: D:\Progra\NuzlockeTracker\runtime
 - El traspaso COPIA las credenciales Soul Link, perfiles de ambos jugadores,
   configuraciones y plantillas pk3DS y el último Equipo/Cajas; no elimina
   los originales ni sobrescribe datos ya existentes.
@@ -27,9 +29,8 @@ PERFILES, PARTIDAS Y SOUL LINK
   reemplaza para prevenir la pérdida de progreso. Haz una copia de seguridad.
 - Cada ventana tiene su propio puerto localhost (127.0.0.1).
 - El emulador puede cambiar de PID tras cerrarse; vuelve a elegirlo en Conexión.
-- Si quieres abrir directamente un perfil desde un acceso directo, usa
-  PokemonTracker.exe --profile principal
-  o PokemonTracker.exe --profile segundo-jugador
+- Opcional: en accesos directos avanzados se admite --profile principal
+  o --profile segundo-jugador, pero estos nombres no se muestran en pantalla.
 
 DISTRIBUCION LIMPIA
 - La distribución ahora incluye un único PokemonTracker.exe, sin carpeta _internal.
@@ -53,3 +54,15 @@ SOLUCIONAR PROBLEMAS
 
 Esta version experimental todavía necesita validarse en Windows con Lime3DS,
 Ultra Sol y Ultra Luna y las plantillas pk3DS reales.
+
+LAYOUT PARA OBS
+- Al abrir, se crea la carpeta layout junto al ejecutable, cuando es posible
+  escribir allí; de lo contrario se usa %LOCALAPPDATA%\PokemonTracker\layout.
+- Dentro aparecen seis archivos con nombres fijos: pokemon_1.png ... pokemon_6.png.
+- Los sprites se actualizan al cambiar el equipo. Las posiciones vacías usan
+  un PNG transparente 96x96. Los sprites se descargan de PokéAPI y se cachean
+  después de la primera lectura. La conexión perdida conserva el último equipo.
+- Para dos ventanas, los sprites del segundo perfil van a layout\perfil_2\.
+- OBS puede cargar cada PNG por su ruta como Fuente de imagen; si OBS no
+  actualiza una fuente que cambia, activa 'Descargar archivo cuando no se muestre'
+  o cambia el método de lectura de imagen para refrescarlo.

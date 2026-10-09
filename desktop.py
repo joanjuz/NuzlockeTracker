@@ -20,9 +20,10 @@ import secrets
 from companion.sync import CompanionSync
 from server import make_handler, runtime_directory
 from tracker.service import TrackerService
+from tracker.layout_export import PartyLayoutExporter, layout_directory
 
 APP_NAME = 'PokemonTracker'
-PROFILE_CHOICES = {'principal': 'Jugador principal', 'segundo-jugador': 'Segundo jugador'}
+PROFILE_CHOICES = ('principal', 'segundo-jugador')  # Internal only; never shown in the UI.
 
 
 def app_home(env=None):
@@ -72,55 +73,6 @@ def auto_migrate_local_checkout(home, executable=None):
     return False
 
 
-def choose_profile(home):
-    """Small native picker, allows starting both Lime3DS on one computer."""
-    import tkinter as tk
-    from tkinter import filedialog, messagebox
-
-    window = tk.Tk()
-    window.title('Pokémon Tracker · Elegir sesión')
-    window.geometry('408x255')
-    window.resizable(False, False)
-    window.configure(bg='#15191e')
-    result = {'profile': None}
-    label = tk.Label(window, text='¿Qué sesión quieres abrir?', fg='#f4f5f6',
-                     bg='#15191e', font=('Segoe UI', 15, 'bold'))
-    label.pack(pady=(22, 14))
-
-    def choose(value):
-        result['profile'] = value
-        window.destroy()
-
-    for value, title in PROFILE_CHOICES.items():
-        tk.Button(window, text=title, command=lambda v=value: choose(v),
-                  font=('Segoe UI', 11), width=27, pady=5).pack(pady=4)
-
-    def migrate():
-        destination = home / 'runtime'
-        if destination.exists():
-            messagebox.showinfo('Sesión ya guardada',
-                'Ya existen datos en esta instalación. No se sobrescribirán.', parent=window)
-            return
-        folder = filedialog.askdirectory(title='Selecciona la carpeta runtime anterior',
-                                         parent=window, mustexist=True)
-        if not folder:
-            return
-        try:
-            import_legacy_runtime(folder, destination)
-        except (ValueError, OSError) as error:
-            messagebox.showerror('No se pudo importar', str(error), parent=window)
-        else:
-            messagebox.showinfo('Sesión importada',
-                'Se conservaron los perfiles, Pokémon y conexiones Soul Link.', parent=window)
-
-    tk.Button(window, text='Importar sesión de la versión anterior…', command=migrate,
-              fg='#bcd5ec', bg='#15191e', relief='flat',
-              font=('Segoe UI', 9, 'underline')).pack(pady=(12, 4))
-    window.protocol('WM_DELETE_WINDOW', window.destroy)
-    window.mainloop()
-    return result['profile']
-
-
 def acquire_profile_lock(home, profile):
     """Prevent concurrent writes from two windows using the same profile."""
     if sys.platform != 'win32':
@@ -143,11 +95,27 @@ def acquire_profile_lock(home, profile):
     return file
 
 
+def automatic_profile(home):
+    """First window uses existing primary session; second uses the other.
+
+    Keep both Soul Link profiles and cache files, but no player chooser.
+    """
+    for profile in PROFILE_CHOICES:
+        try:
+            lock = acquire_profile_lock(home, profile)
+            return profile, lock
+        except RuntimeError:
+            continue
+    raise RuntimeError('Ya hay dos ventanas de Pokémon Tracker abiertas.')
+
+
 class LocalBackend:
     """Start/stop the same tracker core as server.py, without an external browser."""
-    def __init__(self, runtime, profile):
+    def __init__(self, runtime, profile, layout_path=None):
         self.runtime = Path(runtime)
         self.profile = profile
+        self.layout_path = Path(layout_path) if layout_path else self.runtime.parent / 'layout'
+        self.layout = None
         self.service = None
         self.companion = None
         self.server = None
@@ -171,9 +139,13 @@ class LocalBackend:
         self.http_thread.start()
         self.worker.start()
         self.companion.start()
+        self.layout = PartyLayoutExporter(self.service, self.layout_path)
+        self.layout.start()
         return self
 
     def close(self):
+        if self.layout:
+            self.layout.close()
         if self.service:
             self.service.stop.set()
             with self.service.condition:
@@ -213,6 +185,7 @@ def smoke_test(backend):
     with urlopen(backend.url + 'api/session', timeout=12) as response:
         session = json.load(response)
     assert session['profile'] == backend.profile
+    assert len(list(backend.layout_path.glob('pokemon_*.png'))) == 6
     return True
 
 
@@ -227,8 +200,8 @@ def message_error(message):
 
 def main(argv=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--profile', choices=tuple(PROFILE_CHOICES), default=None,
-                        help='Abrir una sesión específica sin mostrar el selector.')
+    parser.add_argument('--profile', choices=PROFILE_CHOICES, default=None,
+                        help='Perfil interno opcional para usos avanzados.')
     parser.add_argument('--smoke-test', action='store_true',
                         help='Solo para validar la compilación en CI.')
     opts = parser.parse_args(argv)
@@ -239,19 +212,25 @@ def main(argv=None):
     try:
         if not opts.smoke_test:
             auto_migrate_local_checkout(home)
-        profile = opts.profile or ('principal' if opts.smoke_test else choose_profile(home))
-        if not profile:
-            return 0
-        locked = acquire_profile_lock(home, profile)
-        backend = LocalBackend(runtime_directory(home, None if profile=='principal'
-                                                 else profile), profile).start()
+        if opts.profile:
+            profile = opts.profile
+            locked = acquire_profile_lock(home, profile)
+        elif opts.smoke_test:
+            profile = 'principal'
+            locked = acquire_profile_lock(home, profile)
+        else:
+            profile, locked = automatic_profile(home)
+        backend = LocalBackend(
+            runtime_directory(home, None if profile == 'principal' else profile),
+            profile, layout_path=layout_directory(home, profile)
+        ).start()
         if opts.smoke_test:
             smoke_test(backend)
             smoke_test_native()
             return 0
         # Deliberately lazy: CI smoke test does not require installed WebView2.
         import webview
-        webview.create_window('Pokémon Tracker · ' + PROFILE_CHOICES[profile],
+        webview.create_window('Pokémon Tracker',
                               backend.url, width=1220, height=850,
                               min_size=(820, 560), background_color='#15191e')
         webview.start(gui='edgechromium', debug=False)
