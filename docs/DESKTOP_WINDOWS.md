@@ -18,7 +18,8 @@ PERFILES, PARTIDAS Y SOUL LINK
 - Si el EXE está ubicado en dist/PokemonTracker/ dentro del repositorio antiguo,
   se copia automáticamente el directorio runtime al iniciar por primera vez.
 - El primer inicio intenta detectar y copiar el runtime del proyecto antiguo,
-  cuando la carpeta del repositorio es accesible desde la ubicación del EXE.
+  cuando la carpeta del repositorio es accesible desde la ubicación del EXE
+  o se encuentra como NuzlockeTracker junto a la carpeta de descarga.
   Si no está junto al ejecutable, cierra la app y copia manualmente el runtime
   antiguo a %LOCALAPPDATA%\PokemonTracker\runtime antes de usarla.
   Ejemplo del origen: D:\Progra\NuzlockeTracker\runtime
@@ -63,6 +64,5 @@ LAYOUT PARA OBS
   un PNG transparente 96x96. Los sprites se descargan de PokéAPI y se cachean
   después de la primera lectura. La conexión perdida conserva el último equipo.
 - Para dos ventanas, los sprites del segundo perfil van a layout\perfil_2\.
-- OBS puede cargar cada PNG por su ruta como Fuente de imagen; si OBS no
-  actualiza una fuente que cambia, activa 'Descargar archivo cuando no se muestre'
-  o cambia el método de lectura de imagen para refrescarlo.
+- OBS puede cargar cada PNG por su ruta como Fuente de imagen. Según la versión
+  de OBS, puede ser necesario refrescar la fuente para que relea el archivo.

@@ -39,9 +39,18 @@ def legacy_runtime_candidates(executable=None):
     """Identify nearby source checkouts; never guess another app's credentials."""
     executable = Path(executable or sys.executable).resolve()
     # Covers <repo>/dist/PokemonTracker/PokemonTracker.exe when built locally.
-    for directory in [executable.parent, *list(executable.parents)[:4]]:
-        if (directory / 'server.py').is_file() and (directory / 'runtime').is_dir():
-            yield directory / 'runtime'
+    dirs = [executable.parent, *list(executable.parents)[:4]]
+    # Downloaded ZIP is often a sibling of an existing NuzlockeTracker checkout.
+    for parent in (executable.parent, *list(executable.parents)[:2]):
+        dirs.extend((parent / 'NuzlockeTracker', parent / 'Pokemon_Tracker'))
+    seen = set()
+    for directory in dirs:
+        source = directory / 'runtime'
+        if source in seen:
+            continue
+        seen.add(source)
+        if (directory / 'server.py').is_file() and source.is_dir():
+            yield source
 
 
 def import_legacy_runtime(source, destination):
@@ -111,10 +120,11 @@ def automatic_profile(home):
 
 class LocalBackend:
     """Start/stop the same tracker core as server.py, without an external browser."""
-    def __init__(self, runtime, profile, layout_path=None):
+    def __init__(self, runtime, profile, layout_path=None, sprite_cache=None):
         self.runtime = Path(runtime)
         self.profile = profile
         self.layout_path = Path(layout_path) if layout_path else self.runtime.parent / 'layout'
+        self.sprite_cache = Path(sprite_cache) if sprite_cache else self.runtime.parent / 'sprite-cache'
         self.layout = None
         self.service = None
         self.companion = None
@@ -139,7 +149,7 @@ class LocalBackend:
         self.http_thread.start()
         self.worker.start()
         self.companion.start()
-        self.layout = PartyLayoutExporter(self.service, self.layout_path)
+        self.layout = PartyLayoutExporter(self.service, self.layout_path, cache_dir=self.sprite_cache)
         self.layout.start()
         return self
 
@@ -222,7 +232,8 @@ def main(argv=None):
             profile, locked = automatic_profile(home)
         backend = LocalBackend(
             runtime_directory(home, None if profile == 'principal' else profile),
-            profile, layout_path=layout_directory(home, profile)
+            profile, layout_path=layout_directory(home, profile),
+            sprite_cache=home / 'sprite-cache'
         ).start()
         if opts.smoke_test:
             smoke_test(backend)

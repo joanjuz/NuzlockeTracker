@@ -170,7 +170,7 @@ class PartyLayoutExporter:
                 del self.futures[ident]
                 try:
                     self.write_slot(i, future.result())
-                except (OSError, ValueError, TimeoutError, Exception):
+                except Exception:
                     self.retry_after[ident] = now + 30
             elif future is None and now >= self.retry_after.get(ident, 0):
                 self.futures[ident] = self.pool.submit(self.download_and_store, ident)
