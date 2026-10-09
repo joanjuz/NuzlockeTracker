@@ -90,6 +90,17 @@ class CompanionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             snapshot(local)
 
+    def test_share_route_trade_flag_but_not_full_scan_baseline(self):
+        current=state()
+        current['progress']['traded_routes']=['8']
+        current['progress']['full_scan_baseline']={'33:1234':123456}
+        result=snapshot(current)
+        self.assertEqual(result['progress']['traded_routes'],['8'])
+        self.assertNotIn('full_scan_baseline',result['progress'])
+        self.assertEqual(viewer_state(result)['progress']['traded_routes'],['8'])
+        current['progress']['traded_routes']=['../../private']
+        with self.assertRaises(ValueError):snapshot(current)
+
     def test_viewer_can_render_last_session(self):
         old = snapshot(state('Ultra Moon 1.0'))
         view = viewer_state(old)
