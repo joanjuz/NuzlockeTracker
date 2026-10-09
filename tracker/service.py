@@ -114,17 +114,34 @@ class TrackerService:
         self.update(party=party,boxes=boxes,templates=result)
         return result
 
+    def session_export(self):
+        """Portable user-selected backup: local Pokémon/progress only, no cloud tokens."""
+        state=self.snapshot()
+        return {
+            'schema_version':1,
+            'exported_at':datetime.now(timezone.utc).isoformat(),
+            'game':state['game'],
+            'party':copy.deepcopy(state.get('party') or [None]*6),
+            'boxes':copy.deepcopy(state.get('boxes') or {}),
+            'progress':copy.deepcopy(state.get('progress') or {}),
+            'selected_box':state.get('selected_box',1),
+            'box_verified':state.get('box_verified',False),
+        }
+
+    def diagnostic_export(self):
+        state=self.snapshot()
+        return {'schema_version':1,
+                'created_at':datetime.now(timezone.utc).isoformat(),
+                'game':state['game'],'connection':state['connection'],
+                'diagnostic':copy.deepcopy(self.diagnostic) if self.diagnostic else
+                              {'message':'No hay un diagnóstico de conexión disponible.'}}
+
     def save_diagnostic(self):
         """Write a diagnostic without relying on WebView2's download support.
 
         Never include ROM bytes, save games, partner tokens or other secrets.
         """
-        state=self.snapshot()
-        data={'schema_version':1,
-              'created_at':datetime.now(timezone.utc).isoformat(),
-              'game':state['game'],'connection':state['connection'],
-              'diagnostic':copy.deepcopy(self.diagnostic) if self.diagnostic else
-                           {'message':'No hay un diagnóstico de conexión disponible.'}}
+        data=self.diagnostic_export()
         folder=self.output.parent / 'diagnosticos'
         folder.mkdir(parents=True,exist_ok=True)
         name='diagnostico_'+datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f')+'.json'
