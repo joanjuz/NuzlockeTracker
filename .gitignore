@@ -33,3 +33,9 @@ Thumbs.db
 cloudflare/companion-worker/wrangler.toml
 cloudflare/companion-worker/.wrangler/
 cloudflare/companion-worker/.dev.vars*
+
+# Artefactos producidos por PyInstaller; no subir EXE ni entornos compilados
+build/
+dist/
+out/
+*.spec

@@ -67,3 +67,7 @@ La sincronización reacciona a cambios en la partida y consulta el estado del co
 ## Soul Link Companion v0.23.1
 
 La sección **Rutas** incorpora **Muerte** (sin icono ni confirmación) debajo de cada sprite para registrar manualmente Pokémon en **Muertos**; no mata automáticamente a su pareja Soul Link. **Cajas** conserva la última lectura al desconectar o reiniciar el tracker, diferenciándola de la RAM en vivo. Se retiró el texto de lectura automática, pero el escaneo en segundo plano se mantiene.
+
+## Aplicación de escritorio para Windows (experimental)
+
+La nueva rama `feature/app-escritorio-windows` permite compilar `PokemonTracker.exe`: ventana WebView2 propia (sin CMD y sin navegador externo), selector de perfil principal/segundo jugador, datos persistentes en `%LOCALAPPDATA%\\PokemonTracker\\runtime` y traspaso local no destructivo de los perfiles anteriores. El ZIP portable incluye solamente ejecutable, dependencias y recursos de uso (sin BAT, tests, código de Cloudflare ni herramientas). Consulta [guía Windows](docs/DESKTOP_WINDOWS.md). Para compilar en Windows: `powershell -ExecutionPolicy Bypass -File tools/build_windows.ps1` con Python 3.13 instalado. La compilación y ZIP también se publican como artefacto de GitHub Actions en el PR experimental. Los BAT siguen en el repositorio hasta validar el `.exe`.

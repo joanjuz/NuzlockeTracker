@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 Set-Location $root
 
-py -3.13 -m pip install -r requirements-desktop.txt
+python -m pip install -r requirements-desktop.txt
 if ($LASTEXITCODE -ne 0) { throw 'No se pudieron instalar dependencias de escritorio.' }
 
 $pyi = @('--noconfirm', '--clean', '--windowed', '--onedir',
@@ -12,7 +12,7 @@ $pyi = @('--noconfirm', '--clean', '--windowed', '--onedir',
     '--exclude-module', 'PyQt6', '--exclude-module', 'PySide2',
     '--exclude-module', 'PySide6',
     '--add-data', 'web;web', '--add-data', 'data;data', 'desktop.py')
-py -3.13 -m PyInstaller @pyi
+python -m PyInstaller @pyi
 if ($LASTEXITCODE -ne 0) { throw 'PyInstaller no pudo compilar PokemonTracker.exe.' }
 
 $bundle = Join-Path $root 'dist\PokemonTracker'
