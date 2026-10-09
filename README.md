@@ -13,6 +13,10 @@ Tracker local para **Pokemon Ultra Sol / Ultra Luna 1.0** en Lime3DS.
 - Incluye secciones de rutas, Pokemon debilitados y analisis ofensivo/defensivo.
 - Incluye modo de demostracion sin emulador.
 
+## Sincronización Soul Link (experimental)
+
+Desde los tres puntos (`···`) puedes vincular tu partida de Ultra Sol con la de tu compañero en Ultra Luna, y ver su última sesión en Equipo, Cajas, Rutas, Muertos y Análisis. Requiere desplegar un Cloudflare Worker + D1: instrucciones en [`docs/SOULLINK_COMPANION.md`](docs/SOULLINK_COMPANION.md). No necesita abrir puertos LAN ni exponer tu emulador.
+
 ## Requisitos
 
 - Windows y Python 3 (para lectura de memoria real con Lime3DS).

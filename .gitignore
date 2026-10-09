@@ -28,3 +28,8 @@ diagnostico_conexion.json
 node_modules/
 .DS_Store
 Thumbs.db
+
+# Cloudflare local (tokens y binding de D1)
+cloudflare/companion-worker/wrangler.toml
+cloudflare/companion-worker/.wrangler/
+cloudflare/companion-worker/.dev.vars*

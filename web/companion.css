@@ -1,0 +1,14 @@
+.companion-toggle { display:block; cursor:pointer; background:transparent; border:1px solid #dc4354; color:inherit; border-radius:9px; padding:6px 10px; font-size:12px; margin-top:7px; }
+.companion-toggle[hidden],.companion-dialog [hidden] {display:none !important}
+.companion-dialog {background:#171d29; color:#f5f6fc; border:1px solid #424956; border-radius:16px; width:min(520px,93vw); max-height:85vh; padding:28px; box-shadow:0 30px 90px #0009;}
+.companion-dialog::backdrop {background:#050608b0}
+.companion-dialog h2 {font-size:24px;margin:10px 0}
+.companion-dialog .companion-fields {display:grid;gap:12px;margin:18px 0}
+.companion-dialog label {display:grid;gap:6px;color:inherit;font-size:13px}
+.companion-dialog input,.companion-dialog select {border:1px solid #656b7a;border-radius:9px;padding:10px;font:inherit;background:#242b39;color:#fff;width:100%;}
+.companion-dialog input[readonly] {opacity:.85}
+.companion-dialog button:not(.close) {background:#b92c40;color:white;border:0;border-radius:9px;padding:10px 13px;cursor:pointer;font:inherit}
+.companion-dialog button:disabled {opacity:.45;cursor:default}
+.companion-dialog #companion-status {border-radius:10px;padding:12px;margin:15px 0;background:#263346;font-size:13px;overflow-wrap:anywhere}
+.companion-dialog #companion-linked {display:grid;gap:13px}
+@media (prefers-color-scheme:light){:root[data-theme="light"] .companion-dialog{color:#151c27;background:white}}

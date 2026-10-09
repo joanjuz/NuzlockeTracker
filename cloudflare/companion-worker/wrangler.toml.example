@@ -1,0 +1,10 @@
+name = "pokemon-tracker-companion"
+main = "src/index.mjs"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "pokemon-tracker-companion"
+database_id = "PEGA_AQUI_EL_UUID_DE_D1"
+migrations_dir = "migrations"
