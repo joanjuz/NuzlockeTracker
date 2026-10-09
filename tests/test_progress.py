@@ -46,6 +46,22 @@ class ProgressTests(unittest.TestCase):
   self.service.scenario('normal');self.service.handle({'action':'revive','key':key})
   self.assertFalse(self.service.snapshot()['progress']['deaths'])
   self.service.scenario('damage');self.assertIn(key,self.service.snapshot()['progress']['deaths'])
+ def test_death_counter_is_durable_and_revival_is_opt_in(self):
+  self.service.scenario('damage')
+  progress=self.service.snapshot()['progress']
+  self.assertEqual(progress['death_count'],1)
+  key=next(iter(progress['deaths']))
+  self.service.handle({'action':'revive','key':key,'decrement_counter':False})
+  self.assertEqual(self.service.snapshot()['progress']['death_count'],1)
+  self.service.scenario('normal')
+  self.service.scenario('damage')
+  self.assertEqual(self.service.snapshot()['progress']['death_count'],2)
+  self.service.handle({'action':'revive','key':key,'decrement_counter':True})
+  self.assertEqual(self.service.snapshot()['progress']['death_count'],1)
+  self.assertEqual(DemoService(self.path).snapshot()['progress']['death_count'],1)
+  with self.assertRaises(ValueError):
+   self.service.handle({'action':'revive','key':key,'decrement_counter':'yes'})
+
  def test_revive_validates_key(self):
   for key in (None,{},'not-registered'):
    with self.assertRaises(ValueError):self.service.handle({'action':'revive','key':key})
