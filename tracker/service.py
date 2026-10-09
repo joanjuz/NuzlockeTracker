@@ -203,7 +203,9 @@ class TrackerService:
         party,in_battle=apply_battle_hp(self.reader,party,self.profile.name)
         number=self.scan_next or self.snapshot()['selected_box']
         boxes=self.snapshot()['boxes'];box_verified=True
-        if self.profile.name=='Ultra Sun 1.0':
+        if self.profile.name=='Ultra Sun 1.0' or getattr(self.reader,'discovery_mode',None)=='dynamic':
+            # Dynamic RAM relocation can affect box addresses on Azahar/Citra
+            # for Ultra Moon too. Probe both offsets, never assume static RAM.
             box_verified=False
             # Test the old and equally shifted addresses, accepting only real PK7 records.
             delta=self.profile.party_address-ULTRA_MOON_10.party_address
