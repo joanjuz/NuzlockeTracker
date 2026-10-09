@@ -5,6 +5,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from tracker.service import TrackerService
 from companion.sync import CompanionSync
+from tracker.overlay import OverlayManager, DEFAULT
 ROOT=Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent))
 
 def runtime_directory(root, profile=None):
@@ -20,7 +21,7 @@ def frame(payload,opcode=1):
     raw=payload.encode() if isinstance(payload,str) else payload
     size=len(raw);return bytes([128|opcode])+(bytes([size]) if size<126 else b'\x7e'+struct.pack('!H',size) if size<65536 else b'\x7f'+struct.pack('!Q',size))+raw
 
-def make_handler(service,token,companion=None,profile='principal'):
+def make_handler(service,token,companion=None,profile='principal',overlay=None):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self,*args):pass
         def allowed(self):
@@ -32,6 +33,42 @@ def make_handler(service,token,companion=None,profile='principal'):
         def do_GET(self):
             if not self.allowed():self.reply(403,{'error':'Origen inválido'});return
             path=urlsplit(self.path).path
+            if path.startswith('/api/overlay/') or path.startswith('/overlay'):
+                if overlay is None:self.reply(404,{});return
+                if path=='/api/overlay/public':
+                    self.reply(200,overlay.public_state());return
+                if path=='/api/overlay/settings':
+                    self.reply(200,overlay.get_settings());return
+                if path=='/api/overlay/defaults':
+                    self.reply(200,DEFAULT);return
+                if path=='/api/overlay/fonts':
+                    self.reply(200,overlay.available_fonts());return
+                if path.startswith('/overlay/font/'):
+                    name=path[len('/overlay/font/'):]
+                    raw=overlay.font_bytes(name)
+                    if raw is None:self.reply(404,{});return
+                    extension=name.rsplit('.',1)[-1]
+                    kind={'ttf':'font/ttf','otf':'font/otf',
+                          'woff':'font/woff','woff2':'font/woff2'}.get(extension,'application/octet-stream')
+                    self.reply(200,raw,kind);return
+                if path.startswith('/overlay/media/pokemon_'):
+                    match=re.fullmatch(r'/overlay/media/pokemon_([1-6])\.(gif|png)',path)
+                    if not match:self.reply(404,{});return
+                    raw=overlay.image_bytes(int(match[1]),match[2])
+                    self.reply(200,raw,'image/'+match[2]);return
+                overlay_files={
+                    '/overlay':('web/overlay.html','text/html; charset=utf-8'),
+                    '/overlay/editor':('web/overlay-editor.html','text/html; charset=utf-8'),
+                    '/overlay.js':('web/overlay.js','text/javascript; charset=utf-8'),
+                    '/overlay.css':('web/overlay.css','text/css; charset=utf-8'),
+                    '/overlay-editor.js':('web/overlay-editor.js','text/javascript; charset=utf-8'),
+                    '/overlay-editor.css':('web/overlay-editor.css','text/css; charset=utf-8'),
+                }
+                if path in overlay_files:
+                    name,kind=overlay_files[path]
+                    self.reply(200,(ROOT/name).read_bytes(),kind)
+                    return
+                self.reply(404,{});return
             if path=='/api/session':self.reply(200,{'token':token,'profile':profile,'saved_connection':service.config if service.snapshot().get('session_saved') else None});return
             if path=='/api/state':self.reply(200,service.snapshot());return
             if path=='/api/templates':self.reply(200,service.templates.status());return
@@ -76,6 +113,22 @@ def make_handler(service,token,companion=None,profile='principal'):
             self.reply(404,{})
         def do_POST(self):
             if not self.allowed() or self.headers.get('X-Tracker-Token')!=token:self.reply(403,{});return
+            if self.path in ('/api/overlay/settings','/api/overlay/font'):
+                if overlay is None:self.reply(404,{});return
+                try:
+                    size=int(self.headers.get('Content-Length','0'))
+                    limit=4300000 if self.path.endswith('/font') else 8192
+                    if not 0<size<=limit:raise ValueError('Solicitud de overlay demasiado grande')
+                    obj=json.loads(self.rfile.read(size))
+                    if not isinstance(obj,dict):raise ValueError('JSON inválido')
+                    if self.path.endswith('/font'):
+                        result=overlay.import_font(obj.get('name'),obj.get('data'))
+                    else:
+                        result=overlay.set_settings(obj)
+                    self.reply(200,result)
+                except (ValueError,TypeError,UnicodeError) as exc:
+                    self.reply(400,{'error':str(exc)})
+                return
             if self.path=='/api/companion':
                 if companion is None:self.reply(404,{'error':'Sin sincronización'});return
                 try:
@@ -136,7 +189,10 @@ def main():
     else:service=TrackerService(runtime/'state.json')
     companion=CompanionSync(service,runtime)
     companion.start()
-    server=ThreadingHTTPServer(('127.0.0.1',0),make_handler(service,secrets.token_urlsafe(32),companion,profile=args.profile or 'principal'))
+    overlay=OverlayManager(service,runtime,runtime/'layout')
+    server=ThreadingHTTPServer(('127.0.0.1',0),
+        make_handler(service,secrets.token_urlsafe(32),companion,
+                     profile=args.profile or 'principal',overlay=overlay))
     worker=threading.Thread(target=service.run,daemon=True);worker.start()
     url=f'http://127.0.0.1:{server.server_port}/';print('Tracker local: '+url+'\nPerfil: '+(args.profile or 'principal')+'\nMantén esta ventana abierta. Ctrl+C para cerrar.')
     if not args.no_browser:webbrowser.open(url)
