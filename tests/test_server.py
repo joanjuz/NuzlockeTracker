@@ -1,5 +1,7 @@
 import http.client,json,socket,struct,tempfile,threading,unittest
 from pathlib import Path
+from unittest.mock import patch
+from tracker.layout_export import blank_sprite
 from http.server import ThreadingHTTPServer
 from server import make_handler,frame
 from tracker.service import TrackerService
@@ -17,6 +19,35 @@ class ServerTests(unittest.TestCase):
   code,data=self.request('GET','/api/state');self.assertEqual(code,200);self.assertEqual(json.loads(data)['schema_version'],1)
   self.assertEqual(self.request('GET','/')[0],200);self.assertEqual(self.request('GET','/../server.py')[0],404)
   code,png=self.request('GET','/app-icon.png');self.assertEqual(code,200);self.assertTrue(png.startswith(b'\x89PNG\r\n\x1a\n'))
+ def test_sprite_from_box_species_is_cached_and_has_no_broken_url(self):
+  # A stored box species may not be in the bundled assets. Serve it through
+  # the same validated downloader/cache as the desktop layout instead of
+  # requiring the embedded browser to fetch raw.githubusercontent.com.
+  cache=Path(self.directory.name)/'sprite-cache'
+  server=ThreadingHTTPServer(('127.0.0.1',0),
+        make_handler(self.service,'test-token',sprite_cache=cache))
+  worker=threading.Thread(target=server.serve_forever,daemon=True)
+  worker.start()
+  def request(path):
+   c=http.client.HTTPConnection('127.0.0.1',server.server_port,timeout=10)
+   c.request('GET',path)
+   r=c.getresponse();data=r.read();status=r.status;c.close()
+   return status,data
+  try:
+   png=blank_sprite(24)
+   with patch('server.fetch_sprite',return_value=png) as fetch:
+    result,raw=request('/sprites/10001.png')
+    self.assertEqual(result,200)
+    self.assertEqual(raw,png)
+    self.assertTrue((cache/'10001.png').exists())
+    self.assertEqual(request('/sprites/10001.png'),(200,png))
+    fetch.assert_called_once_with(10001)
+   for path in ('/sprites/../runtime/state.json','/sprites/0.png',
+                '/sprites/99999.png','/sprites/1.png/../../api/state'):
+    self.assertEqual(request(path)[0],404,path)
+  finally:
+   server.shutdown();server.server_close();worker.join()
+
  def test_save_diagnostic_backend_endpoint_and_permission(self):
   path='/api/diagnostic/save'
   self.service.diagnostic={'mode':'dynamic','pid':142,'regions_scanned':1100}
