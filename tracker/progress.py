@@ -2,6 +2,7 @@
 import copy
 import json
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -46,7 +47,7 @@ class RunProgress:
             self.data = data
         origins = self.data.setdefault('origins', {})
         if not isinstance(origins, dict) or any(
-            not isinstance(key, str) or len(key) > 64 or
+            not isinstance(key, str) or re.fullmatch(r'[0-9]{1,3}:[0-9]{1,10}', key) is None or
             value not in ORIGIN_CATEGORIES for key, value in origins.items()
         ):
             raise ValueError('Clasificaciones de origen inválidas')
