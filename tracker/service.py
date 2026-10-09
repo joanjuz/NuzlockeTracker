@@ -252,6 +252,8 @@ class TrackerService:
             self.revive(cmd)
         elif action=='route_miss':
             self.set_route_miss(cmd)
+        elif action=='set_origin':
+            self.set_origin(cmd)
         elif action=='connect':self.config=cmd;self.retry_at=0;self.scan_next=None;self.connect()
         elif action=='disconnect':
             self.config=None;self.scan_next=None;self.close_reader();self.update(connection={'status':'disconnected','message':'Desconectado'},stale=True,scan={'active':False,'completed':0})
@@ -292,6 +294,31 @@ class TrackerService:
         snapshot=self.snapshot()
         # A healed, current party member can be rearmed immediately.
         self.update(party=snapshot['party'],stale=snapshot['stale'])
+    def validate_set_origin(self,cmd):
+        """Only annotate a known member; never allow arbitrary cache injection."""
+        from .progress import ORIGIN_CATEGORIES, pokemon_key
+        key=cmd.get('key')
+        category=cmd.get('category')
+        if not isinstance(key,str) or not 1<=len(key)<=64:
+            raise ValueError('Identidad de Pokémon inválida')
+        if category!='auto' and category not in ORIGIN_CATEGORIES:
+            raise ValueError('Categoría de obtención inválida')
+        state=self.snapshot()
+        members=[*state.get('party',[]),
+                 *(p for box in state.get('boxes',{}).values() for p in box),
+                 *(entry.get('pokemon') for entry in (state.get('progress',{}).get('deaths',{}) or {}).values()
+                   if isinstance(entry,dict))]
+        target=next((p for p in members if isinstance(p,dict) and pokemon_key(p)==key
+                     and p.get('checksum_valid') is True),None)
+        if target is None:
+            raise ValueError('Pokémon no encontrado en equipo, cajas o Muertos')
+        return target
+
+    def set_origin(self,cmd):
+        target=self.validate_set_origin(cmd)
+        if self.progress.set_origin(target,cmd['category']):
+            self.update()
+
     def validate_route_miss(self,cmd):
         ids={str(r['id']) for r in self.reference.routes(self.state['game'])['routes']}
         if cmd.get('route') not in ids or type(cmd.get('missed')) is not bool:
