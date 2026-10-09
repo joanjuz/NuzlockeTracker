@@ -75,6 +75,16 @@ class ServerTests(unittest.TestCase):
   bad=json.dumps({'action':'set_origin','key':'33:1234','category':'random'})
   self.assertEqual(self.request('POST','/api/command',bad,{'X-Tracker-Token':'test-token'})[0],400)
 
+ def test_mark_outgoing_trade_and_fossil_requires_authorization(self):
+  token={'X-Tracker-Token':'test-token'}
+  trade=json.dumps({'action':'mark_route','key':'33:1234','kind':'trade'})
+  self.assertEqual(self.request('POST','/api/command',trade)[0],403)
+  self.assertEqual(self.request('POST','/api/command',trade,token)[0],400)
+  invalid=json.dumps({'action':'mark_route','key':'../../private','kind':'fossil'})
+  self.assertEqual(self.request('POST','/api/command',invalid,token)[0],400)
+  undo=json.dumps({'action':'clear_route_mark','key':'33:1234'})
+  self.assertEqual(self.request('POST','/api/command',undo,token)[0],400)
+
  def test_invalid_box_rejected(self):
   self.assertEqual(self.request('POST','/api/command',json.dumps({'action':'box','number':33}),{'X-Tracker-Token':'test-token'})[0],400)
  def test_websocket_snapshot_and_change(self):
