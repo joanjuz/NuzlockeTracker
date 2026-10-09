@@ -32,7 +32,7 @@ def make_handler(service,token,companion=None,profile='principal'):
         def do_GET(self):
             if not self.allowed():self.reply(403,{'error':'Origen inválido'});return
             path=urlsplit(self.path).path
-            if path=='/api/session':self.reply(200,{'token':token,'profile':profile});return
+            if path=='/api/session':self.reply(200,{'token':token,'profile':profile,'saved_connection':service.config if service.snapshot().get('session_saved') else None});return
             if path=='/api/state':self.reply(200,service.snapshot());return
             if path=='/api/templates':self.reply(200,service.templates.status());return
             if path=='/api/companion':

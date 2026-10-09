@@ -66,3 +66,22 @@ h1,h2,h3,.brand{font-weight:700;letter-spacing:.01em}.topbar nav button{font-wei
 .route-death{display:block;max-width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);font-size:9px;line-height:1.2;cursor:pointer}
 .route-death:hover,.route-death:focus-visible{color:var(--accent);border-color:var(--accent);background:var(--weak-bg)}
 .route-death-status{color:var(--muted);font-size:9px;line-height:1.2;padding:4px}
+
+/* Per-profile pk3DS template import and individual evolution details. */
+.template-settings{margin-top:22px;padding:16px;border:1px solid var(--soft);border-radius:12px;background:var(--surface)}
+.template-settings>summary{cursor:pointer;font-weight:600;padding:4px}
+.template-files{display:flex;flex-wrap:wrap;gap:16px;margin:16px 0}
+.template-files label{display:grid;gap:8px;font-size:12px;flex:1;min-width:180px}
+.template-files input{font-size:11px;width:100%}
+.template-base-stats,.evolution-info{margin-top:20px;padding-top:16px;border-top:1px solid var(--soft)}
+.template-base-stats h3,.evolution-info h3{font-size:15px;margin:0 0 12px}
+.template-base-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+.template-base-grid>div{text-align:center;padding:9px 3px;background:var(--soft);border-radius:8px}
+.template-base-grid small{display:block;color:var(--muted);font-size:10px}
+.template-base-grid strong{font-size:14px}
+.evolution-option{display:flex;align-items:center;gap:14px;border:1px solid var(--soft);border-radius:10px;padding:10px;margin:9px 0}
+.evolution-option img{width:56px;height:56px;object-fit:contain;image-rendering:pixelated}
+.evolution-option strong{font-size:14px}
+.evolution-option p{font-size:12px;margin:5px 0}
+.evolution-modified{font-size:11px;color:var(--accent)}
+@media(max-width:600px){.template-base-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}

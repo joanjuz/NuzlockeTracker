@@ -84,7 +84,8 @@ class TrackerService:
         data=dict(p)
         species=p.get('species_id')
         data['base_stats']=self.templates.data['stats'].get(str(species))
-        data['evolutions']=self.templates.evolutions(species,p.get('form',0))
+        data['evolutions']=[{**e,'target_name':self.catalog.name('species',e['target'])}
+                            for e in self.templates.evolutions(species,p.get('form',0))]
         moves=p.get('moves')
         if isinstance(moves,list) and len(moves)==4:
             data['analysis_moves']=[self.reference.move(i,self.catalog) if i else None for i in moves]
