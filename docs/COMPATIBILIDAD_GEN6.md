@@ -57,3 +57,18 @@ El tercer diagnóstico de Pokémon X encontró **0 equipos válidos** antes de a
 - El escaneo de 31 cajas Gen6 **ya no se ejecuta automáticamente al conectar**, para evitar que una búsqueda de memoria experimental bloquee la detección del equipo. Debe iniciarse con **Cajas → Actualizar todas las cajas**.
 - Después de un escaneo válido de cajas, la actualización periódica continúa. Si una búsqueda no consigue verificar cajas, no se repite sola cada tres minutos.
 - Durante la primera conexión conviene estar en el mundo del juego (fuera del PC y del combate), con al menos un Pokémon en el equipo. Las funciones X/Y y ORAS de cajas/PS siguen **sin validar en pruebas reales**, no fusionar con master.
+
+## Captura real de Pokémon X en Lime3DS — 10 de octubre de 2026
+
+Los dos archivos `diagnostico_gen6_20261010_044658.json` y `diagnostico_gen6_20261010_044809.json` entregados por el usuario muestran:
+
+- Primera ejecución: **captura interrumpida** sin datos de equipo; no prueba fallo de memoria.
+- Segunda ejecución: **31 cajas verificadas** a partir de la base `0x08C861B8` en Pokémon X 1.0. Una copia `0x08C79DA8` falla estructura en la casilla 2 y se rechaza.
+- Equipo X localizado en `0x08CE1C68` mediante búsqueda dinámica; es 128 bytes antes de la referencia histórica, pero **el desplazamiento de cajas es de 16 bytes**, no 128.
+- Estructura PK6 de combate: `0x08804A70`, validada por identidad del roster en las tres muestras.
+- Lectura diferencial de **PS actuales en combate**: `0x08203ED8` entre las cuatro direcciones supervivientes a `16 → 8 → 9`. Coincide exactamente con la lectura de HP del candidato de batalla `0x08203FE0 - 264` del tracker.
+- **Corrección en Gen6:** conservar último equipo validado como apoyo cuando la copia del overworld se vuelve ilegible o se reordena durante combate; aceptar PS solo cuando el roster y estadísticas vuelven a validar.
+- **Pendiente:** el usuario observa que la búsqueda inicial de equipo Gen6 en Lime3DS requiere a veces reiniciar el juego. En la segunda captura hubo un hallazgo exitoso en 8.37 s, pero el sondeo rápido falló en 59 regiones y 3540 posiciones; la búsqueda dinámica funcionó. Una captura anterior agotó 90 s. No existe todavía causa demostrada ni garantía de conexión en caliente.
+- Los offsets anteriores son específicos de **la instalación de Pokémon X 1.0 en Lime3DS probada**, y no se consideran automáticamente comprobados para Y/ORAS ni otros emuladores.
+
+La rama sigue siendo **experimental**; no fusionar con `master` antes de validar la nueva versión ejecutable en el juego real.
