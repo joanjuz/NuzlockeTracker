@@ -177,7 +177,7 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None,
                     if raw is None:self.reply(404,{});return
                     self.reply(200,raw,'image/png');return
                 if path.startswith('/overlay/media/pokemon_'):
-                    match=re.fullmatch(r'/overlay/media/pokemon_([1-6])\.(gif|png)',path)
+                    match=re.fullmatch(r'/overlay/media/pokemon_([1-6])\.(gif|png|webp)',path)
                     if not match:self.reply(404,{});return
                     raw=overlay.image_bytes(int(match[1]),match[2])
                     self.reply(200,raw,'image/'+match[2]);return
