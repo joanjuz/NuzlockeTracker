@@ -136,7 +136,7 @@ def gif_to_outputs(data, dead=False):
     # loops. Lossy recompression is reserved for grayscale dead Pokémon.
     if not dead:
         with Image.open(io.BytesIO(data)) as original:
-            if original.info.get('loop',0)==0:
+            if original.info.get('loop')==0:
                 return validate_png(first_png.getvalue()), validate_gif(data)
     output = io.BytesIO()
     frames[0].save(output, format='GIF', save_all=True,
