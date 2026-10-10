@@ -189,6 +189,58 @@ class LimeProcessMemory:
     def close(self):self.process.close()
 
 
+def probe_gen6_region_ram(process, progress=None, cancel=None):
+    """Fast read-only Gen6 probe using known party locations inside large RAM maps.
+
+    Citra/Lime3DS can keep the same guest RAM map without a currently valid
+    wrapper for dynamic discovery. This recognizes the *real* party PK6
+    checksum instead of choosing a region solely from an address heuristic.
+    """
+    from .profiles import POKEMON_X_10, OMEGA_RUBY_10
+    guest_base=0x08000000
+    known=(POKEMON_X_10.party_address,OMEGA_RUBY_10.party_address)
+    # Some builds expose a party wrapper 128 bytes before reference.
+    party_addresses=tuple(dict.fromkeys(
+        address+delta for address in known for delta in (0,-128,128)
+    ))
+    report={'schema_version':2,'mode':'gen6_direct_region','generation':6,
+            'pid':getattr(process,'pid',None),
+            'process':getattr(process,'name',None),
+            'regions_tested':0,'anchors_tested':0,
+            'valid_candidates':0}
+    accepted={}
+    regions=sorted(process.regions(),key=lambda item:item[1],reverse=True)
+    for start,size in regions:
+        if cancel and cancel():raise DiscoveryCancelled('Búsqueda cancelada.')
+        if size<16*1024**2 or size>8*1024**3:continue
+        report['regions_tested']+=1
+        for skew in (0,32,64,96,128,256,512,1024,2048,4096):
+            base=start+skew
+            for guest in party_addresses:
+                anchor=base+(guest-guest_base)
+                if anchor<start or anchor+2914>start+size:continue
+                report['anchors_tested']+=1
+                try:
+                    data=process.read(anchor,2914)
+                    if struct.unpack_from('<I',data,68)[0]!=guest+128:continue
+                    members=decode_party(data,max_species=721)
+                    count=sum(member is not None for member in members)
+                    if count==0 or not members[0]:continue
+                    # Re-check to discard RAM torn by a live scene transition.
+                    if process.read(anchor,2914)!=data:continue
+                    accepted[(base,guest)]=count
+                except (ValueError,OSError,ConnectionError,struct.error):
+                    continue
+    report['valid_candidates']=len(accepted)
+    if not accepted:return None,report
+    best=max(accepted.values())
+    strongest=[pair for pair,score in accepted.items() if score==best]
+    if len(strongest)!=1:
+        report['ambiguous']=True
+        return None,report
+    return strongest[0],report
+
+
 def discover_dynamic_ram(process,progress=None,timeout=90,budget=4*1024**3,cancel=None,generation=7):
     """Find self-referencing party wrappers without assuming the guest party address."""
     import re
@@ -204,6 +256,15 @@ def discover_dynamic_ram(process,progress=None,timeout=90,budget=4*1024**3,cance
             'wrappers':0,'rejections':[],'candidates':[],'regions_scanned':0,
             'elapsed_seconds':0}
     start_time=time.monotonic();matches={}
+    if generation==6:
+        direct,direct_report=probe_gen6_region_ram(process,progress,cancel)
+        report['direct_probe']=direct_report
+        if direct is not None:
+            report['candidates']=[{'base':hex(direct[0]),
+                                   'party':hex(direct[1]),'source':'gen6_direct_region'}]
+            report['elapsed_seconds']=round(time.monotonic()-start_time,2)
+            process.discovery_report=report
+            return direct
     def failed(message):
         report['elapsed_seconds']=round(time.monotonic()-start_time,2)
         raise DiscoveryError(message,dict(report))
