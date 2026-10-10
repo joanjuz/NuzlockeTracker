@@ -14,7 +14,7 @@ class Node{
 const nodes={};const $=id=>nodes[id]??=new Node('div');
 const opened=[];
 const ctx={$,
-  state:null,boxSignature:'',
+  state:null,boxSignature:'',companionView:false,
   esc:x=>String(x??''),
   sprite:p=>'<span class="real-sprite">'+p.species+'</span>',
   openDetail:(p,key)=>opened.push([p.species_id,key]),
@@ -30,7 +30,7 @@ gen6['1'][0]=mon(25,'Pikachu');
 gen6['2'][3]=mon(25,'Pikachu');
 gen6['31'][29]=mon(721,'Volcanion');
 const game='Pokémon X 1.0';
-ctx.state={game,box_verified:true,boxes:gen6,progress:{}};
+ctx.state={game,box_verified:true,boxes:gen6,progress:{},stale:false,connection:{status:'connected'}};
 $('box').value='1';$('search').value='';$('living-dex').checked=true;
 ctx.renderBoxes();
 assert.equal($('boxes').className,'box-grid living-dex-grid');
@@ -57,6 +57,48 @@ ctx.renderBoxes();
 assert.equal($('boxes').children.length,1);
 assert.match($('boxes').children[0].textContent,/Esperando el escaneo automático completo/);
 assert.doesNotMatch($('boxes').children[0].innerHTML,/living-dex-ball/);
+// Game offline: bypass live-scan block and browse last saved PC, even if box_verified=false.
+ctx.state.stale=true;
+ctx.state.connection.status='disconnected';
+ctx.boxSignature='';
+ctx.renderBoxes();
+assert.equal($('boxes').children.length,721);
+assert.match($('living-dex-status').textContent,/última lectura guardada/);
+assert.match($('living-dex-status').textContent,/datos parciales/);
+// Companion: the partner snapshot may have no box_verified flag or be partially synchronized.
+ctx.companionView=true;
+ctx.state.stale=true;
+ctx.state.box_verified=undefined;
+ctx.boxSignature='';
+ctx.renderBoxes();
+assert.equal($('boxes').children.length,721);
+assert.match($('living-dex-status').textContent,/cajas del compañero/);
+assert.match($('boxes').children[0].title,/sin registro/);
+ctx.companionView=false;ctx.state.stale=false;
+ctx.state.connection.status='connected';
+ctx.state.box_verified=true;
+// Sprites switch changes only missing species, never caught entries.
+$('living-dex-sprites').checked=true;
+ctx.boxSignature='';
+ctx.renderBoxes();
+const silhouette=$('boxes').children[0];
+assert.match(silhouette.innerHTML,/living-dex-missing-sprite/);
+assert.match(silhouette.innerHTML,/src="\/sprites\/1.png"/);
+assert.match(silhouette.innerHTML,/sprites\/pokemon\/1.png/);
+assert.match(silhouette.innerHTML,/#001/);
+assert.doesNotMatch(silhouette.innerHTML,/app-icon.png" alt="" loading="lazy"/);
+assert.match($('boxes').children[24].innerHTML,/Pikachu/);
+$('living-dex-sprites').checked=false;ctx.boxSignature='';
+ctx.renderBoxes();
+assert.match($('boxes').children[0].innerHTML,/living-dex-ball/);
+// Offline with no stored boxes: cannot invent known species.
+ctx.state.stale=true;ctx.state.connection.status='disconnected';
+const savedBoxes=ctx.state.boxes;
+ctx.state.boxes={};ctx.boxSignature='';
+ctx.renderBoxes();
+assert.equal($('boxes').children.length,1);
+assert.match($('boxes').children[0].textContent,/No hay lecturas anteriores/);
+ctx.state.boxes=savedBoxes;ctx.state.stale=false;ctx.state.connection.status='connected';
 ctx.state.box_verified=true;delete gen6['31'];ctx.boxSignature='';
 ctx.renderBoxes();
 assert.equal($('boxes').children.length,1,'Una caja sin leer no marca 721 especies como ausentes');
@@ -67,7 +109,7 @@ assert.equal($('boxes').children.length,1);
 assert.match($('boxes').children[0].innerHTML,/Caja 1 · 1/,'Vista de cajas normal intacta');
 assert.equal($('living-dex-status').hidden,true);
 let gen7=boxes(32);gen7['32'][0]=mon(807,'Zeraora');gen7['1'][0]=mon(808,'No disponible');
-ctx.state={game:'Ultra Moon 1.0',boxes:gen7,box_verified:true,progress:{}};
+ctx.state={game:'Ultra Moon 1.0',boxes:gen7,box_verified:true,progress:{},stale:false,connection:{status:'connected'}};
 ctx.boxSignature='';$('living-dex').checked=true;ctx.renderBoxes();
 assert.equal($('boxes').children.length,807);
 assert.match($('living-dex-status').textContent,/1 \/ 807 especies/);
@@ -75,6 +117,9 @@ assert.match($('boxes').children[806].innerHTML,/#807/);
 assert.doesNotMatch($('boxes').children[806].innerHTML,/Caja 32/);
 assert.doesNotMatch($('boxes').children[0].innerHTML,/No disponible/);
 assert.match(html,/id="living-dex"/);
+assert.match(html,/id="living-dex-sprites"/);
+assert.match(src,/\$\('living-dex-sprites'\)\.onchange/);
+assert.match(css,/\.living-dex-missing-sprite/);
 assert.match(html,/id="living-dex-status"/);
 assert.match(css,/filter:grayscale\(1\)/);
 assert.match(css,/\.living-dex-grid/);
