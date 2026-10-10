@@ -42,8 +42,8 @@ class OmegaRubyPCRegression(unittest.TestCase):
                 self.assertFalse(service.snapshot()['box_verified'])
                 first=decode_box(read_box(memory,1,profile.box_address,box_count=31),max_species=721)
                 self.assertEqual(first[0]['species_id'],25)
-                service.handle({'action':'scan'})
-                for _ in range(30):service.poll()
+                # Se inició el escaneo automáticamente en connect(); el primer poll ya leyó caja 1.
+                for _ in range(29):service.poll()
                 self.assertEqual(service.snapshot()['boxes'],{})
                 service.poll()
                 state=service.snapshot()
