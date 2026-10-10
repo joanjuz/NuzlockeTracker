@@ -53,8 +53,8 @@ class Gen6BoxesTests(unittest.TestCase):
                 app.factory=lambda config:m
                 app.config={'game':game,'mode':'memory'}
                 app.connect()
-                self.assertIsNone(app.scan_next)
-                self.assertFalse(app.snapshot()['scan']['active'])
+                self.assertEqual(app.scan_next,1)
+                self.assertTrue(app.snapshot()['scan']['active'])
                 self.assertFalse(app.snapshot()['box_verified'])
                 app.handle({'action':'scan'})
                 for i in range(30):
@@ -83,7 +83,7 @@ class Gen6BoxesTests(unittest.TestCase):
                 service.factory=lambda cfg:m
                 service.config={'game':p.name,'mode':'memory'}
                 service.connect()
-                self.assertIsNone(service.scan_next)
+                self.assertEqual(service.scan_next,1)
                 service.handle({'action':'scan'})
                 for _ in range(31):service.poll()
                 state=service.snapshot()
