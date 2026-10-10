@@ -47,8 +47,9 @@
     const structural = !settings || settings.direction !== value.direction ||
         JSON.stringify(settings.order)!==JSON.stringify(value.order);
     settings=value;lastConfig=signature;
-    root.style.transform='scale('+(settings.render_scale||1)+')';
-    root.style.transformOrigin='top left';
+    // CSS zoom reflows/rasterizes fonts and vector HP tracks at real scaled
+    // dimensions; transform:scale only enlarges previously rasterized pixels.
+    root.style.zoom=String(settings.render_scale||1);
     css('--sprite-render',settings.sprite_scaling==='smooth'?'auto':'pixelated');
     css('--sprite-padding',(settings.sprite_padding||0)+'px');
     css('--sprite-shadow',settings.sprite_shadow?'drop-shadow(0 4px 7px #000a)':'none');
