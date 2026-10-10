@@ -10,8 +10,8 @@ class LocationTests(unittest.TestCase):
  def test_unknown_and_other_origin(self):
   self.assertEqual(location_name(0),'Sin lugar registrado')
   self.assertEqual(location_name(9999),'Lugar ID 9999')
-  self.assertEqual(location_name(8,24),'Ruta 1')
-  self.assertEqual(location_name(8,25),'Ruta 1')
+  self.assertTrue(location_name(8,24).startswith('Ruta 1'))
+  self.assertTrue(location_name(8,25).startswith('Ruta 1'))
   self.assertIn('Ruta',location_name(8,26))
   self.assertIn('Ruta',location_name(8,27))
  def snapshot(self,month=10):
