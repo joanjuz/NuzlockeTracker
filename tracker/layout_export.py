@@ -132,9 +132,13 @@ def gif_to_outputs(data, dead=False):
     frames, durations = animation_frames(data, dead=dead)
     first_png = io.BytesIO()
     frames[0].save(first_png, format='PNG')
+    # Preserve original GIF palette, alpha and animation when it already
+    # loops. Lossy recompression is reserved for grayscale dead Pokémon.
+    if not dead:
+        with Image.open(io.BytesIO(data)) as original:
+            if original.info.get('loop',0)==0:
+                return validate_png(first_png.getvalue()), validate_gif(data)
     output = io.BytesIO()
-    # GIF only has binary transparency, unlike PNG. Re-encode all frames
-    # with loop=0 so OBS loops continuously, including grayscale dead sprites.
     frames[0].save(output, format='GIF', save_all=True,
                    append_images=frames[1:], duration=durations,
                    loop=0, disposal=2)
