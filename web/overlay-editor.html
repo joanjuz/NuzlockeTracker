@@ -39,7 +39,13 @@
 <label>Espacio entre Pokémon <input id="gap" type="range" min="0" max="120"><output data-for="gap"></output></label>
 <label>Ancho de posición (px)<input id="slot_width" type="number" min="60" max="480"></label>
 <label>Tamaño de sprite (px)<input id="sprite_size" type="number" min="24" max="360"></label>
-<label class="check">Mostrar ranuras vacías<input id="show_empty" type="checkbox"></label></div></section>
+<label>Escala de render para OBS<select id="render_scale"><option value="1">1× (normal)</option><option value="2">2× (HD recomendado)</option><option value="3">3× (muy alta)</option><option value="4">4× (ultra)</option></select></label>
+<label>Escalado de sprite<select id="sprite_scaling"><option value="pixelated">Píxel nítido (pixel art)</option><option value="smooth">Suave (HD y fanmade)</option></select></label>
+<label>Margen de sprite (px)<input id="sprite_padding" type="number" min="0" max="64"></label>
+<label class="check">Sombra de sprite<input id="sprite_shadow" type="checkbox"></label>
+<label class="check">Mostrar ranuras vacías<input id="show_empty" type="checkbox"></label></div>
+<p>Formatos admitidos en <code>sprites_personalizados</code>: PNG, APNG, GIF, WebP (también animado), JPG y BMP. Nombres como <code>25.png</code>, <code>025.webp</code>, <code>pikachu.gif</code>, <code>37-alola.png</code> y <code>25-shiny.png</code>. Los archivos se actualizan automáticamente; las imágenes grandes no se reducen antes de mostrarse en OBS.</p>
+<p>Para una Fuente de navegador en OBS configura un ancho y alto suficientes para la escala seleccionada, p. ej. 1920 × 1080 al usar 2×. El texto y las barras se renderizan directamente en Chromium a esa escala, no como pequeñas imágenes estiradas.</p></section>
 <section class="panel"><h2>Motes y tipografía</h2><div class="controls">
 <label>Fuente<select id="font"><option>Oxanium</option><option>Arial</option><option>Segoe UI</option><option>Verdana</option><option>Georgia</option><option>monospace</option></select></label>
 <label>Fuente descargada<select id="font_file"><option value="">Usar fuente anterior</option></select></label>
@@ -51,6 +57,7 @@
 <section class="panel"><h2>Barras de vida</h2><div class="controls">
 <label>Estilo de barra<select id="hp_style"><option value="solid">Color sólido</option><option value="gradient">Degradado</option><option value="striped">Franjas</option></select></label>
 <label>Altura (px)<input id="hp_height" type="number" min="3" max="100"></label>
+<label>Suavizado de cambio de PS (ms)<input id="hp_animation_ms" type="number" min="0" max="1500" step="50"></label>
 <label>Redondeo (px)<input id="hp_radius" type="number" min="0" max="50"></label>
 <label>Fondo<input id="hp_background" type="color"></label>
 <label>Color del borde<input id="hp_border" type="color"></label>
