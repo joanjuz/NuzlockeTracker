@@ -262,7 +262,7 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None,
                 if overlay is None:self.reply(404,{});return
                 try:
                     size=int(self.headers.get('Content-Length','0'))
-                    limit=10850000 if self.path.endswith('/sprite') else 4300000 if self.path.endswith('/font') else 3000000 if self.path.endswith('/hp-image') else 8192
+                    limit=10850000 if self.path.endswith('/sprite') or self.path.endswith('/hp-image') else 4300000 if self.path.endswith('/font') else 8192
                     if not 0<size<=limit:raise ValueError('Solicitud de overlay demasiado grande')
                     obj=json.loads(self.rfile.read(size))
                     if not isinstance(obj,dict):raise ValueError('JSON inválido')
