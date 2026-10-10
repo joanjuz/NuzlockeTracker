@@ -36,7 +36,7 @@ DEFAULT = {
     'hp_text_color': '#ffffff', 'hp_text_size': 13,
     'hp_style': 'solid', 'hp_reverse': False, 'hp_glow': False,
     'show_empty': False, 'font_file': '',
-    'render_scale': 2, 'sprite_scaling': 'pixelated',
+    'render_scale': 1, 'sprite_scaling': 'pixelated',
     'sprite_shadow': False, 'sprite_padding': 0,
     'hp_animation_ms': 250,
     'hp_custom_fill': False, 'hp_custom_frame': False,
