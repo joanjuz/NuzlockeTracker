@@ -137,6 +137,23 @@ class OverlayTests(unittest.TestCase):
         get=self.req('GET','/api/overlay/settings')
         self.assertIn('hp_asset_versions',json.loads(get[1]))
 
+    def test_high_resolution_hp_frame_accepted_and_served(self):
+        from PIL import Image
+        from io import BytesIO
+        output=BytesIO()
+        Image.new('RGBA',(3000,200),(120,40,220,160)).save(output,format='PNG')
+        upload={'kind':'frame','data':base64.b64encode(output.getvalue()).decode()}
+        status,body,_=self.req('POST','/api/overlay/hp-image',upload,
+                               {'X-Tracker-Token':'test-token'})
+        self.assertEqual(status,200)
+        self.assertEqual(json.loads(body)['width'],3000)
+        self.assertEqual(json.loads(body)['height'],200)
+        result=self.req('GET','/overlay/hp-image/frame.png')
+        self.assertEqual(result[0],200)
+        with Image.open(BytesIO(result[1])) as img:
+            self.assertEqual(img.size,(3000,200))
+            self.assertEqual(img.getpixel((10,10)),(120,40,220,160))
+
     def test_custom_sprite_import_from_editor_is_local_safe_and_native(self):
         from PIL import Image
         from io import BytesIO
