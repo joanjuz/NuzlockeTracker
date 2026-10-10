@@ -27,17 +27,22 @@ def capture_party(reader, profile=ULTRA_MOON_10):
 ULTRA_SUN_10 = GameProfile('Ultra Sun 1.0', 'Lime3DS 2119.1', 0x33F7FA44, 484, 484)
 # Legacy Citra-Tracker-v2 Gen6 candidates (Citra on 1.0 game versions).
 # These are NOT validated for Azahar/Lime3DS or updated ROMs yet.
-# Gen6 box base candidates: 0x08C861C8 (Y), 0x08C9E134 (ORAS).
+# Gen6 box base candidate: 0x08C861C8 (Y).
+# ORAS base source candidate 0x08C9E134 superseded by diagnostic data (see below).
 # X PC independently verified at 0x08C861B8 on Lime3DS 1.0.
 # Reference: samabr85/Gen6CTRPFrameworkOverhauled Sources/PKHeX.cpp
 # DetermineSpeciesPointer(). Runtime checksum and repeated-read checks required.
 # Lime3DS Pokémon X 1.0: actual 2026-10-10 hardware capture, 31/31 boxes
 # validated twice using a known deposited Pokémon at Box 1 Slot 1.
-# Other Gen6 ROMs still use *candidate*, unverified PC bases.
+# X and Omega Ruby individually verified in Lime3DS. Y is user-tested.
+# Alpha Sapphire shares the ORAS candidate, not yet independently PC-verified.
 POKEMON_X_10 = GameProfile('Pokémon X 1.0','Lime3DS / Citra (Gen6)',0x08CE1CE8,484,484,box_address=0x08C861B8,generation=6)
 POKEMON_Y_10 = GameProfile('Pokémon Y 1.0','Citra (experimental)',0x08CE1CE8,484,484,box_address=0x08C861C8,generation=6)
-OMEGA_RUBY_10 = GameProfile('Omega Ruby 1.0','Citra (experimental)',0x08CF727C,484,484,box_address=0x08C9E134,generation=6)
-ALPHA_SAPPHIRE_10 = GameProfile('Alpha Sapphire 1.0','Citra (experimental)',0x08CF727C,484,484,box_address=0x08C9E134,generation=6)
+# Omega Ruby 1.0 / Lime3DS diagnostic 2026-10-10: deposit Box1/Slot1,
+# unique base 0x08C9A144 passed complete 31-box verification. Alpha Sapphire
+# inherits the *candidate* until its PC is verified independently.
+OMEGA_RUBY_10 = GameProfile('Omega Ruby 1.0','Lime3DS / Citra (Gen6)',0x08CF727C,484,484,box_address=0x08C9A144,generation=6)
+ALPHA_SAPPHIRE_10 = GameProfile('Alpha Sapphire 1.0','Citra (experimental)',0x08CF727C,484,484,box_address=0x08C9A144,generation=6)
 GEN6_GAMES = (POKEMON_X_10.name, POKEMON_Y_10.name, OMEGA_RUBY_10.name, ALPHA_SAPPHIRE_10.name)
 PROFILES = {p.name: p for p in (ULTRA_MOON_10, ULTRA_SUN_10,
                               POKEMON_X_10,POKEMON_Y_10,OMEGA_RUBY_10,ALPHA_SAPPHIRE_10)}
