@@ -15,6 +15,7 @@ from .progress import RunProgress
 from .battle import apply_battle_hp
 from .battle_gen6 import apply_gen6_battle_hp
 from .gen6_pc import Gen6BoxProbe
+from .gen6_memory_scan import search_pc_memory
 from .templates import TemplateManager
 
 class TrackerService:
@@ -48,7 +49,7 @@ class TrackerService:
         self.progress=RunProgress(self.output.with_name(self.output.stem+suffix+'-progress.json'))
         self.state['progress']=copy.deepcopy(self.progress.data)
         self.profile=PROFILES[self.state['game']]
-        self.reader=None;self.config=None;self.retry_at=0;self.scan_next=None;self.scan_verified=set();self.gen6_pending_boxes={};self.gen6_box_failed=False;self.gen6_probe=None;self.gen6_probe=None;self.diagnostic=None;self.sun_box_base=None
+        self.reader=None;self.config=None;self.retry_at=0;self.scan_next=None;self.scan_verified=set();self.gen6_pending_boxes={};self.gen6_box_failed=False;self.gen6_probe=None;self.gen6_probe=None;self.gen6_research_done=False;self.diagnostic=None;self.sun_box_base=None
         self.next_box_refresh_at=0.0
         # Companion credentials already persist independently. Restore the emulator
         # selection without requiring the user to re-pair on every launch.
@@ -218,7 +219,7 @@ class TrackerService:
             self.progress=RunProgress(self.output.with_name(self.output.stem+suffix+'-progress.json'))
             self.update(game=profile.name,party=[None]*6,boxes={},stale=True)
         self.profile=profile;self.sun_box_base=None
-        self.scan_next=None;self.scan_verified=set();self.gen6_pending_boxes={};self.gen6_box_failed=False;self.gen6_probe=None
+        self.scan_next=None;self.scan_verified=set();self.gen6_pending_boxes={};self.gen6_box_failed=False;self.gen6_probe=None;self.gen6_research_done=False
         self.update(connection={'status':'connecting','message':'Localizando RAM…'},stale=True,scan={'active':False,'completed':0})
         mode=self.config['mode']
         if self.factory:self.reader=self.factory(self.config)
@@ -276,6 +277,19 @@ class TrackerService:
                     chosen,verified_boxes=self.gen6_probe.finish()
                     if self.diagnostic is not None:
                         self.diagnostic['gen6_box_candidates']=self.gen6_probe.diagnostic()
+                    if chosen is None and not self.gen6_research_done:
+                        self.gen6_research_done=True
+                        try:
+                            found,discovered,search_report=search_pc_memory(
+                                self.reader,PROFILES[self.profile.name].box_address)
+                            if self.diagnostic is not None:
+                                self.diagnostic['gen6_box_search']=search_report
+                            if found is not None:
+                                chosen,verified_boxes=found,discovered
+                        except (ValueError,ConnectionError,OSError) as exc:
+                            if self.diagnostic is not None:
+                                self.diagnostic['gen6_box_search']={
+                                    'error':str(exc)[:120]}
                     if chosen is not None:
                         changes['boxes']={k:[self.enrich(p) for p in box]
                             for k,box in verified_boxes.items()}
@@ -351,7 +365,7 @@ class TrackerService:
         elif action=='box':self.update(selected_box=cmd['number'])
         elif action=='scan':
             if not self.reader:raise ValueError('Conecta el tracker antes de leer las cajas.')
-            self.scan_verified=set();self.gen6_pending_boxes={};self.gen6_box_failed=False;self.gen6_probe=None
+            self.scan_verified=set();self.gen6_pending_boxes={};self.gen6_box_failed=False;self.gen6_probe=None;self.gen6_research_done=False
             self.scan_next=1;self.update(scan={'active':True,'completed':0})
         elif action=='cancel':self.scan_next=None;self.gen6_probe=None;self.update(scan={'active':False,'completed':self.snapshot()['scan']['completed']})
     def validate_mark_dead(self,cmd):
