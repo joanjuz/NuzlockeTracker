@@ -28,13 +28,14 @@ function livingDexEntries(boxes,limit){
 function renderBoxes(){
   if(!state)return;
   const living=$('living-dex').checked;
+  const showSprites=living&&$('living-dex-sprites').checked;
   const all=$('global').checked;
   const query=normalize($('search').value).trim().split(/\s+/).filter(Boolean);
   const number=$('box').value;
   const keys=all?Object.keys(state.boxes).sort((a,b)=>a-b):[number];
   const dexLimit=nationalDexLimit(state.game);
   const boxCount=dexLimit===721?31:32;
-  const signature=JSON.stringify([state.game,living,state.box_verified,keys.map(k=>[k,state.boxes[k]]),
+  const signature=JSON.stringify([state.game,living,showSprites,companionView,state.stale,state.connection?.status,state.box_verified,keys.map(k=>[k,state.boxes[k]]),
     living?Object.keys(state.boxes).sort((a,b)=>a-b).map(k=>[k,state.boxes[k]]):null,query,all,state.progress]);
   if(signature===boxSignature)return;
   boxSignature=signature;
@@ -45,16 +46,27 @@ function renderBoxes(){
     const complete=state.box_verified===true &&
       Array.from({length:boxCount},(_,i)=>String(i+1)).every(key=>
         Array.isArray(state.boxes[key])&&state.boxes[key].length===30);
-    if(!complete){
-      $('living-dex-status').textContent='Living Dex: esperando las '+boxCount+' cajas verificadas.';
+    // Protect only live, local scans. Saved/offline and companion snapshots
+    // are browseable even if their original box_verified flag is absent.
+    const liveLocal=!companionView&&state.connection?.status==='connected'&&!state.stale;
+    const hasSavedBoxes=Object.values(state.boxes||{}).some(box=>Array.isArray(box)&&box.length===30);
+    if((liveLocal&&!complete)||(!liveLocal&&!hasSavedBoxes)){
+      $('living-dex-status').textContent=liveLocal?
+        'Living Dex: esperando las '+boxCount+' cajas verificadas.':
+        'Living Dex: no hay cajas guardadas para mostrar.';
       const notice=document.createElement('p');
       notice.className='subtitle';
-      notice.textContent='Esperando el escaneo automático completo para no marcar como ausentes Pokémon todavía sin leer.';
+      notice.textContent=liveLocal?
+        'Esperando el escaneo automático completo para no marcar como ausentes Pokémon todavía sin leer.':
+        'No hay lecturas anteriores de cajas disponibles.';
       $('boxes').append(notice);
       return;
     }
     const entries=livingDexEntries(state.boxes,dexLimit);
-    $('living-dex-status').textContent='Living Dex nacional · '+entries.size+' / '+dexLimit+' especies en cajas';
+    const context=companionView?' · cajas del compañero (último registro)':
+      !liveLocal?' · última lectura guardada':'';
+    const incomplete=!complete?' · datos parciales, las ausencias son orientativas':'';
+    $('living-dex-status').textContent='Living Dex nacional · '+entries.size+' / '+dexLimit+' especies en cajas'+context+incomplete;
     let visible=0;
     for(let id=1;id<=dexLimit;id++){
       const national='#'+String(id).padStart(3,'0');
@@ -74,8 +86,10 @@ function renderBoxes(){
       }else{
         const empty=document.createElement('div');
         empty.className='box-pokemon living-dex-missing';
-        empty.title=national+' · no está en las cajas';
-        empty.innerHTML=`<img class="living-dex-ball" src="/app-icon.png" alt="" loading="lazy"><small>${national}</small>`;
+        empty.title=national+(complete?' · no está en las cajas':' · sin registro en las cajas disponibles');
+        empty.innerHTML=showSprites?
+          `<img class="living-dex-missing-sprite" src="/sprites/${id}.png" alt="" loading="lazy" onerror="if(!this.dataset.remote){this.dataset.remote='1';this.src='https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png'}else{this.onerror=null;this.src='/app-icon.png';this.classList.add('living-dex-ball')}"><small>${national}</small>`:
+          `<img class="living-dex-ball" src="/app-icon.png" alt="" loading="lazy"><small>${national}</small>`;
         $('boxes').append(empty);
       }
     }
@@ -114,7 +128,7 @@ $('route-intro').textContent='Sin menús desplegables. Marca «Fósil» junto a 
 $('analysis-source-note').textContent=gen6?
   'Análisis aproximado con referencias USUM: confirmar habilidades, movimientos y formas en Gen6 antes de usarlo para decisiones.':
   'Referencia USUM · Puede variar con el randomizer.';
-$('box').disabled=$('living-dex').checked;$('global').disabled=$('living-dex').checked;$('open-companion').disabled=gen6;
+$('box').disabled=$('living-dex').checked;$('global').disabled=$('living-dex').checked;$('living-dex-sprites').disabled=!$('living-dex').checked;$('open-companion').disabled=gen6;
 const totalBoxes=gen6?31:32;
 if($('box').options?.length>=32){
   $('box').options[31].hidden=gen6;$('box').options[31].disabled=gen6;
@@ -142,7 +156,7 @@ function showExportFeedback(message){
 async function command(cmd){try{if(companionView)throw Error('La sesión del compañero es de solo lectura.');if(!token)throw Error('El servidor local aún no está disponible.');const response=await fetch('/api/command',{method:'POST',headers:{'Content-Type':'application/json','X-Tracker-Token':token},body:JSON.stringify(cmd)});const result=await response.json();if(!response.ok)throw Error(result.error||'No se pudo realizar la acción.')}catch(e){$('status').textContent=e.message}}
 function subscribe(){socket=new WebSocket(`ws://${location.host}/ws`);socket.onmessage=e=>{try{render(JSON.parse(e.data))}catch(error){console.error(error)}};socket.onclose=()=>{$('badge').textContent='Servidor local desconectado';$('badge').classList.remove('live');$('notice').hidden=false;$('notice').textContent='Mantén abierta la ventana del servidor. Intentando reconectar…';setTimeout(start,2000)};socket.onerror=()=>socket.close()}
 async function start(){try{const session=await(await fetch('/api/session')).json();token=session.token;document.title='Pokémon Tracker';const saved=session.saved_connection;if(saved){$('game').value=saved.game;$('mode').value=saved.mode;$('pid').value=saved.pid??'';$('port').value=saved.port??24689;$('port-label').hidden=saved.mode!=='gdb';$('saved-session-status').textContent='Sesión guardada · '+saved.game+' · conexión automática al iniciar'+(saved.pid?' · PID '+saved.pid:'');}routeCatalog=(await(await fetch('/api/routes')).json()).routes;analysisData=await(await fetch('/api/analysis')).json();render(await(await fetch('/api/state')).json());subscribe()}catch(e){$('status').textContent='Esperando al servidor local…';setTimeout(start,2000)}}
-$('connect').onclick=()=>command({action:'connect',game:$('game').value,mode:$('mode').value,pid:$('pid').value?Number($('pid').value):null,port:Number($('port').value)});$('disconnect').onclick=()=>command({action:'disconnect'});$('save-session').onclick=()=>exportWithDialog('session');$('mode').onchange=()=>{$('port-label').hidden=$('mode').value!=='gdb'};$('box').onchange=()=>{renderBoxes();command({action:'box',number:Number($('box').value)})};$('search').oninput=renderBoxes;$('global').onchange=renderBoxes;$('living-dex').onchange=()=>{$('box').disabled=$('living-dex').checked;$('global').disabled=$('living-dex').checked;boxSignature='';renderBoxes()};$('cancel').onclick=()=>command({action:'cancel'});$('close-detail').onclick=()=>$('detail').close();$('diagnostic').onclick=()=>exportWithDialog('diagnostic');
+$('connect').onclick=()=>command({action:'connect',game:$('game').value,mode:$('mode').value,pid:$('pid').value?Number($('pid').value):null,port:Number($('port').value)});$('disconnect').onclick=()=>command({action:'disconnect'});$('save-session').onclick=()=>exportWithDialog('session');$('mode').onchange=()=>{$('port-label').hidden=$('mode').value!=='gdb'};$('box').onchange=()=>{renderBoxes();command({action:'box',number:Number($('box').value)})};$('search').oninput=renderBoxes;$('global').onchange=renderBoxes;$('living-dex').onchange=()=>{$('box').disabled=$('living-dex').checked;$('global').disabled=$('living-dex').checked;$('living-dex-sprites').disabled=!$('living-dex').checked;boxSignature='';renderBoxes()};$('living-dex-sprites').onchange=()=>{boxSignature='';renderBoxes()};$('cancel').onclick=()=>command({action:'cancel'});$('close-detail').onclick=()=>$('detail').close();$('diagnostic').onclick=()=>exportWithDialog('diagnostic');
 const filesToImport=[['moves','template-moves'],['stats','template-stats'],['evolutions','template-evolutions']];
 async function templateStatus(){try{const r=await fetch('/api/templates');const j=await r.json();if(r.ok)$('template-status').textContent=`Plantillas guardadas: ${j.counts.moves} movimientos · ${j.counts.stats} especies · ${j.counts.evolutions} especies con evoluciones modificadas.`;}catch(e){$('template-status').textContent=e.message}}
 $('import-templates').onclick=async()=>{const button=$('import-templates');button.disabled=true;try{const files={};for(const [key,id] of filesToImport){const file=$(id).files?.[0];if(file){if(file.size>180000)throw Error('Plantilla demasiado grande: '+file.name);files[key]=await file.text();}}if(!Object.keys(files).length)throw Error('Selecciona al menos un archivo CSV.');const r=await fetch('/api/templates',{method:'POST',headers:{'Content-Type':'application/json','X-Tracker-Token':token},body:JSON.stringify({files})});const j=await r.json();if(!r.ok)throw Error(j.error||'No se pudo importar');$('template-status').textContent='Plantillas importadas y guardadas. Los datos de equipo y cajas se actualizarán.';for(const [,id] of filesToImport)$(id).value='';await templateStatus()}catch(e){$('template-status').textContent='Error: '+e.message}finally{button.disabled=false}};
