@@ -19,6 +19,6 @@ assert.match(app,/\$\('open-companion'\)\.disabled=gen6/);
 assert.match(service,/self\.profile\.generation==6/);
 assert.match(service,/box_verified=False/);
 assert.match(service,/max_species=721/);
-assert.match(process,/generation=6/);
+assert.match(process,/generation==6/);
 assert.match(process,/start_addr,end_addr=/);
 console.log('Gen6: X/Y ORAS visibles, región correcta, cajas y Soul Link sin validar bloqueados');
