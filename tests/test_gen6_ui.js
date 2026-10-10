@@ -11,11 +11,11 @@ for(const game of ['Pokémon X 1.0','Pokémon Y 1.0','Omega Ruby 1.0','Alpha Sap
 }
 assert.match(html,/id="places-heading"/);
 assert.match(html,/id="game-region"/);
-assert.match(html,/id="refresh-boxes"/);
-assert.ok(app.includes("$('refresh-boxes').onclick=()=>command({action:'scan'})"));
+assert.doesNotMatch(html,/id="refresh-boxes"/);
+assert.doesNotMatch(app,/refresh-boxes/);
 assert.match(html,/Mostrar todas las cajas leídas/);
 assert.match(app,/regi[oó]n|const region=gen6/);
-assert.match(app,/catalogo pendiente|catálogo pendiente/);
+assert.match(app,/const versions=/);
 assert.match(app,/\$\('box'\)\.options\[31\]\.hidden=gen6/);
 assert.match(app,/cajas PK6 verificadas/);
 assert.match(app,/\$\('open-companion'\)\.disabled=gen6/);
@@ -24,4 +24,4 @@ assert.match(service,/box_verified=False/);
 assert.match(service,/max_species=721/);
 assert.match(process,/generation==6/);
 assert.match(process,/start_addr,end_addr=/);
-console.log('Gen6: XY ORAS, 31 cajas, combate experimental y Soul Link no validado');
+console.log('Gen6: XY ORAS, 31 cajas automáticas, regiones y Soul Link sin activar');
