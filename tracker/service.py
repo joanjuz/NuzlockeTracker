@@ -13,6 +13,7 @@ from .locations import location_name
 from .reference import ReferenceData
 from .progress import RunProgress
 from .battle import apply_battle_hp
+from .battle_gen6 import apply_gen6_battle_hp
 from .templates import TemplateManager
 
 class TrackerService:
@@ -253,10 +254,11 @@ class TrackerService:
              max_species=721 if self.profile.generation==6 else 807)]
         if self.profile.generation==6:
             if not any(party):raise ValueError('Equipo PK6 no válido o vacío: sin actualizar datos.')
+            party,gen6_battle=apply_gen6_battle_hp(self.reader,party,self.profile.name,self.profile.party_address)
             # Keep memory snapshots isolated and reject apparently valid but
             # inconsistent RAM instead of guessing a PC base from empty bytes.
             saved=self.snapshot()
-            changes={'party':party,'stale':False,'battle_hp':False}
+            changes={'party':party,'stale':False,'battle_hp':gen6_battle}
             if self.scan_next is not None:
                 number=self.scan_next
                 try:
@@ -283,7 +285,7 @@ class TrackerService:
                     else:
                         changes['box_verified']=bool(saved.get('box_verified',False))
                     changes['connection']={'status':'connected','message':(
-                        'Gen6 experimental · equipo y 31 cajas PK6 verificadas · PS combate pendiente'
+                        'Gen6 experimental · equipo y 31 cajas PK6 verificadas · PS combate experimental'
                         if verified else
                         'Gen6 experimental · equipo válido; cajas no verificadas (prueba con Pokémon depositado)')}
                     self.gen6_pending_boxes={}
@@ -291,14 +293,14 @@ class TrackerService:
                     self.next_box_refresh_at=time.monotonic()+180.0
             else:
                 changes['connection']={'status':'connected','message':(
-                    'Gen6 experimental · equipo y cajas PK6 · PS combate pendiente'
+                    'Gen6 experimental · equipo y cajas PK6 · PS combate experimental'
                     if saved.get('box_verified') else
                     'Gen6 experimental · equipo válido, cajas no verificadas')}
             self.update(**changes)
             if self.diagnostic is not None:
                 self.diagnostic.update(box_status=('verified' if self.snapshot().get('box_verified') else 'unverified_gen6'),
                     box_address=hex(self.profile.box_address),validated_team_slots=sum(p is not None for p in party),
-                    battle_hp=False)
+                    battle_hp=gen6_battle)
             return
         party,in_battle=apply_battle_hp(self.reader,party,self.profile.name)
         number=self.scan_next or self.snapshot()['selected_box']
