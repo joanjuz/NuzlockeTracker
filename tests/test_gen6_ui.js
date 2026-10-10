@@ -11,6 +11,9 @@ for(const game of ['Pokémon X 1.0','Pokémon Y 1.0','Omega Ruby 1.0','Alpha Sap
 }
 assert.match(html,/id="places-heading"/);
 assert.match(html,/id="game-region"/);
+assert.match(html,/id="refresh-boxes"/);
+assert.ok(app.includes("$('refresh-boxes').onclick=()=>command({action:'scan'})"));
+assert.match(html,/Mostrar todas las cajas leídas/);
 assert.match(app,/regi[oó]n|const region=gen6/);
 assert.match(app,/catalogo pendiente|catálogo pendiente/);
 assert.match(app,/\$\('box'\)\.options\[31\]\.hidden=gen6/);
