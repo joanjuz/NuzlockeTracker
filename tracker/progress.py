@@ -123,14 +123,15 @@ class RunProgress:
             self.save()
         return changed
 
-    def observe_full_scan(self, party, boxes):
+    def observe_full_scan(self, party, boxes, box_count=32):
         """Auto-confirm only 1-for-1 trade-like replacements after TWO full verified scans.
 
         Neither moving to another box nor disappearing from a partial PC scan
         is proof. A different OT on the incoming Pokémon is additional evidence;
         without it, leave a human decision in the route tile.
         """
-        if (not isinstance(boxes,dict) or set(boxes)!={str(i) for i in range(1,33)}
+        if (box_count not in (31,32) or not isinstance(boxes,dict)
+            or set(boxes)!={str(i) for i in range(1,box_count+1)}
             or any(not isinstance(v,list) or len(v)!=30 for v in boxes.values())
             or not isinstance(party,list) or len(party)!=6):
             return False

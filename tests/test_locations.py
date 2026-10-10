@@ -10,7 +10,10 @@ class LocationTests(unittest.TestCase):
  def test_unknown_and_other_origin(self):
   self.assertEqual(location_name(0),'Sin lugar registrado')
   self.assertEqual(location_name(9999),'Lugar ID 9999')
-  self.assertIn('juego de origen 24',location_name(8,24))
+  self.assertTrue(location_name(8,24).startswith('Ruta 1'))
+  self.assertTrue(location_name(8,25).startswith('Ruta 1'))
+  self.assertIn('Ruta',location_name(8,26))
+  self.assertIn('Ruta',location_name(8,27))
  def snapshot(self,month=10):
   raw=bytearray(232);seed=7<<13;struct.pack_into('<I',raw,0,seed);struct.pack_into('<H',raw,8,637)
   raw[0xD4:0xD7]=bytes([26,month,8]);struct.pack_into('<HH',raw,0xD8,60002,6);raw[0xDD]=128|5;raw[0xDF]=33

@@ -324,7 +324,7 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None,
                     if cmd.get('mode') not in ('memory','gdb'):raise ValueError('Conector inválido')
                     if cmd.get('pid') is not None and (type(cmd['pid']) is not int or cmd['pid']<=0):raise ValueError('PID inválido')
                     if type(cmd.get('port',24689)) is not int or not 1<=cmd.get('port',24689)<=65535:raise ValueError('Puerto inválido')
-                if action=='box' and (type(cmd.get('number')) is not int or not 1<=cmd['number']<=32):raise ValueError('Caja inválida')
+                if action=='box' and (type(cmd.get('number')) is not int or not 1<=cmd['number']<=(31 if service.profile.generation==6 else 32)):raise ValueError('Caja inválida para este juego')
                 if action in ('connect','disconnect'):cmd['_connection_generation']=service.request_connection_change()
                 service.commands.put(cmd);self.reply(202,{'ok':True})
             except (ValueError,AttributeError,TypeError) as exc:self.reply(400,{'error':str(exc)})

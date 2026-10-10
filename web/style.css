@@ -214,3 +214,22 @@ h1,h2,h3,.brand{font-weight:700;letter-spacing:.01em}.topbar nav button{font-wei
   .route-grid{grid-template-columns:1fr;gap:17px}
   .route-tile{padding:10px 12px 12px}
 }
+
+/* Living Dex: national index, one tile per species, original app ball for absent species. */
+.living-dex-label{font-weight:700;white-space:nowrap}
+.living-dex-grid{grid-template-columns:repeat(9,minmax(0,1fr));gap:10px}
+.living-dex-grid .box-pokemon{position:relative;min-height:110px;justify-content:center}
+.living-dex-grid .box-pokemon strong{overflow-wrap:anywhere}
+.living-dex-grid .box-pokemon small{font-weight:700;letter-spacing:.5px;font-variant-numeric:tabular-nums}
+.living-dex-grid .living-dex-missing{border:1px dashed var(--border);background:var(--surface);opacity:.68;cursor:default}
+.living-dex-ball{width:72px;height:72px;object-fit:contain;filter:grayscale(1);opacity:.52}
+.living-dex-copies{position:absolute;top:5px;right:6px;font-size:10px;font-weight:800;padding:3px 5px;border-radius:8px;background:var(--soft);color:var(--muted)}
+#living-dex-status{margin:8px 0 16px}
+@media(max-width:1100px){.living-dex-grid{grid-template-columns:repeat(6,minmax(0,1fr))}}
+@media(max-width:700px){.living-dex-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* Living Dex: optional silhouettes in place of the original grayscale ball. */
+.living-dex-sprites-label{font-weight:700;white-space:nowrap}
+.living-dex-sprites-label:has(input:disabled){opacity:.5}
+.living-dex-missing-sprite{width:76px;height:76px;object-fit:contain;image-rendering:pixelated;filter:grayscale(1) contrast(1.25);opacity:.54}
+.living-dex-missing .living-dex-missing-sprite.living-dex-ball{opacity:.52}

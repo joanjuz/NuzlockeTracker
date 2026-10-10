@@ -14,7 +14,7 @@ def crypt(data, seed):
         result.extend(struct.pack('<H', value ^ (seed >> 16)))
     return bytes(result)
 
-def decode_slot(snapshot, index):
+def decode_slot(snapshot, index, max_species=807):
     start = index * 484
     raw = snapshot[start+128:start+360]
     if len(raw) != 232: raise ValueError('Datos Pokémon incompletos.')
@@ -28,7 +28,7 @@ def decode_slot(snapshot, index):
         raise ValueError('Checksum incorrecto; captura descartada.')
     species, item = struct.unpack_from('<HH', data, 8)
     if species == 0: return None
-    if species > 807 or data[28] >= 25: raise ValueError('Datos fuera del perfil USUM.')
+    if not 1 <= species <= max_species or data[28] >= 25: raise ValueError('Datos fuera del perfil Pokémon correspondiente.')
     iv = struct.unpack_from('<I', data, 116)[0]
     met_date=None
     try:met_date=date(2000+data[0xD4],data[0xD5],data[0xD6]).isoformat()
@@ -54,5 +54,5 @@ def decode_slot(snapshot, index):
                       stats=dict(ATQ=attack, DEF=defense, VEL=speed, ATE=spa, DEE=spd))
     return result
 
-def decode_party(snapshot):
-    return [decode_slot(snapshot, i) for i in range(6)]
+def decode_party(snapshot, max_species=807):
+    return [decode_slot(snapshot, i, max_species=max_species) for i in range(6)]

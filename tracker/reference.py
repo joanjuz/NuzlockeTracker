@@ -2,7 +2,14 @@
 import copy,json
 from pathlib import Path
 DATA=Path(__file__).resolve().parent.parent/'data'
-ROUTE_PROFILES={'Ultra Moon 1.0':'Routes_UltraMoon.json','Ultra Sun 1.0':'Routes_UltraMoon.json'}
+ROUTE_PROFILES={
+    'Ultra Moon 1.0':('Routes_UltraMoon.json','ultra-moon-1.0'),
+    'Ultra Sun 1.0':('Routes_UltraMoon.json','ultra-sun-1.0'),
+    'Pokémon X 1.0':('Routes_XY.json','pokemon-x-1.0'),
+    'Pokémon Y 1.0':('Routes_XY.json','pokemon-y-1.0'),
+    'Omega Ruby 1.0':('Routes_ORAS.json','omega-ruby-1.0'),
+    'Alpha Sapphire 1.0':('Routes_ORAS.json','alpha-sapphire-1.0'),
+}
 class ReferenceData:
     def __init__(self):self.analysis=json.loads((DATA/'Analysis_USUM.json').read_text(encoding='utf-8'));self.moves=json.loads((DATA/'MoveDetails_USUM.json').read_text(encoding='utf-8'))['moves']
     template_moves = None
@@ -21,9 +28,10 @@ class ReferenceData:
         return result
     def routes(self,game):
         if game not in ROUTE_PROFILES:return {'schema_version':1,'game':game,'routes':[]}
-        result=json.loads((DATA/ROUTE_PROFILES[game]).read_text(encoding='utf-8'))
+        filename,game_key=ROUTE_PROFILES[game]
+        result=json.loads((DATA/filename).read_text(encoding='utf-8'))
         result['game']=game
-        result['game_key']='ultra-sun-1.0' if game=='Ultra Sun 1.0' else 'ultra-moon-1.0'
+        result['game_key']=game_key
         return result
 
     def pokemon_types(self,species,form):

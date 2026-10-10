@@ -160,42 +160,111 @@ def discover_ram(process,progress=None,timeout=60,budget=4*1024**3,cancel=None):
     fail('No se encontró una RAM válida. Guarda diagnóstico; comprueba que la partida esté cargada.')
 
 class LimeProcessMemory:
-    def __init__(self,pid=None,progress=None,dynamic=False,cancel=None):
+    def __init__(self,pid=None,progress=None,dynamic=False,cancel=None,generation=7):
+        if generation not in (6,7):raise ValueError('Generación inválida')
+        self.generation=generation
+        self.guest_start=0x08000000 if generation==6 else LINEAR
+        self.guest_end=0x10000000 if generation==6 else LINEAR+256*1024**2
         self.process=WindowsProcess(pid);self.base=None;self.party_address=PARTY
         try:
             # Ultra Moon used fixed addresses in Lime3DS. Azahar and Citra can
             # relocate the guest RAM layout; the same dynamic wrapper search
             # already validated with Ultra Sun is safer in those processes.
             auto_dynamic = self.process.name.lower().startswith(('azahar', 'citra'))
-            self.discovery_mode = 'dynamic' if dynamic or auto_dynamic else 'fixed'
+            self.discovery_mode = 'dynamic' if generation==6 or dynamic or auto_dynamic else 'fixed'
             if self.discovery_mode == 'dynamic':
-                self.base,self.party_address=discover_dynamic_ram(self.process,progress,cancel=cancel)
+                self.base,self.party_address=discover_dynamic_ram(self.process,progress,cancel=cancel,generation=generation)
             else:
                 self.base=discover_ram(self.process,progress,cancel=cancel)
         except Exception:self.process.close();raise
     def identify(self):return f'Windows · PID {self.process.pid} · RAM localizada'
     def resume(self):pass # No debugger: does not pause or resume the emulator.
     def read(self,address,length):
-        if not LINEAR<=address or address+length>LINEAR+256*1024**2 or not 1<=length<=65536:raise ValueError('Lectura fuera de la RAM lineal permitida.')
+        if not getattr(self,'guest_start',LINEAR)<=address or address+length>getattr(self,'guest_end',LINEAR+256*1024**2) or not 1<=length<=65536:raise ValueError('Lectura fuera del rango de RAM del perfil.')
         if not self.process.alive():raise DiscoveryError('El emulador se cerró.')
         # Signature catches a cleared/moved RAM allocation after an internal restart.
-        if self.process.read(self.base+getattr(self,'party_address',PARTY)-LINEAR+SIGNATURE_OFFSET,4)!=struct.pack('<I',getattr(self,'party_address',PARTY)+128):
+        if self.process.read(self.base+getattr(self,'party_address',PARTY)-getattr(self,'guest_start',LINEAR)+SIGNATURE_OFFSET,4)!=struct.pack('<I',getattr(self,'party_address',PARTY)+128):
             raise DiscoveryError('Partida reiniciada o RAM trasladada. Esperando para localizarla nuevamente.')
-        return self.process.read(self.base+address-LINEAR,length)
+        return self.process.read(self.base+address-getattr(self,'guest_start',LINEAR),length)
     def close(self):self.process.close()
 
 
-def discover_dynamic_ram(process,progress=None,timeout=90,budget=4*1024**3,cancel=None):
+def probe_gen6_region_ram(process, progress=None, cancel=None):
+    """Fast read-only Gen6 probe using known party locations inside large RAM maps.
+
+    Citra/Lime3DS can keep the same guest RAM map without a currently valid
+    wrapper for dynamic discovery. This recognizes the *real* party PK6
+    checksum instead of choosing a region solely from an address heuristic.
+    """
+    from .profiles import POKEMON_X_10, OMEGA_RUBY_10
+    guest_base=0x08000000
+    known=(POKEMON_X_10.party_address,OMEGA_RUBY_10.party_address)
+    # Some builds expose a party wrapper 128 bytes before reference.
+    party_addresses=tuple(dict.fromkeys(
+        address+delta for address in known for delta in (0,-128,128)
+    ))
+    report={'schema_version':2,'mode':'gen6_direct_region','generation':6,
+            'pid':getattr(process,'pid',None),
+            'process':getattr(process,'name',None),
+            'regions_tested':0,'anchors_tested':0,
+            'valid_candidates':0}
+    accepted={}
+    regions=sorted(process.regions(),key=lambda item:item[1],reverse=True)
+    for start,size in regions:
+        if cancel and cancel():raise DiscoveryCancelled('Búsqueda cancelada.')
+        if size<16*1024**2 or size>8*1024**3:continue
+        report['regions_tested']+=1
+        for skew in (0,32,64,96,128,256,512,1024,2048,4096):
+            base=start+skew
+            for guest in party_addresses:
+                anchor=base+(guest-guest_base)
+                if anchor<start or anchor+2914>start+size:continue
+                report['anchors_tested']+=1
+                try:
+                    data=process.read(anchor,2914)
+                    if struct.unpack_from('<I',data,68)[0]!=guest+128:continue
+                    members=decode_party(data,max_species=721)
+                    count=sum(member is not None for member in members)
+                    if count==0 or not members[0]:continue
+                    # Re-check to discard RAM torn by a live scene transition.
+                    if process.read(anchor,2914)!=data:continue
+                    accepted[(base,guest)]=count
+                except (ValueError,OSError,ConnectionError,struct.error):
+                    continue
+    report['valid_candidates']=len(accepted)
+    if not accepted:return None,report
+    best=max(accepted.values())
+    strongest=[pair for pair,score in accepted.items() if score==best]
+    if len(strongest)!=1:
+        report['ambiguous']=True
+        return None,report
+    return strongest[0],report
+
+
+def discover_dynamic_ram(process,progress=None,timeout=90,budget=4*1024**3,cancel=None,generation=7):
     """Find self-referencing party wrappers without assuming the guest party address."""
     import re
     # Two nearby guest pointers; secondary wrapper offsets may differ.
     # Validate the self-reference and the complete decoded party.
-    pattern=re.compile(rb'(?=(.{3}[\x30-\x3f].{3}[\x30-\x3f]))',re.DOTALL)
-    report={'schema_version':2,'mode':'dynamic','pid':getattr(process,'pid',None),
+    if generation not in (6,7):raise ValueError('Generación inválida')
+    # Gen6 PK6 resides in legacy 0x08xxxxxx guest memory. Gen7 in 0x3xxxxxxx.
+    start_addr,end_addr=(0x08000000,0x10000000) if generation==6 else (LINEAR,LINEAR+256*1024**2)
+    high_bytes=br'[\x08-\x0f]' if generation==6 else br'[\x30-\x3f]'
+    pattern=re.compile(b'(?=(.{3}'+high_bytes+b'.{3}'+high_bytes+b'))',re.DOTALL)
+    report={'schema_version':2,'mode':'dynamic','generation':generation,'pid':getattr(process,'pid',None),
             'process':getattr(process,'name',None),'bytes_scanned':0,'read_errors':0,
             'wrappers':0,'rejections':[],'candidates':[],'regions_scanned':0,
             'elapsed_seconds':0}
     start_time=time.monotonic();matches={}
+    if generation==6:
+        direct,direct_report=probe_gen6_region_ram(process,progress,cancel)
+        report['direct_probe']=direct_report
+        if direct is not None:
+            report['candidates']=[{'base':hex(direct[0]),
+                                   'party':hex(direct[1]),'source':'gen6_direct_region'}]
+            report['elapsed_seconds']=round(time.monotonic()-start_time,2)
+            process.discovery_report=report
+            return direct
     def failed(message):
         report['elapsed_seconds']=round(time.monotonic()-start_time,2)
         raise DiscoveryError(message,dict(report))
@@ -218,10 +287,11 @@ def discover_dynamic_ram(process,progress=None,timeout=90,budget=4*1024**3,cance
                 if not 0<=stats-pk<=512:continue
                 if time.monotonic()-start_time>timeout:failed('Búsqueda dinámica alcanzó su límite. Guarda diagnóstico.')
                 report['wrappers']+=1
-                anchor=position-68;guest=pk-128;base=anchor-(guest-LINEAR)
-                if not LINEAR<=guest<LINEAR+256*1024**2-2914 or base<=0:continue
+                anchor=position-68;guest=pk-128;base=anchor-(guest-start_addr)
+                if not start_addr<=guest<end_addr-2914 or base<=0:continue
                 try:
-                    raw=process.read(anchor,2914);party=decode_party(raw)
+                    raw=process.read(anchor,2914)
+                    party=decode_party(raw,max_species=721 if generation==6 else 807)
                     count=sum(p is not None for p in party)
                     if not party[0] or not count:continue
                     if struct.unpack_from('<I',raw,68)[0]!=pk:continue

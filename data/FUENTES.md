@@ -37,3 +37,10 @@ Fuente original sin modificar, licencia SIL Open Font License 1.1 en web/fonts/O
 https://github.com/kcblack42/Citra-Tracker-v2/blob/main/citra-updater.py
 getGame/getaddresses y hpnum de generación 7. Consulta 2026-10-09.
 Base de equipo compartida US/UM 0x33F7FA44. Candidatos sin validar con el usuario.
+
+
+## Preparación Gen6 experimental (X/Y y ORAS)
+
+- Nombres de lugares (Kalos y Hoenn): recursos españoles de PKHeX `PKHeX.Core/Resources/text/locations/gen6/text_xy_{00000,30000,40000,60000}_es.txt`; distribuidos con `LICENSE.txt` (GPL-3.0).
+- Direcciones candidatas X/Y `0x08CE1CE8` y ORAS `0x08CF727C`, lectura de bloques PK6: `kcblack42/Citra-Tracker-v2/citra-updater.py` (`getaddresses`, `Pokemon6`, constantes de slots), consultado 2026-10-09.
+- No existen datos propios que verifiquen todavía boxes PC ni PS durante batalla Gen6. Ver `docs/COMPATIBILIDAD_GEN6.md`.

@@ -1,0 +1,653 @@
+{
+  "schema_version": 1,
+  "game_key": "pokemon-x-y-1.0",
+  "game": "Pokémon X 1.0",
+  "region": "Kalos",
+  "sources": [
+    "PKHeX Core, Spanish Gen6 location resources (Locations6_0.txt), identifiers are exact PK6 met-location IDs.",
+    "Orden editorial de progreso con zonas opcionales agregadas; no pretende ser un walkthrough ni afirmar encuentros garantizados."
+  ],
+  "routes": [
+    {
+      "id": 6,
+      "ids": [
+        6
+      ],
+      "name": "Pueblo Boceto",
+      "story_order": 1
+    },
+    {
+      "id": 8,
+      "ids": [
+        8
+      ],
+      "name": "Ruta 1",
+      "story_order": 2
+    },
+    {
+      "id": 10,
+      "ids": [
+        10
+      ],
+      "name": "Pueblo Acuarela",
+      "story_order": 3
+    },
+    {
+      "id": 12,
+      "ids": [
+        12
+      ],
+      "name": "Ruta 2",
+      "story_order": 4
+    },
+    {
+      "id": 14,
+      "ids": [
+        14
+      ],
+      "name": "Bosque de Novarte",
+      "story_order": 5
+    },
+    {
+      "id": 16,
+      "ids": [
+        16
+      ],
+      "name": "Ruta 3",
+      "story_order": 6
+    },
+    {
+      "id": 18,
+      "ids": [
+        18
+      ],
+      "name": "Ciudad Novarte",
+      "story_order": 7
+    },
+    {
+      "id": 20,
+      "ids": [
+        20
+      ],
+      "name": "Ruta 4",
+      "story_order": 8
+    },
+    {
+      "id": 22,
+      "ids": [
+        22
+      ],
+      "name": "Ciudad Luminalia",
+      "story_order": 9
+    },
+    {
+      "id": 24,
+      "ids": [
+        24
+      ],
+      "name": "Torre Prisma",
+      "story_order": 10
+    },
+    {
+      "id": 28,
+      "ids": [
+        28
+      ],
+      "name": "Ruta 5",
+      "story_order": 11
+    },
+    {
+      "id": 30,
+      "ids": [
+        30
+      ],
+      "name": "Pueblo Vánitas",
+      "story_order": 12
+    },
+    {
+      "id": 32,
+      "ids": [
+        32
+      ],
+      "name": "Castillo Caduco",
+      "story_order": 13
+    },
+    {
+      "id": 34,
+      "ids": [
+        34
+      ],
+      "name": "Ruta 6",
+      "story_order": 14
+    },
+    {
+      "id": 36,
+      "ids": [
+        36
+      ],
+      "name": "Palacio Cénit",
+      "story_order": 15
+    },
+    {
+      "id": 38,
+      "ids": [
+        38
+      ],
+      "name": "Ruta 7",
+      "story_order": 16
+    },
+    {
+      "id": 48,
+      "ids": [
+        48
+      ],
+      "name": "Bastión Batalla",
+      "story_order": 17
+    },
+    {
+      "id": 42,
+      "ids": [
+        42
+      ],
+      "name": "Ruta 8",
+      "story_order": 18
+    },
+    {
+      "id": 44,
+      "ids": [
+        44
+      ],
+      "name": "Pueblo Petroglifo",
+      "story_order": 19
+    },
+    {
+      "id": 46,
+      "ids": [
+        46
+      ],
+      "name": "Ruta 9",
+      "story_order": 20
+    },
+    {
+      "id": 132,
+      "ids": [
+        132
+      ],
+      "name": "Cueva Brillante",
+      "story_order": 21
+    },
+    {
+      "id": 40,
+      "ids": [
+        40
+      ],
+      "name": "Ciudad Relieve",
+      "story_order": 22
+    },
+    {
+      "id": 50,
+      "ids": [
+        50
+      ],
+      "name": "Ruta 10",
+      "story_order": 23
+    },
+    {
+      "id": 52,
+      "ids": [
+        52
+      ],
+      "name": "Pueblo Crómlech",
+      "story_order": 24
+    },
+    {
+      "id": 54,
+      "ids": [
+        54
+      ],
+      "name": "Ruta 11",
+      "story_order": 25
+    },
+    {
+      "id": 56,
+      "ids": [
+        56
+      ],
+      "name": "Cueva Reflejos",
+      "story_order": 26
+    },
+    {
+      "id": 58,
+      "ids": [
+        58
+      ],
+      "name": "Ciudad Yantra",
+      "story_order": 27
+    },
+    {
+      "id": 60,
+      "ids": [
+        60
+      ],
+      "name": "Torre Maestra",
+      "story_order": 28
+    },
+    {
+      "id": 62,
+      "ids": [
+        62
+      ],
+      "name": "Ruta 12",
+      "story_order": 29
+    },
+    {
+      "id": 64,
+      "ids": [
+        64
+      ],
+      "name": "Ciudad Témpera",
+      "story_order": 30
+    },
+    {
+      "id": 66,
+      "ids": [
+        66
+      ],
+      "name": "Ruta 13",
+      "story_order": 31
+    },
+    {
+      "id": 136,
+      "ids": [
+        136
+      ],
+      "name": "Central de Kalos",
+      "story_order": 32
+    },
+    {
+      "id": 68,
+      "ids": [
+        68
+      ],
+      "name": "Ruta 14",
+      "story_order": 33
+    },
+    {
+      "id": 70,
+      "ids": [
+        70
+      ],
+      "name": "Ciudad Romantis",
+      "story_order": 34
+    },
+    {
+      "id": 72,
+      "ids": [
+        72
+      ],
+      "name": "Fábrica Poké Balls",
+      "story_order": 35
+    },
+    {
+      "id": 74,
+      "ids": [
+        74
+      ],
+      "name": "Ruta 15",
+      "story_order": 36
+    },
+    {
+      "id": 76,
+      "ids": [
+        76
+      ],
+      "name": "Pueblo Fresco",
+      "story_order": 37
+    },
+    {
+      "id": 78,
+      "ids": [
+        78
+      ],
+      "name": "Ruta 16",
+      "story_order": 38
+    },
+    {
+      "id": 142,
+      "ids": [
+        142
+      ],
+      "name": "Hotel Desolación",
+      "story_order": 39
+    },
+    {
+      "id": 82,
+      "ids": [
+        82
+      ],
+      "name": "Gruta Helada",
+      "story_order": 40
+    },
+    {
+      "id": 84,
+      "ids": [
+        84
+      ],
+      "name": "Ruta 17",
+      "story_order": 41
+    },
+    {
+      "id": 86,
+      "ids": [
+        86
+      ],
+      "name": "Ciudad Fluxus",
+      "story_order": 42
+    },
+    {
+      "id": 88,
+      "ids": [
+        88
+      ],
+      "name": "Ruta 18",
+      "story_order": 43
+    },
+    {
+      "id": 140,
+      "ids": [
+        140
+      ],
+      "name": "Cueva Desenlace",
+      "story_order": 44
+    },
+    {
+      "id": 90,
+      "ids": [
+        90
+      ],
+      "name": "Pueblo Mosaico",
+      "story_order": 45
+    },
+    {
+      "id": 92,
+      "ids": [
+        92
+      ],
+      "name": "Ruta 19",
+      "story_order": 46
+    },
+    {
+      "id": 94,
+      "ids": [
+        94
+      ],
+      "name": "Ciudad Fractal",
+      "story_order": 47
+    },
+    {
+      "id": 96,
+      "ids": [
+        96
+      ],
+      "name": "Ruta 20",
+      "story_order": 48
+    },
+    {
+      "id": 98,
+      "ids": [
+        98
+      ],
+      "name": "Villa Pokémon",
+      "story_order": 49
+    },
+    {
+      "id": 100,
+      "ids": [
+        100
+      ],
+      "name": "Ruta 21",
+      "story_order": 50
+    },
+    {
+      "id": 102,
+      "ids": [
+        102
+      ],
+      "name": "Ruta 22",
+      "story_order": 51
+    },
+    {
+      "id": 104,
+      "ids": [
+        104
+      ],
+      "name": "Calle Victoria",
+      "story_order": 52
+    },
+    {
+      "id": 106,
+      "ids": [
+        106
+      ],
+      "name": "Liga Pokémon",
+      "story_order": 53
+    },
+    {
+      "id": 108,
+      "ids": [
+        108
+      ],
+      "name": "Ciudad Batik",
+      "story_order": 54
+    },
+    {
+      "id": 110,
+      "ids": [
+        110
+      ],
+      "name": "Mansión Batalla",
+      "story_order": 55
+    },
+    {
+      "id": 112,
+      "ids": [
+        112
+      ],
+      "name": "Bahía Azul",
+      "story_order": 56
+    },
+    {
+      "id": 114,
+      "ids": [
+        114
+      ],
+      "name": "Acceso a Fresco",
+      "story_order": 57
+    },
+    {
+      "id": 116,
+      "ids": [
+        116
+      ],
+      "name": "Acceso a Mosaico",
+      "story_order": 58
+    },
+    {
+      "id": 118,
+      "ids": [
+        118
+      ],
+      "name": "Acceso a Petroglifo",
+      "story_order": 59
+    },
+    {
+      "id": 120,
+      "ids": [
+        120
+      ],
+      "name": "Acceso a Luminalia",
+      "story_order": 60
+    },
+    {
+      "id": 122,
+      "ids": [
+        122
+      ],
+      "name": "Acceso a Yantra",
+      "story_order": 61
+    },
+    {
+      "id": 124,
+      "ids": [
+        124
+      ],
+      "name": "Acceso a Témpera",
+      "story_order": 62
+    },
+    {
+      "id": 126,
+      "ids": [
+        126
+      ],
+      "name": "Acceso a Romantis",
+      "story_order": 63
+    },
+    {
+      "id": 128,
+      "ids": [
+        128
+      ],
+      "name": "Acceso a Fluxus",
+      "story_order": 64
+    },
+    {
+      "id": 130,
+      "ids": [
+        130
+      ],
+      "name": "Acceso a Fractal",
+      "story_order": 65
+    },
+    {
+      "id": 134,
+      "ids": [
+        134
+      ],
+      "name": "Gruta Tierraunida",
+      "story_order": 66
+    },
+    {
+      "id": 138,
+      "ids": [
+        138
+      ],
+      "name": "Guarida Team Flare",
+      "story_order": 67
+    },
+    {
+      "id": 144,
+      "ids": [
+        144
+      ],
+      "name": "Estancia Vacua",
+      "story_order": 68
+    },
+    {
+      "id": 146,
+      "ids": [
+        146
+      ],
+      "name": "Cueva Talasia",
+      "story_order": 69
+    },
+    {
+      "id": 148,
+      "ids": [
+        148
+      ],
+      "name": "Safari Amistad",
+      "story_order": 70
+    },
+    {
+      "id": 150,
+      "ids": [
+        150
+      ],
+      "name": "Sala de las Llamas",
+      "story_order": 71
+    },
+    {
+      "id": 152,
+      "ids": [
+        152
+      ],
+      "name": "Sala de la Esclusa",
+      "story_order": 72
+    },
+    {
+      "id": 154,
+      "ids": [
+        154
+      ],
+      "name": "Sala del Metal",
+      "story_order": 73
+    },
+    {
+      "id": 156,
+      "ids": [
+        156
+      ],
+      "name": "Sala del Draco",
+      "story_order": 74
+    },
+    {
+      "id": 158,
+      "ids": [
+        158
+      ],
+      "name": "Sala de la Luz",
+      "story_order": 75
+    },
+    {
+      "id": 160,
+      "ids": [
+        160
+      ],
+      "name": "Acceso Liga Pokémon",
+      "story_order": 76
+    },
+    {
+      "id": 162,
+      "ids": [
+        162
+      ],
+      "name": "Estación Luminalia",
+      "story_order": 77
+    },
+    {
+      "id": 164,
+      "ids": [
+        164
+      ],
+      "name": "Estación Batik",
+      "story_order": 78
+    },
+    {
+      "id": 166,
+      "ids": [
+        166
+      ],
+      "name": "Acuario Petroglifo",
+      "story_order": 79
+    },
+    {
+      "id": 168,
+      "ids": [
+        168
+      ],
+      "name": "Mazmorra Rara",
+      "story_order": 80
+    }
+  ],
+  "order_note": "Las zonas opcionales y eventos pueden visitarse fuera de este orden. Un ID de met-location puede abarcar más de una subzona; no se infiere una captura a partir del nombre."
+}

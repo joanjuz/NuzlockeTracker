@@ -57,3 +57,24 @@ jobs:
             dist/LEEME.txt
           retention-days: 14
           if-no-files-found: error
+
+      - name: Compilar diagnóstico Gen6 independiente
+        shell: powershell
+        run: |
+          python -m PyInstaller --noconfirm --clean --console --onefile --name Diagnostico_Gen6 Diagnostico_Gen6.py
+          if ($LASTEXITCODE -ne 0) { throw 'No se pudo compilar el diagnóstico Gen6' }
+          Copy-Item Diagnostico_Gen6.bat dist\Diagnostico_Gen6.bat
+          Copy-Item docs\DIAGNOSTICO_GEN6.md dist\LEEME_Diagnostico_Gen6.txt
+          if (-not (Test-Path dist\Diagnostico_Gen6.exe)) { throw 'Falta el EXE Gen6' }
+      - name: Publicar diagnóstico Gen6 Windows
+        uses: actions/upload-artifact@v4
+        with:
+          name: PokemonTracker-Diagnostico-Gen6-Windows
+          path: |
+            dist/Diagnostico_Gen6.exe
+            dist/Diagnostico_Gen6.bat
+            dist/LEEME_Diagnostico_Gen6.txt
+            dist/LICENSE.txt
+          retention-days: 14
+          if-no-files-found: error
+
