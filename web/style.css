@@ -227,3 +227,9 @@ h1,h2,h3,.brand{font-weight:700;letter-spacing:.01em}.topbar nav button{font-wei
 #living-dex-status{margin:8px 0 16px}
 @media(max-width:1100px){.living-dex-grid{grid-template-columns:repeat(6,minmax(0,1fr))}}
 @media(max-width:700px){.living-dex-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* Living Dex: optional silhouettes in place of the original grayscale ball. */
+.living-dex-sprites-label{font-weight:700;white-space:nowrap}
+.living-dex-sprites-label:has(input:disabled){opacity:.5}
+.living-dex-missing-sprite{width:76px;height:76px;object-fit:contain;image-rendering:pixelated;filter:grayscale(1) contrast(1.25);opacity:.54}
+.living-dex-missing .living-dex-missing-sprite.living-dex-ball{opacity:.52}
