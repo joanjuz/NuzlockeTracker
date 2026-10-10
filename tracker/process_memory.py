@@ -160,38 +160,46 @@ def discover_ram(process,progress=None,timeout=60,budget=4*1024**3,cancel=None):
     fail('No se encontró una RAM válida. Guarda diagnóstico; comprueba que la partida esté cargada.')
 
 class LimeProcessMemory:
-    def __init__(self,pid=None,progress=None,dynamic=False,cancel=None):
+    def __init__(self,pid=None,progress=None,dynamic=False,cancel=None,generation=7):
+        if generation not in (6,7):raise ValueError('Generación inválida')
+        self.generation=generation
+        self.guest_start=0x08000000 if generation==6 else LINEAR
+        self.guest_end=0x10000000 if generation==6 else LINEAR+256*1024**2
         self.process=WindowsProcess(pid);self.base=None;self.party_address=PARTY
         try:
             # Ultra Moon used fixed addresses in Lime3DS. Azahar and Citra can
             # relocate the guest RAM layout; the same dynamic wrapper search
             # already validated with Ultra Sun is safer in those processes.
             auto_dynamic = self.process.name.lower().startswith(('azahar', 'citra'))
-            self.discovery_mode = 'dynamic' if dynamic or auto_dynamic else 'fixed'
+            self.discovery_mode = 'dynamic' if generation==6 or dynamic or auto_dynamic else 'fixed'
             if self.discovery_mode == 'dynamic':
-                self.base,self.party_address=discover_dynamic_ram(self.process,progress,cancel=cancel)
+                self.base,self.party_address=discover_dynamic_ram(self.process,progress,cancel=cancel,generation=generation)
             else:
                 self.base=discover_ram(self.process,progress,cancel=cancel)
         except Exception:self.process.close();raise
     def identify(self):return f'Windows · PID {self.process.pid} · RAM localizada'
     def resume(self):pass # No debugger: does not pause or resume the emulator.
     def read(self,address,length):
-        if not LINEAR<=address or address+length>LINEAR+256*1024**2 or not 1<=length<=65536:raise ValueError('Lectura fuera de la RAM lineal permitida.')
+        if not self.guest_start<=address or address+length>self.guest_end or not 1<=length<=65536:raise ValueError('Lectura fuera del rango de RAM del perfil.')
         if not self.process.alive():raise DiscoveryError('El emulador se cerró.')
         # Signature catches a cleared/moved RAM allocation after an internal restart.
-        if self.process.read(self.base+getattr(self,'party_address',PARTY)-LINEAR+SIGNATURE_OFFSET,4)!=struct.pack('<I',getattr(self,'party_address',PARTY)+128):
+        if self.process.read(self.base+getattr(self,'party_address',PARTY)-self.guest_start+SIGNATURE_OFFSET,4)!=struct.pack('<I',getattr(self,'party_address',PARTY)+128):
             raise DiscoveryError('Partida reiniciada o RAM trasladada. Esperando para localizarla nuevamente.')
-        return self.process.read(self.base+address-LINEAR,length)
+        return self.process.read(self.base+address-self.guest_start,length)
     def close(self):self.process.close()
 
 
-def discover_dynamic_ram(process,progress=None,timeout=90,budget=4*1024**3,cancel=None):
+def discover_dynamic_ram(process,progress=None,timeout=90,budget=4*1024**3,cancel=None,generation=7):
     """Find self-referencing party wrappers without assuming the guest party address."""
     import re
     # Two nearby guest pointers; secondary wrapper offsets may differ.
     # Validate the self-reference and the complete decoded party.
-    pattern=re.compile(rb'(?=(.{3}[\x30-\x3f].{3}[\x30-\x3f]))',re.DOTALL)
-    report={'schema_version':2,'mode':'dynamic','pid':getattr(process,'pid',None),
+    if generation not in (6,7):raise ValueError('Generación inválida')
+    # Gen6 PK6 resides in legacy 0x08xxxxxx guest memory. Gen7 in 0x3xxxxxxx.
+    start_addr,end_addr=(0x08000000,0x10000000) if generation==6 else (LINEAR,LINEAR+256*1024**2)
+    high_bytes=br'[\x08-\x0f]' if generation==6 else br'[\x30-\x3f]'
+    pattern=re.compile(b'(?=(.{3}'+high_bytes+b'.{3}'+high_bytes+b'))',re.DOTALL)
+    report={'schema_version':2,'mode':'dynamic','generation':generation,'pid':getattr(process,'pid',None),
             'process':getattr(process,'name',None),'bytes_scanned':0,'read_errors':0,
             'wrappers':0,'rejections':[],'candidates':[],'regions_scanned':0,
             'elapsed_seconds':0}
@@ -218,10 +226,11 @@ def discover_dynamic_ram(process,progress=None,timeout=90,budget=4*1024**3,cance
                 if not 0<=stats-pk<=512:continue
                 if time.monotonic()-start_time>timeout:failed('Búsqueda dinámica alcanzó su límite. Guarda diagnóstico.')
                 report['wrappers']+=1
-                anchor=position-68;guest=pk-128;base=anchor-(guest-LINEAR)
-                if not LINEAR<=guest<LINEAR+256*1024**2-2914 or base<=0:continue
+                anchor=position-68;guest=pk-128;base=anchor-(guest-start_addr)
+                if not start_addr<=guest<end_addr-2914 or base<=0:continue
                 try:
-                    raw=process.read(anchor,2914);party=decode_party(raw)
+                    raw=process.read(anchor,2914)
+                    party=decode_party(raw,max_species=721 if generation==6 else 807)
                     count=sum(p is not None for p in party)
                     if not party[0] or not count:continue
                     if struct.unpack_from('<I',raw,68)[0]!=pk:continue
