@@ -10,6 +10,7 @@ from tracker.profiles import PROFILES
 from tracker.service import TrackerService
 from test_gen6_boxes import Gen6Memory
 from test_gen6_battle import BattleMemory
+from tracker.battle_gen6 import candidate_pairs
 
 
 class XObservedMemory(Gen6Memory):
@@ -33,6 +34,13 @@ class PokemonXVerifiedCaptureTests(unittest.TestCase):
         self.assertEqual(PROFILES['Pokémon Y 1.0'].box_address,0x08C861C8)
         self.assertEqual(PROFILES['Omega Ruby 1.0'].box_address,0x08C9E134)
         self.assertEqual(PROFILES['Alpha Sapphire 1.0'].box_address,0x08C9E134)
+
+    def test_differential_hp_address_agrees_with_battle_roster_reader(self):
+        battle_address,hp_reference=candidate_pairs('Pokémon X 1.0')[0]
+        self.assertEqual(battle_address,0x08804A70)
+        # Differential search across user-supplied 16 -> 8 -> 9 samples
+        # returned 0x08203ED8, precisely the current-HP u16 address.
+        self.assertEqual(hp_reference-264,0x08203ED8)
 
     def test_x_31_box_reads_and_three_live_hp_samples(self):
         profile=PROFILES['Pokémon X 1.0']
