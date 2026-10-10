@@ -146,7 +146,12 @@ def png_to_gif(data):
     validate_png(data)
     with Image.open(io.BytesIO(data)) as src:
         output = io.BytesIO()
-        src.convert('RGBA').save(output, format='GIF', loop=0)
+        rgba=src.convert('RGBA')
+        # GIF is now only for legacy external links. The new browser overlay
+        # renders the lossless PNG at the original resolution.
+        if rgba.width>512 or rgba.height>512:
+            rgba.thumbnail((512,512),resample=Image.Resampling.NEAREST)
+        rgba.save(output, format='GIF', loop=0)
         return validate_gif(output.getvalue())
 
 
@@ -254,6 +259,8 @@ def animation_to_webp(data, kind, dead=False):
     out=io.BytesIO()
     frames[0].save(out,format='WEBP',save_all=True,append_images=frames[1:],
                    duration=durations,loop=0,lossless=True,quality=100,method=4)
+    if out.tell()>16_000_000:
+        raise ValueError('Animación personalizada demasiado grande')
     return validate_png(first.getvalue()),out.getvalue()
 
 
