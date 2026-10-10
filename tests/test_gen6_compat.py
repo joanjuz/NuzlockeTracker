@@ -1,4 +1,4 @@
-"""Gen6 stage 1: self-validating read-only party support; boxes remain disabled."""
+"""Gen6 experimental PK6 party and candidate PC box support."""
 import struct,tempfile,unittest
 from pathlib import Path
 from tracker.pokemon import decode_party,crypt
@@ -44,7 +44,7 @@ class Gen6Tests(unittest.TestCase):
         self.assertEqual(len(GEN6_GAMES),4)
         for game in GEN6_GAMES:
             p=PROFILES[game]
-            self.assertEqual((p.slot_stride,p.slot_size,p.generation,p.box_address),(484,484,6,0))
+            self.assertEqual((p.slot_stride,p.slot_size,p.generation,p.box_address),(484,484,6,0x08C861C8 if 'Pokémon ' in game else 0x08C9E134))
             self.assertFalse(p.verified)
             self.assertEqual(p.party_address,0x08CE1CE8 if 'Pokémon ' in game else 0x08CF727C)
         self.assertEqual(PROFILES['Ultra Moon 1.0'].generation,7)
@@ -61,7 +61,7 @@ class Gen6Tests(unittest.TestCase):
         with self.assertRaises(ValueError):
             decode_party(party_fixture(species=722),max_species=721)
 
-    def test_connect_and_poll_only_team_no_boxes_and_independent_progress(self):
+    def test_connect_and_poll_with_rejected_box_read_keeps_team_and_progress(self):
         versions={'Pokémon X 1.0':24,'Pokémon Y 1.0':25,
                   'Omega Ruby 1.0':26,'Alpha Sapphire 1.0':27}
         for name,version in versions.items():
@@ -73,8 +73,8 @@ class Gen6Tests(unittest.TestCase):
                 service.factory=lambda config:memory
                 service.config={'game':name,'mode':'gdb','port':24689}
                 service.connect()
-                self.assertIsNone(service.scan_next)
-                self.assertFalse(service.snapshot()['scan']['active'])
+                self.assertEqual(service.scan_next,1)
+                self.assertTrue(service.snapshot()['scan']['active'])
                 self.assertFalse(service.snapshot()['box_verified'])
                 service.poll()
                 state=service.snapshot()
@@ -86,8 +86,8 @@ class Gen6Tests(unittest.TestCase):
                 self.assertFalse(state['battle_hp'])
                 self.assertIn('Ruta 1',state['party'][0]['met_location'])
                 self.assertNotIn('ultra-moon',service.progress.path.name)
-                with self.assertRaisesRegex(ValueError,'cajas Gen6'):
-                    service.handle({'action':'scan'})
+                service.handle({'action':'scan'})
+                self.assertEqual(service.scan_next,1)
                 service.close_reader()
 
     def test_gen6_rejects_corrupt_team_before_reporting_connected(self):
