@@ -12,11 +12,11 @@ class BattleMemory:
   self.party_addr=PROFILES[game].party_address
   self.battle_addr,self.hpbase=candidate_pairs(game)[0]
   self.team=party_fixture(24 if game.startswith('Pokémon') else 26,address=self.party_addr)
-  self.roster=party_fixture(24 if game.startswith('Pokémon') else 26,address=self.battle_addr)
+  self.roster=party_fixture(24 if game.startswith('Pokémon') else 26,address=self.battle_addr)[128:]
   self.current=hp;self.maximum=maximum;self.level=level
   self.flip=False;self.counter=0
  def read(self,addr,length):
-  if (addr,length)==(self.battle_addr,2914):return self.roster
+  if (addr,length)==(self.battle_addr,2786):return self.roster
   if (addr,length)==(self.hpbase-266,12):
    self.counter+=1
    health=self.current+1 if self.flip and self.counter%2==0 else self.current
@@ -54,7 +54,7 @@ class Gen6BattleTests(unittest.TestCase):
     elif bad=='wrong_max':m.maximum=40
     elif bad=='wrong_hp':m.current=99
     elif bad=='changing':m.flip=True
-    elif bad=='wrong_roster':m.roster=party_fixture(species=37,address=m.battle_addr)
+    elif bad=='wrong_roster':m.roster=party_fixture(species=37,address=m.battle_addr)[128:]
     result,ok=apply_gen6_battle_hp(m,party,m.game,m.party_addr)
     self.assertFalse(ok)
     self.assertEqual(result,party)
