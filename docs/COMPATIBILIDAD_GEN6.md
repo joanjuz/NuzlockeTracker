@@ -37,3 +37,14 @@ Las direcciones son **candidatas históricas de Citra**; NO equivalen a direccio
 6. Si sigue apareciendo «Cajas no verificadas», adjunta ese nuevo diagnóstico e indica en qué caja tienes un Pokémon y dónde estaba durante la captura. Para Gen6 en Lime3DS se añade una segunda base candidata con el desplazamiento de RAM encontrado en el equipo.
 
 **No fusionar con master hasta que se pruebe en juegos reales.**
+
+## Diagnóstico Lime3DS Pokémon X — segunda captura
+
+En el diagnóstico de 2026-10-09 a las 22:10 (Costa Rica) el equipo se detecta en `0x08CE1C68`, pero ambas direcciones de cajas (`0x08C861C8` y `0x08C86148`) fallan desde la primera casilla con errores de estructura/checksum. Ninguna se acepta como válida.
+
+- Si el escaneo normal no valida ninguna base, se busca **solo una vez** un encabezado PK6 almacenado válido en la zona de ±512 KiB de la base candidata, en lecturas de máximo 64 KiB; se descartan estructuras corruptas por checksum.
+- Para aceptar una base de memoria, las 31 cajas deben validarse, repetirse las lecturas y existir **una única** alineación candidata. Si hay más de una válida, ninguna se aplica automáticamente.
+- `gen6_box_search` en el JSON registra bytes revisados, número de PK6 válidos, direcciones candidatas y motivos de ambigüedad. No exporta datos Pokémon, guardados ni memoria cruda.
+- **Prueba importante:** antes de pulsar «Actualizar todas las cajas», coloca un Pokémon en **Caja 1 → casilla 1**. Esto permite comprobar que el primer PK6 válido corresponde al inicio real del almacenamiento.
+- **Corrección batalla Gen6:** el código de Citra-Tracker-v2 `read_party()` comienza directamente por los 232 bytes PK6 y lee estadísticas a +344 dentro de cada bloque de 484; **no** incluye el encabezado de 128 bytes de los datos de equipo normal. El lector de combate ahora adapta este formato correctamente. Todavía falta validar el descenso de PS durante una batalla real en Lime3DS.
+- Si durante combate sigue mostrando `battle_roster_unavailable`, guardar diagnóstico **durante el combate** para diferenciar estado no activo y dirección incorrecta.
