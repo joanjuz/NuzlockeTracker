@@ -180,7 +180,7 @@ class LimeProcessMemory:
     def identify(self):return f'Windows · PID {self.process.pid} · RAM localizada'
     def resume(self):pass # No debugger: does not pause or resume the emulator.
     def read(self,address,length):
-        if not self.guest_start<=address or address+length>self.guest_end or not 1<=length<=65536:raise ValueError('Lectura fuera del rango de RAM del perfil.')
+        if not getattr(self,'guest_start',LINEAR)<=address or address+length>getattr(self,'guest_end',LINEAR+256*1024**2) or not 1<=length<=65536:raise ValueError('Lectura fuera del rango de RAM del perfil.')
         if not self.process.alive():raise DiscoveryError('El emulador se cerró.')
         # Signature catches a cleared/moved RAM allocation after an internal restart.
         if self.process.read(self.base+getattr(self,'party_address',PARTY)-self.guest_start+SIGNATURE_OFFSET,4)!=struct.pack('<I',getattr(self,'party_address',PARTY)+128):
