@@ -6,10 +6,12 @@
     'hp_background','hp_border','hp_border_width','hp_good','hp_mid','hp_low',
     'hp_low_threshold','hp_mid_threshold','hp_label','hp_text_color','hp_text_size',
     'hp_style','hp_reverse','hp_glow','show_empty','hp_custom_fill','hp_custom_frame',
+    'render_scale','sprite_scaling','sprite_shadow','sprite_padding','hp_animation_ms',
   ];
   const numberFields=new Set(['gap','slot_width','sprite_size','name_size','name_weight','hp_height',
-    'hp_radius','hp_border_width','hp_low_threshold','hp_mid_threshold','hp_text_size']);
-  const checkFields=new Set(['hp_reverse','hp_glow','show_empty','hp_custom_fill','hp_custom_frame']);
+    'hp_radius','hp_border_width','hp_low_threshold','hp_mid_threshold','hp_text_size',
+    'render_scale','sprite_padding','hp_animation_ms']);
+  const checkFields=new Set(['hp_reverse','hp_glow','show_empty','hp_custom_fill','hp_custom_frame','sprite_shadow']);
   const status=$('status');
   let token='',pending=null,defaultConfig=null,loading=true;
   let shared={enabled:false,ip:'',port:null,base_url:''};
