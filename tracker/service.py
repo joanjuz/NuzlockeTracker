@@ -181,13 +181,15 @@ class TrackerService:
                 self.progress.remember(changes.get('party',self.state['party']),
                                        changes.get('boxes',self.state['boxes']))
             scan=changes.get('scan')
+            box_count=31 if self.profile.generation==6 else 32
             if (isinstance(scan,dict) and scan.get('active') is False
-                and scan.get('completed')==32 and changes.get('box_verified') is True
-                and self.scan_verified==set(range(1,33))
+                and scan.get('completed')==box_count and changes.get('box_verified') is True
+                and self.scan_verified==set(range(1,box_count+1))
                 and not changes.get('stale',self.state['stale'])
                 and self.state['connection'].get('status')=='connected'):
                 self.progress.observe_full_scan(changes.get('party',self.state['party']),
-                                                changes.get('boxes',self.state['boxes']))
+                                                changes.get('boxes',self.state['boxes']),
+                                                box_count=box_count)
             changes['progress']=copy.deepcopy(self.progress.data)
             if all(self.state.get(k)==v for k,v in changes.items()):return False
             self.state.update(changes);self.state['revision']+=1
@@ -242,17 +244,17 @@ class TrackerService:
             party=decode_party(capture_party(self.reader,self.profile),max_species=721)
             if not any(party):
                 raise ValueError('No se detectó equipo PK6 válido. Abre una partida con al menos un Pokémon y guarda diagnóstico.')
-            # Keep experimental PC scans completely separate from team startup.
-            # The user can explicitly start one in Cajas after confirming party.
-            self.scan_next=None
-            self.next_box_refresh_at=float('inf')
+            # Start reading PC only after the party was independently
+            # verified. Subsequent full scans refresh every 180 seconds.
+            self.scan_next=1
+            self.next_box_refresh_at=time.monotonic()+180.0
         else:
             self.scan_next=1
             self.next_box_refresh_at=time.monotonic()+180.0
-        self.update(connection={'status':'connected','message':('Gen6 experimental · equipo listo · cajas disponibles con escaneo manual' if self.profile.generation==6 else
+        self.update(connection={'status':'connected','message':('Gen6 · equipo conectado · 31 cajas con actualización automática' if self.profile.generation==6 else
             'Conectado · '+('Windows sin GDB' if mode=='memory' else 'GDB'))},
             box_verified=self.profile.generation==7,
-            scan={'active':self.profile.generation==7,'completed':0})
+            scan={'active':True,'completed':0})
         self.save_session()
     def poll(self):
         # Gen6 overworld party may be temporarily unavailable or stale while
@@ -319,15 +321,17 @@ class TrackerService:
                         changes['boxes']={k:[self.enrich(p) for p in box]
                             for k,box in verified_boxes.items()}
                         changes['box_verified']=True
+                        self.scan_verified=set(range(1,32))
                         self.profile=replace(self.profile,box_address=chosen)
                     else:
+                        self.scan_verified=set()
                         changes['box_verified']=bool(saved.get('box_verified',False))
                     changes['connection']={'status':'connected','message':(
                         'Gen6 experimental · equipo y 31 cajas PK6 verificadas · PS combate experimental'
                         if chosen is not None else
                         'Gen6 experimental · equipo válido; cajas no verificadas (prueba con Pokémon depositado)')}
                     self.gen6_probe=None
-                    self.next_box_refresh_at=(time.monotonic()+180.0 if chosen is not None else float('inf'))
+                    self.next_box_refresh_at=time.monotonic()+180.0
             else:
                 changes['connection']={'status':'connected','message':(
                     'Gen6 experimental · equipo y cajas PK6 · PS combate experimental'
