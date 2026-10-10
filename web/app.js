@@ -19,19 +19,19 @@ const gen6=['Pokémon X 1.0','Pokémon Y 1.0','Omega Ruby 1.0','Alpha Sapphire 1
 const region=gen6?(state.game.startsWith('Pokémon')?'Kalos':'Hoenn'):'Alola';
 $('game-region').textContent=region+' · versión 1.0'+(gen6?' (experimental)':'');
 $('places-heading').textContent='Rutas de '+region;
-$('route-intro').textContent=gen6?
-  'Gen6 experimental: muestra los lugares registrados del equipo, pero el catálogo completo de rutas y la lectura de cajas aún están pendientes de validar. No se modifican tus partidas.':
-  'Sin menús desplegables. Marca «Fósil» junto a «Muerte». Los intercambios se identifican con lecturas completas de 32 cajas; «Intercambiado» queda bajo MISS en rutas vacías.';
+$('route-intro').textContent='Sin menús desplegables. Marca «Fósil» junto a «Muerte». '
+  +'Los intercambios se identifican con lecturas completas de '+(gen6?'31':'32')
+  +' cajas; «Intercambiado» queda bajo MISS en rutas vacías.';
 $('analysis-source-note').textContent=gen6?
   'Análisis aproximado con referencias USUM: confirmar habilidades, movimientos y formas en Gen6 antes de usarlo para decisiones.':
   'Referencia USUM · Puede variar con el randomizer.';
-$('box').disabled=false;$('global').disabled=false;$('open-companion').disabled=gen6;$('refresh-boxes').disabled=companionView||state.connection.status!=='connected'||state.scan.active;
+$('box').disabled=false;$('global').disabled=false;$('open-companion').disabled=gen6;
 const totalBoxes=gen6?31:32;
 if($('box').options?.length>=32){
   $('box').options[31].hidden=gen6;$('box').options[31].disabled=gen6;
 }
 if(gen6&&Number($('box').value)>31)$('box').value='1';
-$('game').disabled=Boolean(state.demo)||companionView;if(routeGame!==state.game){routeGame=state.game;const game=routeGame;fetch('/api/routes').then(r=>r.json()).then(data=>{if(state.game===game){routeCatalog=data.routes;placeSignature='';renderPlaces()}}).catch(()=>{routeGame=''})}$('eyebrow').textContent=companionView?'AVENTURA DE TU COMPAÑERO':state.demo?'MODO DEMO':'';$('eyebrow').hidden=!companionView&&!state.demo;renderMini();renderPlaces();renderDead();renderAnalysis();$('demo-tools').hidden=!state.demo;if(state.demo){$('demo-scenario').value=state.demo_scenario;$('box').value=state.selected_box;}$('status').textContent=state.connection.message;const connected=state.connection.status==='connected'&&!state.stale;$('badge').textContent=companionView?'● Última sesión':connected?(state.demo?'● Demostración':state.battle_hp?'● PS de combate':'● En vivo'):state.connection.status==='connecting'?'Localizando RAM':state.connection.status==='retrying'?'Reconectando':'Sin datos actuales';$('badge').classList.toggle('live',connected);$('notice').hidden=companionView||!state.stale;$('notice').textContent='Última lectura · Esperando reconexión.';nodes.forEach((node,i)=>{const p=state.party[i],sig=JSON.stringify(p);if(node.dataset.signature===sig)return;node.dataset.signature=sig;node.classList.toggle('empty',!p);node.innerHTML=card(p,i)});$('scan-status').textContent=gen6?'Gen6 experimental: '+(state.box_verified?'cajas PK6 verificadas':'cajas pendientes de verificación; deposita un Pokémon en el PC y actualiza la lectura')+` · ${Object.keys(state.boxes).length} / 31 cajas leídas`+(state.scan.active?` · Escaneo: ${state.scan.completed}/31`:''):`${state.box_verified===false?'Dirección de cajas sin validar · ':''}${Object.keys(state.boxes).length} / 32 cajas leídas${state.scan.active?` · Lectura global: ${state.scan.completed} / 32`:state.stale&&Object.keys(state.boxes).length?' · Última lectura guardada (sin conexión)':''}`;$('cancel').hidden=companionView||!state.scan.active;renderBoxes();if(selected&&$('detail').open){const [kind,a,b]=selected.split(':');const p=kind==='dead'?state.progress?.deaths?.[`${a}:${b}`]?.pokemon:kind==='party'?state.party[a]:state.boxes[a]?.[b];if(p)detail(p);else $('detail').close()}}
+$('game').disabled=Boolean(state.demo)||companionView;if(routeGame!==state.game){routeGame=state.game;routeCatalog=[];placeSignature='';const game=routeGame;fetch('/api/routes').then(r=>r.json()).then(data=>{if(state.game===game){routeCatalog=data.routes;placeSignature='';renderPlaces()}}).catch(()=>{routeGame=''})}$('eyebrow').textContent=companionView?'AVENTURA DE TU COMPAÑERO':state.demo?'MODO DEMO':'';$('eyebrow').hidden=!companionView&&!state.demo;renderMini();renderPlaces();renderDead();renderAnalysis();$('demo-tools').hidden=!state.demo;if(state.demo){$('demo-scenario').value=state.demo_scenario;$('box').value=state.selected_box;}$('status').textContent=state.connection.message;const connected=state.connection.status==='connected'&&!state.stale;$('badge').textContent=companionView?'● Última sesión':connected?(state.demo?'● Demostración':state.battle_hp?'● PS de combate':'● En vivo'):state.connection.status==='connecting'?'Localizando RAM':state.connection.status==='retrying'?'Reconectando':'Sin datos actuales';$('badge').classList.toggle('live',connected);$('notice').hidden=companionView||!state.stale;$('notice').textContent='Última lectura · Esperando reconexión.';nodes.forEach((node,i)=>{const p=state.party[i],sig=JSON.stringify(p);if(node.dataset.signature===sig)return;node.dataset.signature=sig;node.classList.toggle('empty',!p);node.innerHTML=card(p,i)});$('scan-status').textContent=gen6?'Gen6 experimental: '+(state.box_verified?'cajas PK6 verificadas':'cajas pendientes de verificación; deposita un Pokémon en el PC y actualiza la lectura')+` · ${Object.keys(state.boxes).length} / 31 cajas leídas`+(state.scan.active?` · Escaneo: ${state.scan.completed}/31`:''):`${state.box_verified===false?'Dirección de cajas sin validar · ':''}${Object.keys(state.boxes).length} / 32 cajas leídas${state.scan.active?` · Lectura global: ${state.scan.completed} / 32`:state.stale&&Object.keys(state.boxes).length?' · Última lectura guardada (sin conexión)':''}`;$('cancel').hidden=companionView||!state.scan.active;renderBoxes();if(selected&&$('detail').open){const [kind,a,b]=selected.split(':');const p=kind==='dead'?state.progress?.deaths?.[`${a}:${b}`]?.pokemon:kind==='party'?state.party[a]:state.boxes[a]?.[b];if(p)detail(p);else $('detail').close()}}
 async function exportWithDialog(kind){
  const button=$(kind==='diagnostic'?'diagnostic':'save-session');
  if(!button||button.disabled)return;
@@ -53,7 +53,7 @@ function showExportFeedback(message){
 async function command(cmd){try{if(companionView)throw Error('La sesión del compañero es de solo lectura.');if(!token)throw Error('El servidor local aún no está disponible.');const response=await fetch('/api/command',{method:'POST',headers:{'Content-Type':'application/json','X-Tracker-Token':token},body:JSON.stringify(cmd)});const result=await response.json();if(!response.ok)throw Error(result.error||'No se pudo realizar la acción.')}catch(e){$('status').textContent=e.message}}
 function subscribe(){socket=new WebSocket(`ws://${location.host}/ws`);socket.onmessage=e=>{try{render(JSON.parse(e.data))}catch(error){console.error(error)}};socket.onclose=()=>{$('badge').textContent='Servidor local desconectado';$('badge').classList.remove('live');$('notice').hidden=false;$('notice').textContent='Mantén abierta la ventana del servidor. Intentando reconectar…';setTimeout(start,2000)};socket.onerror=()=>socket.close()}
 async function start(){try{const session=await(await fetch('/api/session')).json();token=session.token;document.title='Pokémon Tracker';const saved=session.saved_connection;if(saved){$('game').value=saved.game;$('mode').value=saved.mode;$('pid').value=saved.pid??'';$('port').value=saved.port??24689;$('port-label').hidden=saved.mode!=='gdb';$('saved-session-status').textContent='Sesión guardada · '+saved.game+' · conexión automática al iniciar'+(saved.pid?' · PID '+saved.pid:'');}routeCatalog=(await(await fetch('/api/routes')).json()).routes;analysisData=await(await fetch('/api/analysis')).json();render(await(await fetch('/api/state')).json());subscribe()}catch(e){$('status').textContent='Esperando al servidor local…';setTimeout(start,2000)}}
-$('connect').onclick=()=>command({action:'connect',game:$('game').value,mode:$('mode').value,pid:$('pid').value?Number($('pid').value):null,port:Number($('port').value)});$('disconnect').onclick=()=>command({action:'disconnect'});$('save-session').onclick=()=>exportWithDialog('session');$('mode').onchange=()=>{$('port-label').hidden=$('mode').value!=='gdb'};$('box').onchange=()=>{renderBoxes();command({action:'box',number:Number($('box').value)})};$('search').oninput=renderBoxes;$('global').onchange=renderBoxes;$('refresh-boxes').onclick=()=>command({action:'scan'});$('cancel').onclick=()=>command({action:'cancel'});$('close-detail').onclick=()=>$('detail').close();$('diagnostic').onclick=()=>exportWithDialog('diagnostic');
+$('connect').onclick=()=>command({action:'connect',game:$('game').value,mode:$('mode').value,pid:$('pid').value?Number($('pid').value):null,port:Number($('port').value)});$('disconnect').onclick=()=>command({action:'disconnect'});$('save-session').onclick=()=>exportWithDialog('session');$('mode').onchange=()=>{$('port-label').hidden=$('mode').value!=='gdb'};$('box').onchange=()=>{renderBoxes();command({action:'box',number:Number($('box').value)})};$('search').oninput=renderBoxes;$('global').onchange=renderBoxes;$('cancel').onclick=()=>command({action:'cancel'});$('close-detail').onclick=()=>$('detail').close();$('diagnostic').onclick=()=>exportWithDialog('diagnostic');
 const filesToImport=[['moves','template-moves'],['stats','template-stats'],['evolutions','template-evolutions']];
 async function templateStatus(){try{const r=await fetch('/api/templates');const j=await r.json();if(r.ok)$('template-status').textContent=`Plantillas guardadas: ${j.counts.moves} movimientos · ${j.counts.stats} especies · ${j.counts.evolutions} especies con evoluciones modificadas.`;}catch(e){$('template-status').textContent=e.message}}
 $('import-templates').onclick=async()=>{const button=$('import-templates');button.disabled=true;try{const files={};for(const [key,id] of filesToImport){const file=$(id).files?.[0];if(file){if(file.size>180000)throw Error('Plantilla demasiado grande: '+file.name);files[key]=await file.text();}}if(!Object.keys(files).length)throw Error('Selecciona al menos un archivo CSV.');const r=await fetch('/api/templates',{method:'POST',headers:{'Content-Type':'application/json','X-Tracker-Token':token},body:JSON.stringify({files})});const j=await r.json();if(!r.ok)throw Error(j.error||'No se pudo importar');$('template-status').textContent='Plantillas importadas y guardadas. Los datos de equipo y cajas se actualizarán.';for(const [,id] of filesToImport)$(id).value='';await templateStatus()}catch(e){$('template-status').textContent='Error: '+e.message}finally{button.disabled=false}};
@@ -136,6 +136,8 @@ function routeFootprint(p,kind){
 function renderPlaces(){
   if(!state)return;
   const query=normalize($('route-search').value||'').trim();
+  const versions=['Pokémon X 1.0','Pokémon Y 1.0'].includes(state.game)?[24,25]:
+    ['Omega Ruby 1.0','Alpha Sapphire 1.0'].includes(state.game)?[26,27]:[30,31,32,33];
   const entries=[...state.party,...Object.values(state.boxes||{}).flat(),
     ...Object.values(state.progress?.deaths||{}).map(d=>d.pokemon)];
   const active=new Map();
@@ -183,13 +185,13 @@ function renderPlaces(){
   $('places').replaceChildren();
   let filled=0;
   for(const r of routeCatalog)
-    if(tradedRoutes.includes(String(r.id))||[30,31,32,33].some(v=>(r.ids||[r.id]).some(id=>locations.has(`${v}:${id}`))))filled++;
+    if(tradedRoutes.includes(String(r.id))||versions.some(v=>(r.ids||[r.id]).some(id=>locations.has(`${v}:${id}`))))filled++;
   $('places-count').textContent=routeCatalog.length?`${filled} / ${routeCatalog.length} zonas con historial`:`${locations.size} lugares registrados · catálogo pendiente`;
   const routes=routeCatalog.filter(r=>normalize(r.name).includes(query));
   if(routes.length){
     const section=document.createElement('section');section.className='route-section';
     section.innerHTML=`<div class="route-grid">${routes.map(r=>{
-      const list=[30,31,32,33].flatMap(v=>(r.ids||[r.id]).flatMap(id=>locations.get(`${v}:${id}`)||[]));
+      const list=versions.flatMap(v=>(r.ids||[r.id]).flatMap(id=>locations.get(`${v}:${id}`)||[]));
       const missed=(state.progress?.missed_routes||[]).includes(String(r.id));
       const traded=tradedRoutes.includes(String(r.id));
       const routeVacant=!list.some(item=>item.type==='mark'||(item.type==='pokemon'&&item.kind==='active'));
@@ -234,9 +236,8 @@ function renderPlaces(){
     $('places').append(section);
   }
   const extras=[...locations.values()].filter(items=>
-    !routeCatalog.some(r=>(r.ids||[r.id]).includes(items[0].p.met_location_id)) &&
-      [30,31,32,33].includes(items[0].p.origin_version)
-    ||![30,31,32,33].includes(items[0].p.origin_version));
+    !versions.includes(items[0].p.origin_version) ||
+    !routeCatalog.some(r=>(r.ids||[r.id]).includes(items[0].p.met_location_id)));
   const visible=extras.filter(items=>normalize(items[0].p.met_location||'').includes(query));
   if(visible.length){
     const section=document.createElement('section');section.className='route-section';
