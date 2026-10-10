@@ -231,23 +231,23 @@ class OverlayManager:
         """Importa PNG estático, valida dimensiones y elimina metadatos al reescribirlo."""
         if kind not in ('fill', 'frame'):
             raise ValueError('Tipo de imagen de barra inválido')
-        if not isinstance(data, str) or len(data) > 3_000_000:
-            raise ValueError('Imagen demasiado grande (máximo 2 MB)')
+        if not isinstance(data, str) or len(data) > 10_800_000:
+            raise ValueError('Imagen demasiado grande (máximo 8 MB)')
         try:
             raw = base64.b64decode(data, validate=True)
-            if len(raw) > 2_000_000 or not raw.startswith(b'\x89PNG\r\n\x1a\n'):
-                raise ValueError('Se necesita una imagen PNG válida de hasta 2 MB')
+            if len(raw) > 8_000_000 or not raw.startswith(b'\x89PNG\r\n\x1a\n'):
+                raise ValueError('Se necesita una imagen PNG válida de hasta 8 MB')
             with Image.open(io.BytesIO(raw)) as image:
                 w, h = image.size
                 if image.format != 'PNG' or getattr(image, 'n_frames', 1) != 1:
                     raise ValueError('Utiliza un PNG estático')
-                if not 1 <= w <= 2048 or not 1 <= h <= 512 or w * h > 1_000_000:
-                    raise ValueError('Dimensiones máximas: 2048 × 512 y 1 megapíxel')
+                if not 1 <= w <= 4096 or not 1 <= h <= 1024 or w * h > 4_000_000:
+                    raise ValueError('Dimensiones máximas: 4096 × 1024 y 4 megapíxeles')
                 normalized = image.convert('RGBA')
                 output = io.BytesIO()
                 normalized.save(output, format='PNG', optimize=True)
                 cleaned = output.getvalue()
-                if len(cleaned) > 3_000_000:
+                if len(cleaned) > 10_000_000:
                     raise ValueError('PNG procesado demasiado grande')
         except (OSError, UnidentifiedImageError, ValueError) as exc:
             raise ValueError('No se pudo importar el PNG: ' + str(exc)) from exc
