@@ -46,7 +46,7 @@ class TrackerService:
         self.progress=RunProgress(self.output.with_name(self.output.stem+suffix+'-progress.json'))
         self.state['progress']=copy.deepcopy(self.progress.data)
         self.profile=PROFILES[self.state['game']]
-        self.reader=None;self.config=None;self.retry_at=0;self.scan_next=None;self.scan_verified=set();self.diagnostic=None;self.sun_box_base=None
+        self.reader=None;self.config=None;self.retry_at=0;self.scan_next=None;self.scan_verified=set();self.gen6_pending_boxes={};self.gen6_box_failed=False;self.diagnostic=None;self.sun_box_base=None
         self.next_box_refresh_at=0.0
         # Companion credentials already persist independently. Restore the emulator
         # selection without requiring the user to re-pair on every launch.
@@ -216,7 +216,7 @@ class TrackerService:
             self.progress=RunProgress(self.output.with_name(self.output.stem+suffix+'-progress.json'))
             self.update(game=profile.name,party=[None]*6,boxes={},stale=True)
         self.profile=profile;self.sun_box_base=None
-        self.scan_next=None;self.scan_verified=set()
+        self.scan_next=None;self.scan_verified=set();self.gen6_pending_boxes={};self.gen6_box_failed=False
         self.update(connection={'status':'connecting','message':'Localizando RAM…'},stale=True,scan={'active':False,'completed':0})
         mode=self.config['mode']
         if self.factory:self.reader=self.factory(self.config)
@@ -232,31 +232,73 @@ class TrackerService:
                              'discovery':getattr(self.reader.process,'discovery_report',{})}
         else:
             self.reader=LimeGDB(self.config.get('port',24689));self.reader.identify();self.reader.resume()
-        # Gen6 box addresses have NOT been verified; don't reuse USUM pointers.
+        # Gen6 box addresses are sourced from a third-party plugin, and must
+        # pass complete, repeated encrypted PK6 validation before publication.
         # Validate a decoded team before reporting any Gen6 game as connected.
         if self.profile.generation==6:
             party=decode_party(capture_party(self.reader,self.profile),max_species=721)
             if not any(party):
                 raise ValueError('No se detectó equipo PK6 válido. Abre una partida con al menos un Pokémon y guarda diagnóstico.')
-            self.scan_next=None
+            self.scan_next=1
         else:
             self.scan_next=1
-        self.next_box_refresh_at=time.monotonic()+180.0 if self.profile.generation==7 else float('inf')
-        self.update(connection={'status':'connected','message':('Gen6 experimental · solo equipo (cajas pendientes)' if self.profile.generation==6 else
+        self.next_box_refresh_at=time.monotonic()+180.0
+        self.update(connection={'status':'connected','message':('Gen6 experimental · verificando cajas PK6' if self.profile.generation==6 else
             'Conectado · '+('Windows sin GDB' if mode=='memory' else 'GDB'))},
             box_verified=self.profile.generation==7,
-            scan={'active':self.profile.generation==7,'completed':0})
+            scan={'active':True,'completed':0})
         self.save_session()
     def poll(self):
         party=[self.enrich(p) for p in decode_party(capture_party(self.reader,self.profile),
              max_species=721 if self.profile.generation==6 else 807)]
         if self.profile.generation==6:
             if not any(party):raise ValueError('Equipo PK6 no válido o vacío: sin actualizar datos.')
-            self.update(party=party,boxes={},box_verified=False,stale=False,
-                battle_hp=False,scan={'active':False,'completed':0},
-                connection={'status':'connected','message':'Gen6 experimental · equipo en vivo, cajas y PS de combate pendientes'})
+            # Keep memory snapshots isolated and reject apparently valid but
+            # inconsistent RAM instead of guessing a PC base from empty bytes.
+            saved=self.snapshot()
+            changes={'party':party,'stale':False,'battle_hp':False}
+            if self.scan_next is not None:
+                number=self.scan_next
+                try:
+                    address=self.profile.box_address
+                    raw=read_box(self.reader,number,address,box_count=31)
+                    if raw!=read_box(self.reader,number,address,box_count=31):
+                        raise ValueError('PC cambió durante la lectura')
+                    slots=decode_box(raw,max_species=721)
+                    self.gen6_pending_boxes[str(number)]=[self.enrich(p) for p in slots]
+                except (ValueError,OSError,ConnectionError) as exc:
+                    self.gen6_box_failed=True
+                    if self.diagnostic is not None:
+                        self.diagnostic.update(gen6_box_rejection=str(exc)[:120],gen6_box_index=number)
+                done=number==31
+                self.scan_next=None if done else number+1
+                changes['scan']={'active':not done,'completed':number}
+                if done:
+                    observed=any(p for box in self.gen6_pending_boxes.values() for p in box)
+                    verified=(not self.gen6_box_failed and
+                              len(self.gen6_pending_boxes)==31 and observed)
+                    if verified:
+                        changes['boxes']=self.gen6_pending_boxes
+                        changes['box_verified']=True
+                    else:
+                        changes['box_verified']=bool(saved.get('box_verified',False))
+                    changes['connection']={'status':'connected','message':(
+                        'Gen6 experimental · equipo y 31 cajas PK6 verificadas · PS combate pendiente'
+                        if verified else
+                        'Gen6 experimental · equipo válido; cajas no verificadas (prueba con Pokémon depositado)')}
+                    self.gen6_pending_boxes={}
+                    self.gen6_box_failed=False
+                    self.next_box_refresh_at=time.monotonic()+180.0
+            else:
+                changes['connection']={'status':'connected','message':(
+                    'Gen6 experimental · equipo y cajas PK6 · PS combate pendiente'
+                    if saved.get('box_verified') else
+                    'Gen6 experimental · equipo válido, cajas no verificadas')}
+            self.update(**changes)
             if self.diagnostic is not None:
-                self.diagnostic.update(box_status='no_verified_gen6',validated_team_slots=sum(p is not None for p in party))
+                self.diagnostic.update(box_status=('verified' if self.snapshot().get('box_verified') else 'unverified_gen6'),
+                    box_address=hex(self.profile.box_address),validated_team_slots=sum(p is not None for p in party),
+                    battle_hp=False)
             return
         party,in_battle=apply_battle_hp(self.reader,party,self.profile.name)
         number=self.scan_next or self.snapshot()['selected_box']
@@ -305,12 +347,11 @@ class TrackerService:
             self.clear_route_mark(cmd)
         elif action=='connect':self.config=cmd;self.retry_at=0;self.scan_next=None;self.connect()
         elif action=='disconnect':
-            self.config=None;self.scan_next=None;self.close_reader();self.update(connection={'status':'disconnected','message':'Desconectado'},stale=True,scan={'active':False,'completed':0})
+            self.config=None;self.scan_next=None;self.gen6_pending_boxes={};self.close_reader();self.update(connection={'status':'disconnected','message':'Desconectado'},stale=True,scan={'active':False,'completed':0})
         elif action=='box':self.update(selected_box=cmd['number'])
         elif action=='scan':
-            if self.profile.generation==6:raise ValueError('Lectura de cajas Gen6 pendiente de validación; solo equipo disponible.')
             if not self.reader:raise ValueError('Conecta el tracker antes de leer las cajas.')
-            self.scan_verified=set()
+            self.scan_verified=set();self.gen6_pending_boxes={};self.gen6_box_failed=False
             self.scan_next=1;self.update(scan={'active':True,'completed':0})
         elif action=='cancel':self.scan_next=None;self.update(scan={'active':False,'completed':self.snapshot()['scan']['completed']})
     def validate_mark_dead(self,cmd):
