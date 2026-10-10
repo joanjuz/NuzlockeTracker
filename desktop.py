@@ -144,7 +144,7 @@ class LocalBackend:
     def start(self):
         self.service = TrackerService(self.runtime / 'state.json')
         self.companion = CompanionSync(self.service, self.runtime)
-        self.overlay = OverlayManager(self.service, self.runtime, self.layout_path)
+        self.overlay = OverlayManager(self.service, self.runtime, self.layout_path,custom_dir=self.custom_dir)
         self.remote_share = RemoteOverlayShare(
             self.service, self.overlay, preferred_port=8767 if self.profile == 'principal' else 8768)
         handler = make_handler(self.service, secrets.token_urlsafe(32),

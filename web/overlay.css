@@ -9,14 +9,14 @@ body{font-family:var(--font);color:var(--fg);padding:0}
 .overlay-layer[data-direction=grid]{display:grid;grid-template-columns:repeat(3,var(--slot))}
 .overlay-slot{flex:0 0 var(--slot);width:var(--slot);min-width:0;display:flex;justify-content:center;align-items:center;min-height:1px;text-align:center}
 .overlay-layer[data-layer=sprites] .overlay-slot{height:var(--sprite)}
-.overlay-image{width:var(--sprite);height:var(--sprite);object-fit:contain;image-rendering:pixelated;display:block}
+.overlay-image{width:var(--sprite);height:var(--sprite);object-fit:contain;image-rendering:var(--sprite-render,pixelated);padding:var(--sprite-padding,0px);filter:var(--sprite-shadow,none);display:block}
 .overlay-name{font-size:var(--name);color:var(--fg);font-weight:var(--weight);line-height:1.15;
   overflow-wrap:anywhere;text-shadow:-1px -1px 0 var(--outline),1px -1px 0 var(--outline),-1px 1px 0 var(--outline),1px 1px 0 var(--outline)}
 .overlay-health{width:100%;display:flex;flex-direction:column;gap:4px;align-items:stretch}
 .hp-outline{height:var(--hp-h);border:var(--border) solid var(--border-color);
   border-radius:var(--radius);background:var(--track);overflow:hidden;position:relative}
 .hp-fill{height:100%;width:0%;background:var(--hp-color);border-radius:inherit;
-  transition:width .25s ease-out}
+  transition:width var(--hp-speed,250ms) ease-out}
 .hp-fill.gradient{background:linear-gradient(to bottom,rgba(255,255,255,.48),transparent 55%),var(--hp-color)}
 .hp-fill.striped{background:repeating-linear-gradient(125deg,transparent 0 8px,rgba(255,255,255,.28) 8px 12px),var(--hp-color)}
 .hp-fill.glow{box-shadow:0 0 12px var(--hp-color),0 0 5px var(--hp-color)}

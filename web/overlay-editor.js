@@ -6,10 +6,12 @@
     'hp_background','hp_border','hp_border_width','hp_good','hp_mid','hp_low',
     'hp_low_threshold','hp_mid_threshold','hp_label','hp_text_color','hp_text_size',
     'hp_style','hp_reverse','hp_glow','show_empty','hp_custom_fill','hp_custom_frame',
+    'render_scale','sprite_scaling','sprite_shadow','sprite_padding','hp_animation_ms',
   ];
   const numberFields=new Set(['gap','slot_width','sprite_size','name_size','name_weight','hp_height',
-    'hp_radius','hp_border_width','hp_low_threshold','hp_mid_threshold','hp_text_size']);
-  const checkFields=new Set(['hp_reverse','hp_glow','show_empty','hp_custom_fill','hp_custom_frame']);
+    'hp_radius','hp_border_width','hp_low_threshold','hp_mid_threshold','hp_text_size',
+    'render_scale','sprite_padding','hp_animation_ms']);
+  const checkFields=new Set(['hp_reverse','hp_glow','show_empty','hp_custom_fill','hp_custom_frame','sprite_shadow']);
   const status=$('status');
   let token='',pending=null,defaultConfig=null,loading=true;
   let shared={enabled:false,ip:'',port:null,base_url:''};
@@ -110,11 +112,34 @@
     }
     return result;
   };
+  $('sprite-upload').onchange=async()=>{
+    const files=[...($('sprite-upload').files||[])];
+    if(!files.length)return;
+    if(files.length>30){say('Importa hasta 30 sprites por lote',true);return;}
+    let imported=0;
+    try{
+      for(const file of files){
+        if(file.size>8_000_000)throw new Error(file.name+': máximo 8 MB por sprite');
+        const ext=(file.name.split('.').pop()||'').toLowerCase();
+        if(!['png','apng','gif','webp','jpg','jpeg','bmp'].includes(ext))
+          throw new Error(file.name+': extensión no admitida');
+        const rawName=file.name.slice(0,-ext.length-1);
+        const stem=rawName.normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
+          .replace(/[^A-Za-z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80);
+        if(!stem)throw new Error('Nombre de archivo inválido');
+        await post('/api/overlay/sprite',{name:stem+'.'+ext,data:await encodeFile(file)});
+        imported++;
+        say('Sprites importados: '+imported+' / '+files.length);
+      }
+      $('sprite-import-info').textContent='Importados '+imported+' sprites. OBS los actualizará automáticamente.';
+    }catch(error){say('Importación ('+imported+'/'+files.length+'): '+error.message,true);}
+    finally{$('sprite-upload').value='';}
+  };
   async function importHealth(kind){
     const control=$('hp_'+kind+'_upload');
     const file=control.files?.[0];if(!file)return;
     try{
-      if(file.size>2_000_000)throw new Error('El PNG supera los 2 MB');
+      if(file.size>8_000_000)throw new Error('El PNG supera los 8 MB');
       if(!file.name.toLowerCase().endsWith('.png'))throw new Error('Selecciona un archivo PNG');
       const info=await post('/api/overlay/hp-image',{kind,data:await encodeFile(file)});
       $('hp_custom_'+kind).checked=true;

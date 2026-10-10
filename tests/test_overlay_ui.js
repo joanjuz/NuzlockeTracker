@@ -21,10 +21,16 @@ assert.match(client,/settings\.hp_style/);
 assert.match(client,/settings\.hp_glow/);
 assert.match(client,/settings\.font_file/);
 assert.match(client,/img\.dataset\.src!==src/);
+assert.match(client,/p\.image_format/);
+assert.match(client,/root\.style\.zoom/);
+assert.match(client,/sprite_scaling/);
+assert.match(client,/sprite_shadow/);
+assert.match(client,/hp_animation_ms/);
 assert.doesNotMatch(client,/\/api\/state/);
 for(const id of ['links','slot','order','direction','gap','slot_width',
  'sprite_size','font','font_file','name_color','name_size','hp_height',
  'hp_style','hp_reverse','hp_glow','hp_label','hp_good','hp_low',
+ 'render_scale','sprite_scaling','sprite_shadow','sprite_padding','hp_animation_ms','sprite-upload',
  'hp_mid','upload','save','reset','hp_fill_upload','hp_frame_upload',
  'hp_custom_fill','hp_custom_frame','share-ip','share-enable','share-disable',
  'link-target','share-status'])
@@ -55,3 +61,8 @@ assert.match(editor,/progressive-theme/);
 assert.match(editor,/addEventListener\('storage'/);
 assert.match(edit,/status\.dataset\.error=String\(problem\)/);
 console.log('OBS overlay: capas separadas, personalización y sintaxis JavaScript OK');
+
+assert.match(edit,/\/api\/overlay\/sprite/);
+assert.match(editor,/sprites_personalizados/);
+assert.match(css,/var\(--sprite-render/);
+assert.match(css,/var\(--hp-speed/);

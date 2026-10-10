@@ -126,8 +126,11 @@ class AnimatedLayoutTests(unittest.TestCase):
 
     def test_alola_gif_takes_priority_and_invalid_falls_back_to_png(self):
         names = custom_media_names({'species_id': 37, 'form':1}, 10103)
-        self.assertEqual(names, ('37-alola.gif', '10103.gif',
-                                 '37-alola.png', '10103.png'))
+        for alias in ('37-alola.gif','10103.gif','37-alola.webp',
+                      '37-alola.png','10103.png'):
+            self.assertIn(alias,names)
+        self.assertLess(names.index('37-alola.gif'),names.index('37-alola.png'))
+        self.assertLess(names.index('37-alola.gif'),names.index('37.gif'))
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             source = root/'sprites_personalizados'

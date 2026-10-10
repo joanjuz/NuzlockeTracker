@@ -18,7 +18,7 @@ from pathlib import Path
 from PIL import Image, UnidentifiedImageError
 
 from .progress import pokemon_key
-from .layout_export import BLANK_PNG, png_to_gif
+from .layout_export import BLANK_PNG, png_to_gif, normalize_custom_sprite, CUSTOM_EXTENSIONS
 
 PALETTE = {
     'high': '#5de09a', 'medium': '#f2c15c', 'low': '#ef5967',
@@ -36,6 +36,9 @@ DEFAULT = {
     'hp_text_color': '#ffffff', 'hp_text_size': 13,
     'hp_style': 'solid', 'hp_reverse': False, 'hp_glow': False,
     'show_empty': False, 'font_file': '',
+    'render_scale': 1, 'sprite_scaling': 'pixelated',
+    'sprite_shadow': False, 'sprite_padding': 0,
+    'hp_animation_ms': 250,
     'hp_custom_fill': False, 'hp_custom_frame': False,
 }
 VALID_FONTS = ('ttf', 'otf', 'woff', 'woff2')
@@ -59,7 +62,10 @@ def validated_settings(candidate):
         elif name == 'hp_style':
             if value not in ('solid', 'gradient', 'striped'):
                 raise ValueError('Estilo de barra incorrecto')
-        elif name in ('hp_glow', 'hp_reverse', 'show_empty', 'hp_custom_fill', 'hp_custom_frame'):
+        elif name == 'sprite_scaling':
+            if value not in ('pixelated','smooth'):
+                raise ValueError('Interpolación de sprites desconocida')
+        elif name in ('hp_glow', 'hp_reverse', 'show_empty', 'hp_custom_fill', 'hp_custom_frame', 'sprite_shadow'):
             if type(value) is not bool:
                 raise ValueError('Opción incorrecta: ' + name)
         elif name == 'font':
@@ -78,6 +84,8 @@ def validated_settings(candidate):
                 'hp_height': (3, 100), 'hp_radius': (0, 50),
                 'hp_border_width': (0, 8), 'hp_low_threshold': (1, 49),
                 'hp_mid_threshold': (50, 95), 'hp_text_size': (8, 48),
+                'render_scale': (1, 4), 'sprite_padding': (0, 64),
+                'hp_animation_ms': (0, 1500),
             }
             if type(value) is not int or not ranges[name][0] <= value <= ranges[name][1]:
                 raise ValueError('Valor fuera de rango: ' + name)
@@ -98,13 +106,14 @@ def font_is_valid(raw, ext):
 
 
 class OverlayManager:
-    def __init__(self, service, runtime, layout):
+    def __init__(self, service, runtime, layout, custom_dir=None):
         self.service = service
         self.runtime = Path(runtime)
         self.layout = Path(layout)
         self.path = self.runtime / 'obs-overlay.json'
         self.fonts = self.runtime / 'obs-fonts'
         self.hp_images = self.runtime / 'obs-hp-images'
+        self.custom_dir = Path(custom_dir) if custom_dir is not None else self.layout.parent/'sprites_personalizados'
         self.lock = threading.RLock()
         self.settings = copy.deepcopy(DEFAULT)
         if self.path.is_file():
@@ -138,6 +147,39 @@ class OverlayManager:
             return []
         return sorted(p.name for p in self.fonts.iterdir()
                       if p.is_file() and re.fullmatch(r'[a-zA-Z0-9_-]{1,70}\.(?:ttf|otf|woff2?)', p.name))
+
+    def import_sprite(self,name,data):
+        """Import a safely named custom image for live OBS replacement.
+
+        No arbitrary paths, SVG, compressed archives or unvalidated files.
+        Never touches the original ROM, save or memory.
+        """
+        if not isinstance(name,str) or not re.fullmatch(
+                r'[A-Za-z0-9_-]{1,80}\.(?:png|apng|gif|webp|jpe?g|bmp)',
+                name,re.IGNORECASE):
+            raise ValueError('Nombre de sprite inválido. Usa número o especie: 25.png / pikachu.webp')
+        if not isinstance(data,str) or len(data)>10_800_000:
+            raise ValueError('Sprite demasiado grande (máximo 8 MB)')
+        try:
+            raw=base64.b64decode(data,validate=True)
+        except (ValueError,base64.binascii.Error) as exc:
+            raise ValueError('Sprite Base64 inválido') from exc
+        if len(raw)>8_000_000:
+            raise ValueError('Sprite demasiado grande')
+        suffix='.'+name.rsplit('.',1)[1].lower()
+        normalize_custom_sprite(raw,suffix)
+        safe=name.rsplit('.',1)[0]+suffix
+        self.custom_dir.mkdir(parents=True,exist_ok=True)
+        target=self.custom_dir/safe
+        if target.is_symlink():
+            raise ValueError('No se permite sobrescribir enlaces simbólicos')
+        tmp=self.custom_dir/('.'+safe+'.tmp')
+        try:
+            tmp.write_bytes(raw)
+            os.replace(tmp,target)
+        finally:
+            tmp.unlink(missing_ok=True)
+        return {'name':safe,'bytes':len(raw),'path_hint':'sprites_personalizados'}
 
     def import_font(self, name, data):
         if not isinstance(name, str) or not re.fullmatch(r'[a-zA-Z0-9_-]{1,60}\.(?:ttf|otf|woff2?)', name, re.I):
@@ -189,23 +231,23 @@ class OverlayManager:
         """Importa PNG estático, valida dimensiones y elimina metadatos al reescribirlo."""
         if kind not in ('fill', 'frame'):
             raise ValueError('Tipo de imagen de barra inválido')
-        if not isinstance(data, str) or len(data) > 3_000_000:
-            raise ValueError('Imagen demasiado grande (máximo 2 MB)')
+        if not isinstance(data, str) or len(data) > 10_800_000:
+            raise ValueError('Imagen demasiado grande (máximo 8 MB)')
         try:
             raw = base64.b64decode(data, validate=True)
-            if len(raw) > 2_000_000 or not raw.startswith(b'\x89PNG\r\n\x1a\n'):
-                raise ValueError('Se necesita una imagen PNG válida de hasta 2 MB')
+            if len(raw) > 8_000_000 or not raw.startswith(b'\x89PNG\r\n\x1a\n'):
+                raise ValueError('Se necesita una imagen PNG válida de hasta 8 MB')
             with Image.open(io.BytesIO(raw)) as image:
                 w, h = image.size
                 if image.format != 'PNG' or getattr(image, 'n_frames', 1) != 1:
                     raise ValueError('Utiliza un PNG estático')
-                if not 1 <= w <= 2048 or not 1 <= h <= 512 or w * h > 1_000_000:
-                    raise ValueError('Dimensiones máximas: 2048 × 512 y 1 megapíxel')
+                if not 1 <= w <= 4096 or not 1 <= h <= 1024 or w * h > 4_000_000:
+                    raise ValueError('Dimensiones máximas: 4096 × 1024 y 4 megapíxeles')
                 normalized = image.convert('RGBA')
                 output = io.BytesIO()
                 normalized.save(output, format='PNG', optimize=True)
                 cleaned = output.getvalue()
-                if len(cleaned) > 3_000_000:
+                if len(cleaned) > 10_000_000:
                     raise ValueError('PNG procesado demasiado grande')
         except (OSError, UnidentifiedImageError, ValueError) as exc:
             raise ValueError('No se pudo importar el PNG: ' + str(exc)) from exc
@@ -220,7 +262,7 @@ class OverlayManager:
         return {'kind': kind, 'width': w, 'height': h, 'bytes': len(cleaned)}
 
     def image_bytes(self, slot, suffix):
-        if type(slot) is not int or slot not in range(1,7) or suffix not in ('png','gif'):
+        if type(slot) is not int or slot not in range(1,7) or suffix not in ('png','gif','webp'):
             return None
         target = self.layout / f'pokemon_{slot}.{suffix}'
         try:
@@ -228,8 +270,8 @@ class OverlayManager:
                 return target.read_bytes()
         except OSError:
             pass
-        if suffix == 'png':
-            return BLANK_PNG
+        if suffix in ('png','webp'):
+            return BLANK_PNG if suffix=='png' else None
         # Valid single-frame transparent GIF before the sprite exporter starts.
         return png_to_gif(BLANK_PNG)
 
@@ -260,14 +302,21 @@ class OverlayManager:
             maximum = mon.get('max_hp')
             valid = type(hp) is int and type(maximum) is int and maximum > 0
             hp = max(0, min(hp, maximum)) if valid else None
-            sprite = self.layout / f'pokemon_{i+1}.gif'
+            media=self.layout/f'pokemon_{i+1}.media'
             try:
-                image_rev = str(sprite.stat().st_mtime_ns)
+                image_format=media.read_text(encoding='ascii').strip()
+            except (OSError,ValueError,UnicodeError):
+                image_format='png'
+            if image_format not in ('png','gif','webp'):
+                image_format='png'
+            sprite=self.layout/f'pokemon_{i+1}.{image_format}'
+            try:
+                image_rev=str(sprite.stat().st_mtime_ns)
             except OSError:
-                image_rev = '0'
+                image_rev='0'
             result.append({
                 'slot':i+1, 'present': True, 'species_id': mon['species_id'],
-                'image_rev': image_rev,
+                'image_rev': image_rev, 'image_format':image_format,
                 'nickname': str(mon.get('nickname') or mon.get('species') or '')[:40],
                 'hp': hp, 'max_hp': maximum if valid else None,
                 'percent': round(100*hp/maximum, 2) if valid else None,
