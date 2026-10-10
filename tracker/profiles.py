@@ -31,9 +31,9 @@ ULTRA_SUN_10 = GameProfile('Ultra Sun 1.0', 'Lime3DS 2119.1', 0x33F7FA44, 484, 4
 # Reference: samabr85/Gen6CTRPFrameworkOverhauled Sources/PKHeX.cpp
 # DetermineSpeciesPointer(). Runtime checksum and repeated-read checks required.
 POKEMON_X_10 = GameProfile('Pokémon X 1.0','Citra (experimental)',0x08CE1CE8,484,484,box_address=0x08C861C8,generation=6)
-POKEMON_Y_10 = GameProfile('Pokémon Y 1.0','Citra (experimental)',0x08CE1CE8,484,484,box_address=0,generation=6)
-OMEGA_RUBY_10 = GameProfile('Omega Ruby 1.0','Citra (experimental)',0x08CF727C,484,484,box_address=0,generation=6)
-ALPHA_SAPPHIRE_10 = GameProfile('Alpha Sapphire 1.0','Citra (experimental)',0x08CF727C,484,484,box_address=0,generation=6)
+POKEMON_Y_10 = GameProfile('Pokémon Y 1.0','Citra (experimental)',0x08CE1CE8,484,484,box_address=0x08C861C8,generation=6)
+OMEGA_RUBY_10 = GameProfile('Omega Ruby 1.0','Citra (experimental)',0x08CF727C,484,484,box_address=0x08C9E134,generation=6)
+ALPHA_SAPPHIRE_10 = GameProfile('Alpha Sapphire 1.0','Citra (experimental)',0x08CF727C,484,484,box_address=0x08C9E134,generation=6)
 GEN6_GAMES = (POKEMON_X_10.name, POKEMON_Y_10.name, OMEGA_RUBY_10.name, ALPHA_SAPPHIRE_10.name)
 PROFILES = {p.name: p for p in (ULTRA_MOON_10, ULTRA_SUN_10,
                               POKEMON_X_10,POKEMON_Y_10,OMEGA_RUBY_10,ALPHA_SAPPHIRE_10)}
