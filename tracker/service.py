@@ -49,7 +49,7 @@ class TrackerService:
         self.progress=RunProgress(self.output.with_name(self.output.stem+suffix+'-progress.json'))
         self.state['progress']=copy.deepcopy(self.progress.data)
         self.profile=PROFILES[self.state['game']]
-        self.reader=None;self.config=None;self.retry_at=0;self.scan_next=None;self.scan_verified=set();self.gen6_pending_boxes={};self.gen6_box_failed=False;self.gen6_probe=None;self.gen6_probe=None;self.gen6_research_done=False;self.diagnostic=None;self.sun_box_base=None
+        self.reader=None;self.config=None;self.retry_at=0;self.scan_next=None;self.scan_verified=set();self.gen6_pending_boxes={};self.gen6_box_failed=False;self.gen6_probe=None;self.gen6_research_done=False;self.diagnostic=None;self.sun_box_base=None
         self.next_box_refresh_at=0.0
         # Companion credentials already persist independently. Restore the emulator
         # selection without requiring the user to re-pair on every launch.
@@ -242,14 +242,17 @@ class TrackerService:
             party=decode_party(capture_party(self.reader,self.profile),max_species=721)
             if not any(party):
                 raise ValueError('No se detectó equipo PK6 válido. Abre una partida con al menos un Pokémon y guarda diagnóstico.')
-            self.scan_next=1
+            # Keep experimental PC scans completely separate from team startup.
+            # The user can explicitly start one in Cajas after confirming party.
+            self.scan_next=None
+            self.next_box_refresh_at=float('inf')
         else:
             self.scan_next=1
-        self.next_box_refresh_at=time.monotonic()+180.0
-        self.update(connection={'status':'connected','message':('Gen6 experimental · verificando cajas PK6' if self.profile.generation==6 else
+            self.next_box_refresh_at=time.monotonic()+180.0
+        self.update(connection={'status':'connected','message':('Gen6 experimental · equipo listo · cajas disponibles con escaneo manual' if self.profile.generation==6 else
             'Conectado · '+('Windows sin GDB' if mode=='memory' else 'GDB'))},
             box_verified=self.profile.generation==7,
-            scan={'active':True,'completed':0})
+            scan={'active':self.profile.generation==7,'completed':0})
         self.save_session()
     def poll(self):
         party=[self.enrich(p) for p in decode_party(capture_party(self.reader,self.profile),
@@ -302,7 +305,7 @@ class TrackerService:
                         if chosen is not None else
                         'Gen6 experimental · equipo válido; cajas no verificadas (prueba con Pokémon depositado)')}
                     self.gen6_probe=None
-                    self.next_box_refresh_at=time.monotonic()+180.0
+                    self.next_box_refresh_at=(time.monotonic()+180.0 if chosen is not None else float('inf'))
             else:
                 changes['connection']={'status':'connected','message':(
                     'Gen6 experimental · equipo y cajas PK6 · PS combate experimental'
