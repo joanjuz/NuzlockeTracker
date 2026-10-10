@@ -32,8 +32,8 @@ Las direcciones son **candidatas históricas de Citra**; NO equivalen a direccio
 1. Mantén instalada la versión estable de USUM. Descomprime el ZIP de prueba en otra carpeta.
 2. Abre una partida **1.0** de X o Y, u Omega Ruby/Alpha Sapphire, en Citra/Azahar/Lime3DS, preferiblemente con uno o más Pokémon en el equipo.
 3. En Pokémon Tracker, Conexión → elige el título correspondiente → Memoria Windows y, si aparecen dos emuladores, indica PID.
-4. Espera la detección. Si no funciona, usa **Guardar diagnóstico…** y comparte el JSON; no necesitas compartir ROM, guardado, credenciales ni memoria cruda.
-5. Durante un combate, recibe daño y comprueba que los PS se actualicen antes de salir de la batalla. Luego sal del combate y vuelve a comprobar los PS.
-6. Para validar **cajas** en una fase posterior harán falta capturas de diagnóstico más específicas, siempre solo datos necesarios y con permiso del usuario.
+4. En **Cajas**, pulsa el botón **Actualizar todas las cajas** (la casilla «Mostrar todas las cajas leídas» solo es un filtro). Espera el escaneo **31/31**. Con un Pokémon depositado, verifica la aparición del PC; si falla, **Guardar diagnóstico…** permitirá ver bases candidatas y primera caja rechazada sin copiar PK6 ni guardados.
+5. Durante una batalla real, recibe daño y comprueba que los PS cambian **antes de salir**. Sin salir del combate, pulsa **Guardar diagnóstico…**: ahora registra si los candidatos de batalla fallan por lectura, identidad del equipo o validación de PS. Al salir del combate, vuelve a comprobar la lectura.
+6. Si sigue apareciendo «Cajas no verificadas», adjunta ese nuevo diagnóstico e indica en qué caja tienes un Pokémon y dónde estaba durante la captura. Para Gen6 en Lime3DS se añade una segunda base candidata con el desplazamiento de RAM encontrado en el equipo.
 
 **No fusionar con master hasta que se pruebe en juegos reales.**
