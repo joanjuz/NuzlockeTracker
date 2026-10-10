@@ -47,6 +47,12 @@
     const structural = !settings || settings.direction !== value.direction ||
         JSON.stringify(settings.order)!==JSON.stringify(value.order);
     settings=value;lastConfig=signature;
+    root.style.transform='scale('+(settings.render_scale||1)+')';
+    root.style.transformOrigin='top left';
+    css('--sprite-render',settings.sprite_scaling==='smooth'?'auto':'pixelated');
+    css('--sprite-padding',(settings.sprite_padding||0)+'px');
+    css('--sprite-shadow',settings.sprite_shadow?'drop-shadow(0 4px 7px #000a)':'none');
+    css('--hp-speed',(settings.hp_animation_ms??250)+'ms');
     css('--slot',settings.slot_width+'px');css('--gap',settings.gap+'px');
     css('--sprite',settings.sprite_size+'px');
     css('--name',settings.name_size+'px');css('--fg',settings.name_color);
@@ -92,7 +98,8 @@
           const img=el.firstElementChild;
           const ver=p.image_rev||'0';
           // Keep GIF animation playing between state polls. Reload only on file changes.
-          const src='/overlay/media/pokemon_'+p.slot+'.gif?v='+encodeURIComponent(ver);
+          const format=['png','gif','webp'].includes(p.image_format)?p.image_format:'png';
+          const src='/overlay/media/pokemon_'+p.slot+'.'+format+'?v='+encodeURIComponent(ver);
           if(img.dataset.src!==src){img.dataset.src=src;img.src=src;}
           img.style.visibility=p.present?'visible':'hidden';
         } else if(type==='names'){
