@@ -48,3 +48,12 @@ En el diagnóstico de 2026-10-09 a las 22:10 (Costa Rica) el equipo se detecta e
 - **Prueba importante:** antes de pulsar «Actualizar todas las cajas», coloca un Pokémon en **Caja 1 → casilla 1**. Esto permite comprobar que el primer PK6 válido corresponde al inicio real del almacenamiento.
 - **Corrección batalla Gen6:** el código de Citra-Tracker-v2 `read_party()` comienza directamente por los 232 bytes PK6 y lee estadísticas a +344 dentro de cada bloque de 484; **no** incluye el encabezado de 128 bytes de los datos de equipo normal. El lector de combate ahora adapta este formato correctamente. Todavía falta validar el descenso de PS durante una batalla real en Lime3DS.
 - Si durante combate sigue mostrando `battle_roster_unavailable`, guardar diagnóstico **durante el combate** para diferenciar estado no activo y dirección incorrecta.
+
+## Recuperación del equipo — diagnóstico 22:23 en Lime3DS
+
+El tercer diagnóstico de Pokémon X encontró **0 equipos válidos** antes de alcanzar un límite de 90 segundos, después de buscar en más de 800 MiB de memoria. La versión anterior sí había validado entre 4 y 6 Pokémon con el mismo emulador, por lo que no se considera un error de la partida ni evidencia de fallo de PK6.
+
+- La conexión de Gen6 primero prueba de forma **acotada** la localización conocida del equipo X/Y o ORAS dentro de las regiones grandes de RAM. Considera la dirección normal y variantes desplazadas ±128 bytes; solo acepta checksum PK6 válido y dos lecturas idénticas. Si no encuentra un equipo, ejecuta el descubrimiento anterior como respaldo.
+- El escaneo de 31 cajas Gen6 **ya no se ejecuta automáticamente al conectar**, para evitar que una búsqueda de memoria experimental bloquee la detección del equipo. Debe iniciarse con **Cajas → Actualizar todas las cajas**.
+- Después de un escaneo válido de cajas, la actualización periódica continúa. Si una búsqueda no consigue verificar cajas, no se repite sola cada tres minutos.
+- Durante la primera conexión conviene estar en el mundo del juego (fuera del PC y del combate), con al menos un Pokémon en el equipo. Las funciones X/Y y ORAS de cajas/PS siguen **sin validar en pruebas reales**, no fusionar con master.
