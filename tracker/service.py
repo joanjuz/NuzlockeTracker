@@ -255,14 +255,36 @@ class TrackerService:
             scan={'active':self.profile.generation==7,'completed':0})
         self.save_session()
     def poll(self):
-        party=[self.enrich(p) for p in decode_party(capture_party(self.reader,self.profile),
-             max_species=721 if self.profile.generation==6 else 807)]
+        # Gen6 overworld party may be temporarily unavailable or stale while
+        # the game is in battle. The battle roster is independently verified.
+        try:
+            party=[self.enrich(p) for p in decode_party(capture_party(self.reader,self.profile),
+                 max_species=721 if self.profile.generation==6 else 807)]
+        except ValueError:
+            if self.profile.generation!=6:raise
+            party=None
         if self.profile.generation==6:
-            if not any(party):raise ValueError('Equipo PK6 no válido o vacío: sin actualizar datos.')
-            party,gen6_battle=apply_gen6_battle_hp(self.reader,party,self.profile.name,self.profile.party_address,self.diagnostic)
+            saved=self.snapshot()
+            if not party or not any(party):
+                previous=saved.get('party',[]) if not saved.get('stale',True) else []
+                if not previous or not any(previous):
+                    raise ValueError('Equipo PK6 temporalmente no disponible.')
+                party,gen6_battle=apply_gen6_battle_hp(
+                    self.reader,previous,self.profile.name,self.profile.party_address,self.diagnostic)
+                if not gen6_battle:
+                    raise ValueError('Equipo PK6 temporalmente no disponible; esperando regreso.')
+            else:
+                party,gen6_battle=apply_gen6_battle_hp(
+                    self.reader,party,self.profile.name,self.profile.party_address,self.diagnostic)
+                # If the overworld mirror changes during combat, compare
+                # against last verified team. Never trust a stored party alone:
+                # the complete runtime battle roster/HP must validate as well.
+                if not gen6_battle and not saved.get('stale',True) and any(saved.get('party',[])):
+                    previous,in_battle=apply_gen6_battle_hp(
+                        self.reader,saved['party'],self.profile.name,self.profile.party_address)
+                    if in_battle:party,gen6_battle=previous,True
             # Keep memory snapshots isolated and reject apparently valid but
             # inconsistent RAM instead of guessing a PC base from empty bytes.
-            saved=self.snapshot()
             changes={'party':party,'stale':False,'battle_hp':gen6_battle}
             if self.scan_next is not None:
                 number=self.scan_next
