@@ -14,6 +14,7 @@ from .reference import ReferenceData
 from .progress import RunProgress
 from .battle import apply_battle_hp
 from .battle_gen6 import apply_gen6_battle_hp
+from .gen6_pc import Gen6BoxProbe
 from .templates import TemplateManager
 
 class TrackerService:
@@ -47,7 +48,7 @@ class TrackerService:
         self.progress=RunProgress(self.output.with_name(self.output.stem+suffix+'-progress.json'))
         self.state['progress']=copy.deepcopy(self.progress.data)
         self.profile=PROFILES[self.state['game']]
-        self.reader=None;self.config=None;self.retry_at=0;self.scan_next=None;self.scan_verified=set();self.gen6_pending_boxes={};self.gen6_box_failed=False;self.diagnostic=None;self.sun_box_base=None
+        self.reader=None;self.config=None;self.retry_at=0;self.scan_next=None;self.scan_verified=set();self.gen6_pending_boxes={};self.gen6_box_failed=False;self.gen6_probe=None;self.gen6_probe=None;self.diagnostic=None;self.sun_box_base=None
         self.next_box_refresh_at=0.0
         # Companion credentials already persist independently. Restore the emulator
         # selection without requiring the user to re-pair on every launch.
@@ -261,35 +262,32 @@ class TrackerService:
             changes={'party':party,'stale':False,'battle_hp':gen6_battle}
             if self.scan_next is not None:
                 number=self.scan_next
-                try:
-                    address=self.profile.box_address
-                    raw=read_box(self.reader,number,address,box_count=31)
-                    if raw!=read_box(self.reader,number,address,box_count=31):
-                        raise ValueError('PC cambió durante la lectura')
-                    slots=decode_box(raw,max_species=721)
-                    self.gen6_pending_boxes[str(number)]=[self.enrich(p) for p in slots]
-                except (ValueError,OSError,ConnectionError) as exc:
-                    self.gen6_box_failed=True
+                if self.gen6_probe is None:
+                    original=PROFILES[self.profile.name].party_address
+                    shift=self.profile.party_address-original
+                    self.gen6_probe=Gen6BoxProbe(self.profile.box_address,shift)
                     if self.diagnostic is not None:
-                        self.diagnostic.update(gen6_box_rejection=str(exc)[:120],gen6_box_index=number)
+                        self.diagnostic['gen6_party_shift']=shift
+                self.gen6_probe.read(self.reader,number)
                 done=number==31
                 self.scan_next=None if done else number+1
                 changes['scan']={'active':not done,'completed':number}
                 if done:
-                    observed=any(p for box in self.gen6_pending_boxes.values() for p in box)
-                    verified=(not self.gen6_box_failed and
-                              len(self.gen6_pending_boxes)==31 and observed)
-                    if verified:
-                        changes['boxes']=self.gen6_pending_boxes
+                    chosen,verified_boxes=self.gen6_probe.finish()
+                    if self.diagnostic is not None:
+                        self.diagnostic['gen6_box_candidates']=self.gen6_probe.diagnostic()
+                    if chosen is not None:
+                        changes['boxes']={k:[self.enrich(p) for p in box]
+                            for k,box in verified_boxes.items()}
                         changes['box_verified']=True
+                        self.profile=replace(self.profile,box_address=chosen)
                     else:
                         changes['box_verified']=bool(saved.get('box_verified',False))
                     changes['connection']={'status':'connected','message':(
                         'Gen6 experimental · equipo y 31 cajas PK6 verificadas · PS combate experimental'
-                        if verified else
+                        if chosen is not None else
                         'Gen6 experimental · equipo válido; cajas no verificadas (prueba con Pokémon depositado)')}
-                    self.gen6_pending_boxes={}
-                    self.gen6_box_failed=False
+                    self.gen6_probe=None
                     self.next_box_refresh_at=time.monotonic()+180.0
             else:
                 changes['connection']={'status':'connected','message':(
@@ -349,13 +347,13 @@ class TrackerService:
             self.clear_route_mark(cmd)
         elif action=='connect':self.config=cmd;self.retry_at=0;self.scan_next=None;self.connect()
         elif action=='disconnect':
-            self.config=None;self.scan_next=None;self.gen6_pending_boxes={};self.close_reader();self.update(connection={'status':'disconnected','message':'Desconectado'},stale=True,scan={'active':False,'completed':0})
+            self.config=None;self.scan_next=None;self.gen6_pending_boxes={};self.gen6_probe=None;self.close_reader();self.update(connection={'status':'disconnected','message':'Desconectado'},stale=True,scan={'active':False,'completed':0})
         elif action=='box':self.update(selected_box=cmd['number'])
         elif action=='scan':
             if not self.reader:raise ValueError('Conecta el tracker antes de leer las cajas.')
-            self.scan_verified=set();self.gen6_pending_boxes={};self.gen6_box_failed=False
+            self.scan_verified=set();self.gen6_pending_boxes={};self.gen6_box_failed=False;self.gen6_probe=None
             self.scan_next=1;self.update(scan={'active':True,'completed':0})
-        elif action=='cancel':self.scan_next=None;self.update(scan={'active':False,'completed':self.snapshot()['scan']['completed']})
+        elif action=='cancel':self.scan_next=None;self.gen6_probe=None;self.update(scan={'active':False,'completed':self.snapshot()['scan']['completed']})
     def validate_mark_dead(self,cmd):
         key=cmd.get('key')
         if cmd.get('source','manual') not in ('manual','soullink-response'):
