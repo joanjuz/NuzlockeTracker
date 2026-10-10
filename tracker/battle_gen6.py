@@ -48,30 +48,53 @@ def _read_confirmed_hp(reader,base,party):
     if first is None:return None
     return first if sample()==first else None
 
-def apply_gen6_battle_hp(reader, party, game, party_address):
-    """Return (party, in_battle), refusing unverified and partially changed data."""
+def apply_gen6_battle_hp(reader, party, game, party_address, report=None):
+    """Try original and party-shifted candidates; fail closed and explain why.
+
+    Report only candidate addresses and rejection categories, never battle bytes.
+    """
     if game not in GEN6_GAMES or not any(party):
         return party,False
     original=PROFILES[game].party_address
     delta=party_address-original
+    attempted=[]
+    rejection='no_match'
     for battle_base,hp_base in candidate_pairs(game):
-        try:
-            battle_raw=capture_party(reader,replace(PROFILES[game],party_address=battle_base+delta))
-            roster=decode_party(battle_raw,max_species=721)
-            if len(roster)!=len(party):
-                continue
-            for original_mon,battle_mon in zip(party,roster):
-                if (original_mon is None)!=(battle_mon is None):
-                    break
-                if original_mon and any(original_mon.get(field)!=battle_mon.get(field) for field in
-                    ('species_id','encryption_constant','level','max_hp','ability_id')):
-                    break
-            else:
-                values=_read_confirmed_hp(reader,hp_base+delta,party)
-                if values is None:
+        for offset in dict.fromkeys((delta,0)):
+            candidate=battle_base+offset
+            try:
+                battle_raw=capture_party(reader,replace(PROFILES[game],party_address=candidate))
+                roster=decode_party(battle_raw,max_species=721)
+                if len(roster)!=len(party):
+                    rejection='party_size_mismatch'
+                    attempted.append(hex(candidate))
                     continue
-                return [dict(mon,hp=values[i],hp_source='battle_gen6_candidate')
-                        if mon else None for i,mon in enumerate(party)],True
-        except (ValueError,ConnectionError,OSError,struct.error):
-            continue
+                for original_mon,battle_mon in zip(party,roster):
+                    if (original_mon is None)!=(battle_mon is None):
+                        rejection='roster_slots_mismatch'
+                        break
+                    if original_mon and any(original_mon.get(field)!=battle_mon.get(field)
+                        for field in ('species_id','encryption_constant','level','max_hp','ability_id')):
+                        rejection='roster_identity_mismatch'
+                        break
+                else:
+                    values=_read_confirmed_hp(reader,hp_base+offset,party)
+                    if values is None:
+                        rejection='battle_hp_validation_failed'
+                        attempted.append(hex(candidate))
+                        continue
+                    if report is not None:
+                        report.update(battle_probe='verified',
+                                      battle_candidate=hex(candidate),
+                                      battle_party_shift=offset)
+                    return [dict(mon,hp=values[i],hp_source='battle_gen6_candidate')
+                            if mon else None for i,mon in enumerate(party)],True
+            except (ValueError,ConnectionError,OSError,struct.error) as exc:
+                rejection='battle_roster_unavailable'
+            attempted.append(hex(candidate))
+    if report is not None:
+        report.update(battle_probe=rejection,
+                      battle_candidates_attempted=attempted[:4],
+                      battle_party_shift=delta)
+        report.pop('battle_candidate',None)
     return party,False
