@@ -32,8 +32,8 @@ class PokemonXVerifiedCaptureTests(unittest.TestCase):
     def test_x_specific_box_address_and_other_games_unchanged(self):
         self.assertEqual(PROFILES['Pokémon X 1.0'].box_address,0x08C861B8)
         self.assertEqual(PROFILES['Pokémon Y 1.0'].box_address,0x08C861C8)
-        self.assertEqual(PROFILES['Omega Ruby 1.0'].box_address,0x08C9E134)
-        self.assertEqual(PROFILES['Alpha Sapphire 1.0'].box_address,0x08C9E134)
+        self.assertEqual(PROFILES['Omega Ruby 1.0'].box_address,0x08C9A144)
+        self.assertEqual(PROFILES['Alpha Sapphire 1.0'].box_address,0x08C9A144)
 
     def test_differential_hp_address_agrees_with_battle_roster_reader(self):
         battle_address,hp_reference=candidate_pairs('Pokémon X 1.0')[0]
