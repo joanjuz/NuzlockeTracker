@@ -36,7 +36,7 @@ class OmegaRubyPCRegression(unittest.TestCase):
                 service.factory=lambda cfg:memory
                 service.config={'game':name,'mode':'memory'}
                 service.connect()
-                self.assertIsNone(service.scan_next)
+                self.assertEqual(service.scan_next,1)
                 service.poll()
                 self.assertEqual(service.snapshot()['party'][0]['species_id'],25)
                 self.assertFalse(service.snapshot()['box_verified'])
