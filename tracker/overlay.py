@@ -36,6 +36,9 @@ DEFAULT = {
     'hp_text_color': '#ffffff', 'hp_text_size': 13,
     'hp_style': 'solid', 'hp_reverse': False, 'hp_glow': False,
     'show_empty': False, 'font_file': '',
+    'render_scale': 2, 'sprite_scaling': 'pixelated',
+    'sprite_shadow': False, 'sprite_padding': 0,
+    'hp_animation_ms': 250,
     'hp_custom_fill': False, 'hp_custom_frame': False,
 }
 VALID_FONTS = ('ttf', 'otf', 'woff', 'woff2')
@@ -59,7 +62,10 @@ def validated_settings(candidate):
         elif name == 'hp_style':
             if value not in ('solid', 'gradient', 'striped'):
                 raise ValueError('Estilo de barra incorrecto')
-        elif name in ('hp_glow', 'hp_reverse', 'show_empty', 'hp_custom_fill', 'hp_custom_frame'):
+        elif name == 'sprite_scaling':
+            if value not in ('pixelated','smooth'):
+                raise ValueError('Interpolación de sprites desconocida')
+        elif name in ('hp_glow', 'hp_reverse', 'show_empty', 'hp_custom_fill', 'hp_custom_frame', 'sprite_shadow'):
             if type(value) is not bool:
                 raise ValueError('Opción incorrecta: ' + name)
         elif name == 'font':
@@ -78,6 +84,8 @@ def validated_settings(candidate):
                 'hp_height': (3, 100), 'hp_radius': (0, 50),
                 'hp_border_width': (0, 8), 'hp_low_threshold': (1, 49),
                 'hp_mid_threshold': (50, 95), 'hp_text_size': (8, 48),
+                'render_scale': (1, 4), 'sprite_padding': (0, 64),
+                'hp_animation_ms': (0, 1500),
             }
             if type(value) is not int or not ranges[name][0] <= value <= ranges[name][1]:
                 raise ValueError('Valor fuera de rango: ' + name)
@@ -220,7 +228,7 @@ class OverlayManager:
         return {'kind': kind, 'width': w, 'height': h, 'bytes': len(cleaned)}
 
     def image_bytes(self, slot, suffix):
-        if type(slot) is not int or slot not in range(1,7) or suffix not in ('png','gif'):
+        if type(slot) is not int or slot not in range(1,7) or suffix not in ('png','gif','webp'):
             return None
         target = self.layout / f'pokemon_{slot}.{suffix}'
         try:
@@ -228,8 +236,8 @@ class OverlayManager:
                 return target.read_bytes()
         except OSError:
             pass
-        if suffix == 'png':
-            return BLANK_PNG
+        if suffix in ('png','webp'):
+            return BLANK_PNG if suffix=='png' else None
         # Valid single-frame transparent GIF before the sprite exporter starts.
         return png_to_gif(BLANK_PNG)
 
@@ -260,14 +268,21 @@ class OverlayManager:
             maximum = mon.get('max_hp')
             valid = type(hp) is int and type(maximum) is int and maximum > 0
             hp = max(0, min(hp, maximum)) if valid else None
-            sprite = self.layout / f'pokemon_{i+1}.gif'
+            media=self.layout/f'pokemon_{i+1}.media'
             try:
-                image_rev = str(sprite.stat().st_mtime_ns)
+                image_format=media.read_text(encoding='ascii').strip()
+            except (OSError,ValueError,UnicodeError):
+                image_format='png'
+            if image_format not in ('png','gif','webp'):
+                image_format='png'
+            sprite=self.layout/f'pokemon_{i+1}.{image_format}'
+            try:
+                image_rev=str(sprite.stat().st_mtime_ns)
             except OSError:
-                image_rev = '0'
+                image_rev='0'
             result.append({
                 'slot':i+1, 'present': True, 'species_id': mon['species_id'],
-                'image_rev': image_rev,
+                'image_rev': image_rev, 'image_format':image_format,
                 'nickname': str(mon.get('nickname') or mon.get('species') or '')[:40],
                 'hp': hp, 'max_hp': maximum if valid else None,
                 'percent': round(100*hp/maximum, 2) if valid else None,
