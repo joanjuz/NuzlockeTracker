@@ -258,16 +258,18 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None,
                 except (ValueError,TypeError,OSError) as exc:
                     self.reply(400,{'error':str(exc)})
                 return
-            if self.path in ('/api/overlay/settings','/api/overlay/font','/api/overlay/hp-image'):
+            if self.path in ('/api/overlay/settings','/api/overlay/font','/api/overlay/hp-image','/api/overlay/sprite'):
                 if overlay is None:self.reply(404,{});return
                 try:
                     size=int(self.headers.get('Content-Length','0'))
-                    limit=4300000 if self.path.endswith('/font') else 3000000 if self.path.endswith('/hp-image') else 8192
+                    limit=10850000 if self.path.endswith('/sprite') else 4300000 if self.path.endswith('/font') else 3000000 if self.path.endswith('/hp-image') else 8192
                     if not 0<size<=limit:raise ValueError('Solicitud de overlay demasiado grande')
                     obj=json.loads(self.rfile.read(size))
                     if not isinstance(obj,dict):raise ValueError('JSON inválido')
                     if self.path.endswith('/font'):
                         result=overlay.import_font(obj.get('name'),obj.get('data'))
+                    elif self.path.endswith('/sprite'):
+                        result=overlay.import_sprite(obj.get('name'),obj.get('data'))
                     elif self.path.endswith('/hp-image'):
                         result=overlay.import_hp_image(obj.get('kind'),obj.get('data'))
                     else:
