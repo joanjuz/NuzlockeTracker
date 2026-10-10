@@ -218,7 +218,7 @@ class TrackerService:
             self.progress=RunProgress(self.output.with_name(self.output.stem+suffix+'-progress.json'))
             self.update(game=profile.name,party=[None]*6,boxes={},stale=True)
         self.profile=profile;self.sun_box_base=None
-        self.scan_next=None;self.scan_verified=set();self.gen6_pending_boxes={};self.gen6_box_failed=False
+        self.scan_next=None;self.scan_verified=set();self.gen6_pending_boxes={};self.gen6_box_failed=False;self.gen6_probe=None
         self.update(connection={'status':'connecting','message':'Localizando RAM…'},stale=True,scan={'active':False,'completed':0})
         mode=self.config['mode']
         if self.factory:self.reader=self.factory(self.config)
@@ -255,7 +255,7 @@ class TrackerService:
              max_species=721 if self.profile.generation==6 else 807)]
         if self.profile.generation==6:
             if not any(party):raise ValueError('Equipo PK6 no válido o vacío: sin actualizar datos.')
-            party,gen6_battle=apply_gen6_battle_hp(self.reader,party,self.profile.name,self.profile.party_address)
+            party,gen6_battle=apply_gen6_battle_hp(self.reader,party,self.profile.name,self.profile.party_address,self.diagnostic)
             # Keep memory snapshots isolated and reject apparently valid but
             # inconsistent RAM instead of guessing a PC base from empty bytes.
             saved=self.snapshot()
