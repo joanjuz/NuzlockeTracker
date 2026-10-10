@@ -73,8 +73,8 @@ class Gen6Tests(unittest.TestCase):
                 service.factory=lambda config:memory
                 service.config={'game':name,'mode':'gdb','port':24689}
                 service.connect()
-                self.assertEqual(service.scan_next,1)
-                self.assertTrue(service.snapshot()['scan']['active'])
+                self.assertIsNone(service.scan_next)
+                self.assertFalse(service.snapshot()['scan']['active'])
                 self.assertFalse(service.snapshot()['box_verified'])
                 service.poll()
                 state=service.snapshot()
@@ -97,6 +97,47 @@ class Gen6Tests(unittest.TestCase):
             service.factory=lambda cfg: Reader(address,bytes(2914))
             service.config={'game':'Pokémon X 1.0','mode':'gdb','port':24689}
             with self.assertRaises(ValueError):service.connect()
+
+    def test_fast_gen6_region_probe_finds_valid_party_even_without_wrappers_in_scan(self):
+        from tracker.process_memory import probe_gen6_region_ram
+        class RegionProcess:
+            def __init__(self):
+                self.pid=33164
+                self.name='lime3ds.exe'
+                self.start=0x2aff0a20000
+                self.base=self.start+64
+                self.guest=0x08CE1C68
+                self.anchor=self.base+self.guest-0x08000000
+                self.payload=party_fixture(address=self.guest)
+                self.calls=0
+            def regions(self):return [(self.start,256*1024**2+4096)]
+            def read(self,address,length):
+                self.calls+=1
+                if address==self.anchor and length==2914:return self.payload
+                return bytes(length)
+        process=RegionProcess()
+        match,report=probe_gen6_region_ram(process)
+        self.assertEqual(match,(process.base,process.guest))
+        self.assertEqual(report['valid_candidates'],1)
+        self.assertLess(process.calls,100)
+        process.calls=0
+        self.assertEqual(discover_dynamic_ram(process,generation=6),(process.base,process.guest))
+        self.assertLess(process.calls,100)
+
+    def test_region_probe_rejects_fake_party_signature_and_checksum(self):
+        from tracker.process_memory import probe_gen6_region_ram
+        class Process:
+            def __init__(self):
+                self.start=0x2aff0a20000
+                self.anchor=self.start+64+0x08CE1C68-0x08000000
+                self.invalid=bytearray(party_fixture(address=0x08CE1C68))
+                self.invalid[128]^=1
+            def regions(self):return [(self.start,256*1024**2+4096)]
+            def read(self,address,length):
+                return bytes(self.invalid) if (address,length)==(self.anchor,2914) else bytes(length)
+        match,report=probe_gen6_region_ram(Process())
+        self.assertIsNone(match)
+        self.assertEqual(report['valid_candidates'],0)
 
     def test_dynamic_discovery_in_legacy_gen6_guest_ram(self):
         class Process:
