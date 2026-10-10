@@ -183,9 +183,9 @@ class LimeProcessMemory:
         if not getattr(self,'guest_start',LINEAR)<=address or address+length>getattr(self,'guest_end',LINEAR+256*1024**2) or not 1<=length<=65536:raise ValueError('Lectura fuera del rango de RAM del perfil.')
         if not self.process.alive():raise DiscoveryError('El emulador se cerró.')
         # Signature catches a cleared/moved RAM allocation after an internal restart.
-        if self.process.read(self.base+getattr(self,'party_address',PARTY)-self.guest_start+SIGNATURE_OFFSET,4)!=struct.pack('<I',getattr(self,'party_address',PARTY)+128):
+        if self.process.read(self.base+getattr(self,'party_address',PARTY)-getattr(self,'guest_start',LINEAR)+SIGNATURE_OFFSET,4)!=struct.pack('<I',getattr(self,'party_address',PARTY)+128):
             raise DiscoveryError('Partida reiniciada o RAM trasladada. Esperando para localizarla nuevamente.')
-        return self.process.read(self.base+address-self.guest_start,length)
+        return self.process.read(self.base+address-getattr(self,'guest_start',LINEAR),length)
     def close(self):self.process.close()
 
 
