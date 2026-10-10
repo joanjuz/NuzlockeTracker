@@ -5,9 +5,8 @@ No health value is trusted unless full decoded battle roster + EC + levels,
 abilities and max HP match the validated overworld team, twice.
 """
 import struct
-from dataclasses import replace
 from .pokemon import decode_party
-from .profiles import capture_party, GEN6_GAMES, PROFILES
+from .profiles import GEN6_GAMES, PROFILES
 
 STRIDE=580
 
@@ -63,7 +62,11 @@ def apply_gen6_battle_hp(reader, party, game, party_address, report=None):
         for offset in dict.fromkeys((delta,0)):
             candidate=battle_base+offset
             try:
-                battle_raw=capture_party(reader,replace(PROFILES[game],party_address=candidate))
+                # Gen6 battle read_party() has *no 128-byte overworld header*.
+                # Source: Citra-Tracker-v2 read_party(): PK6 starts at candidate,
+                # party stats are found at +344 within each 484-byte slot.
+                # Prefix 128 zeroes solely to adapt to our validated decoder.
+                battle_raw=bytes(128)+reader.read(candidate,484*5+366)
                 roster=decode_party(battle_raw,max_species=721)
                 if len(roster)!=len(party):
                     rejection='party_size_mismatch'
