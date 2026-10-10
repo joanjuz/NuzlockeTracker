@@ -155,7 +155,7 @@ class OverlayManager:
         Never touches the original ROM, save or memory.
         """
         if not isinstance(name,str) or not re.fullmatch(
-                r'[A-Za-z0-9_-]{1,80}\\.(?:png|apng|gif|webp|jpe?g|bmp)',
+                r'[A-Za-z0-9_-]{1,80}\.(?:png|apng|gif|webp|jpe?g|bmp)',
                 name,re.IGNORECASE):
             raise ValueError('Nombre de sprite inválido. Usa número o especie: 25.png / pikachu.webp')
         if not isinstance(data,str) or len(data)>10_800_000:
