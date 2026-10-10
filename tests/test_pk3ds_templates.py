@@ -91,6 +91,25 @@ class TemplateTests(unittest.TestCase):
             self.assertEqual(mgr.evolutions(50, 0)[0]['method'], 'Subir de nivel (nivel 26)')
             self.assertEqual(mgr.evolutions(50, 1)[0]['method'], 'Subir de nivel (nivel 26)')
 
+    def test_nosepass_and_magneton_location_records_are_one_visible_evolution(self):
+        with tempfile.TemporaryDirectory() as folder:
+            manager=TemplateManager(Path(folder)/'template.json')
+            # Historical PokéAPI CSV expands every allowed location.
+            self.assertEqual(len(manager.baseline['299']),6)
+            nosepass=manager.evolutions(299,0)
+            self.assertEqual(len(nosepass),1)
+            self.assertEqual(nosepass[0]['target'],476)
+            self.assertEqual(nosepass[0]['method'],'Subir de nivel · lugar especial')
+            magneton=manager.evolutions(82,0)
+            signatures=[(x['target'],x['target_form'],x['method']) for x in magneton]
+            self.assertEqual(len(signatures),len(set(signatures)))
+            # Different requirements for the same target must remain separate.
+            specials=[
+                {'target':476,'target_form':0,'method':'Subir de nivel · lugar especial','source':'PokéAPI'},
+                {'target':476,'target_form':0,'method':'Usar Piedra trueno','source':'PokéAPI'},
+            ]
+            self.assertEqual(len(manager._distinct_visible_evolutions(specials)),2)
+
     def test_pk3ds_item_names_and_form_target(self):
         from tracker.templates import evolutions_csv
         csv = ("Source,Target,Method,Level,Argument,Form,ItemName,AltItemName\n"
