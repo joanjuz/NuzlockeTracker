@@ -332,7 +332,7 @@ class TemplateManager:
             entry = {**row, 'target_form': result_form}
             grouped.setdefault(row['target'], []).append(entry)
         if not grouped:
-            return output
+            return self._distinct_visible_evolutions(output)
         output = [entry for entry in output if entry['target'] not in grouped]
         for variants in grouped.values():
             # Where both a generic (-1) and an explicit matching form exist,
@@ -341,4 +341,24 @@ class TemplateManager:
             explicit = [v for v in variants if v['form'] == source_form]
             generic = [v for v in variants if v['form'] == -1]
             output.extend(explicit or generic or variants)
-        return output
+        return self._distinct_visible_evolutions(output)
+
+    @staticmethod
+    def _distinct_visible_evolutions(records):
+        """Deduplicate only evolutions that have identical *displayed* meaning.
+
+        PokéAPI enumerates location IDs of multiple electric/magnetic areas
+        for Nosepass and Magneton, but pretty_reference intentionally displays
+        all of those as 'lugar especial'. Keep true branches (different levels,
+        forms, items, methods and template-vs-reference sources) distinct.
+        """
+        unique=[]
+        seen=set()
+        for row in records:
+            signature=(row.get('target'),row.get('target_form',0),
+                       row.get('method'),row.get('source'))
+            if signature in seen:
+                continue
+            seen.add(signature)
+            unique.append(row)
+        return unique
