@@ -30,7 +30,7 @@ Los PNG originales no se reescriben ni se pierden colores. Cuando un Pokémon se
 - **Escala para OBS**: 1× a 4× (predeterminado 1× para preservar escenas existentes; 2× recomendado para escenas nuevas).
 - **Tipo de escalado**: píxel nítido para pixel art o suave para arte HD.
 - **Sombra y margen**: personalizables.
-- **Barras de vida**: altura, borde, redondeo, colores y PNG personalizados como antes; nuevo ajuste de duración del cambio de PS (0–1500 ms).
+- **Barras de vida**: altura, borde, redondeo, colores y PNG personalizados hasta 4096×1024 o 8 MB; nuevo ajuste de duración del cambio de PS (0–1500 ms).
 - **Tipografías**: admite fuentes importadas como antes.
 - **GIF heredado**: las rutas PNG/GIF anteriores siguen existiendo, por lo que enlaces de escenas existentes no se eliminan.
 
