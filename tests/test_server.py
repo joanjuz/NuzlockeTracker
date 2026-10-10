@@ -66,6 +66,34 @@ class ServerTests(unittest.TestCase):
   body=json.dumps({'action':'scan'});self.assertEqual(self.request('POST','/api/command',body)[0],403)
   self.assertEqual(self.request('POST','/api/command',body,{'X-Tracker-Token':'test-token','Origin':'https://example.com'})[0],403)
   self.assertEqual(self.request('POST','/api/command',body,{'X-Tracker-Token':'test-token'})[0],202);self.assertEqual(self.service.commands.get_nowait(),{'action':'scan'})
+ def test_origin_change_requires_token_and_known_capture(self):
+  from tracker.demo import DemoService
+  # Endpoint checks authorization before allowing a classification change.
+  payload=json.dumps({'action':'set_origin','key':'33:1234','category':'fossil'})
+  self.assertEqual(self.request('POST','/api/command',payload)[0],403)
+  self.assertEqual(self.request('POST','/api/command',payload,{'X-Tracker-Token':'test-token'})[0],400)
+  bad=json.dumps({'action':'set_origin','key':'33:1234','category':'random'})
+  self.assertEqual(self.request('POST','/api/command',bad,{'X-Tracker-Token':'test-token'})[0],400)
+
+ def test_mark_outgoing_trade_and_fossil_requires_authorization(self):
+  token={'X-Tracker-Token':'test-token'}
+  trade=json.dumps({'action':'mark_route','key':'33:1234','kind':'trade'})
+  self.assertEqual(self.request('POST','/api/command',trade)[0],403)
+  self.assertEqual(self.request('POST','/api/command',trade,token)[0],400)
+  invalid=json.dumps({'action':'mark_route','key':'../../private','kind':'fossil'})
+  self.assertEqual(self.request('POST','/api/command',invalid,token)[0],400)
+  undo=json.dumps({'action':'clear_route_mark','key':'33:1234'})
+  self.assertEqual(self.request('POST','/api/command',undo,token)[0],400)
+
+ def test_route_trade_is_authenticated_and_requires_valid_location(self):
+  token={'X-Tracker-Token':'test-token'}
+  body=json.dumps({'action':'route_trade','route':'8','traded':True})
+  self.assertEqual(self.request('POST','/api/command',body)[0],403)
+  bad=json.dumps({'action':'route_trade','route':'99999','traded':True})
+  self.assertEqual(self.request('POST','/api/command',bad,token)[0],400)
+  false=json.dumps({'action':'route_trade','route':'8','traded':'yes'})
+  self.assertEqual(self.request('POST','/api/command',false,token)[0],400)
+
  def test_invalid_box_rejected(self):
   self.assertEqual(self.request('POST','/api/command',json.dumps({'action':'box','number':33}),{'X-Tracker-Token':'test-token'})[0],400)
  def test_websocket_snapshot_and_change(self):

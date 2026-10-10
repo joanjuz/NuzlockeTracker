@@ -1,6 +1,7 @@
 """The only state allowed to leave a local tracker for a Soul Link partner."""
 import copy
 import json
+import re
 
 MAX_SNAPSHOT_BYTES = 650_000
 POKEMON_FIELDS = {
@@ -54,6 +55,42 @@ def snapshot(state):
         # in Muertos, without creating a second Soul Link notification.
         if entry.get('source') == 'soullink-response':
             safe_deaths[key]['source'] = 'soullink-response'
+    # Solo categorías elegidas manualmente; el auto-detectado se calcula en la UI.
+    # No se comparte metadato adicional, únicamente la clave EC ya presente.
+    origins = progress.get('origins') or {}
+    categories = ('route', 'fossil', 'gift', 'egg', 'trade')
+    if not isinstance(origins, dict) or len(origins) > 1200:
+        raise ValueError('Clasificaciones de origen inválidas')
+    if any(not isinstance(key, str) or re.fullmatch(r'[0-9]{1,3}:[0-9]{1,10}', key) is None or
+           not isinstance(value, str) or value not in categories
+           for key, value in origins.items()):
+        raise ValueError('Clasificación de origen no válida')
+    safe_origins = dict(origins)
+    route_marks = progress.get('route_marks') or {}
+    if not isinstance(route_marks, dict) or len(route_marks) > 1200:
+        raise ValueError('Historial de marcas inválido')
+    safe_marks = {}
+    for key, mark in route_marks.items():
+        if (not isinstance(key, str) or
+            re.fullmatch(r'[0-9]{1,3}:[0-9]{1,10}', key) is None or
+            not isinstance(mark, dict) or mark.get('kind') not in ('trade','fossil')
+            or not isinstance(mark.get('pokemon'), dict)):
+            raise ValueError('Marca de ruta inválida')
+        record = mark['pokemon']
+        if (type(record.get('species_id')) is not int or
+            not 1 <= record['species_id'] <= 1025):
+            raise ValueError('Pokémon de marca inválido')
+        # Redacted fields: no trainer IDs or other private game data.
+        allowed = ('species_id','species','nickname','origin_version',
+                   'encryption_constant','met_location_id','met_location')
+        safe_marks[key] = {'kind': mark['kind'],
+                           'pokemon': {field: copy.deepcopy(record[field])
+                                       for field in allowed if field in record}}
+    traded_routes = progress.get('traded_routes') or []
+    if (not isinstance(traded_routes,list) or len(traded_routes)>200 or
+        any(not isinstance(route,str) or not route.isdigit() or len(route)>10
+            for route in traded_routes)):
+        raise ValueError('Rutas intercambiadas inválidas')
     count = progress.get('death_count', len(safe_deaths))
     if type(count) is not int or not 0 <= count <= 100000:
         raise ValueError('Contador de muertes no válido')
@@ -63,7 +100,9 @@ def snapshot(state):
     data = {
         'schema_version': 1, 'game': state['game'],
         'party': [pokemon(p) for p in party], 'boxes': result_boxes,
-        'progress': {'deaths': safe_deaths, 'missed_routes': missed, 'death_count': count},
+        'progress': {'deaths': safe_deaths, 'missed_routes': missed,
+                     'death_count': count, 'origins': safe_origins,
+                     'route_marks': safe_marks, 'traded_routes': traded_routes},
         'battle_hp': state.get('battle_hp') is True,
     }
     raw = json.dumps(data, ensure_ascii=False, separators=(',', ':')).encode('utf-8')

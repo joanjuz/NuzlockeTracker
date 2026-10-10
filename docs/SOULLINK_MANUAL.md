@@ -70,3 +70,15 @@ pareja si la ruta no se puede asociar con los datos disponibles o si no
 se leyeron las cajas. El contador, las opciones locales y el progreso no
 necesitan enviarse a servicios distintos del Worker existente. Los tokens
 y las claves siguen guardados por perfil, no en el repositorio.
+
+
+## Historial de rutas, intercambios salientes y fósiles (experimental)
+
+- Las lecturas válidas guardan un historial local mínimo de cada Pokémon (ID persistente, mote, especie y lugar de procedencia), sin almacenar datos completos de la ROM. No se considera una ausencia prueba de intercambio: puede deberse a una caja sin actualizar.
+- Si el Pokémon deja de figurar en el equipo/cajas leídas, en Rutas aparece **Ya no está en las lecturas** y la ruta continúa teniendo historial, no se convierte automáticamente en vacía.
+- **Intercambiado automático (conservador):** tras dos escaneos completos y verificados de las 32 cajas, si exactamente un Pokémon desaparece y entra exactamente otro de un entrenador original diferente al del equipo, se deja una huella en la ruta de procedencia del Pokémon entregado. No se considera que una ausencia aislada pruebe intercambio, y puede haber intercambios que no sean identificables con esos datos. No funciona de forma retroactiva si falta la lectura anterior. La huella automática puede deshacerse.
+- **Intercambiado manual por ruta:** para una ruta sin Pokémon activo se muestra debajo de **Marcar MISS**, como alternativa, incluso cuando la aplicación nunca llegó a registrar al Pokémon anterior. Es reversible y no necesita seleccionar un Pokémon.
+- **Fósil:** botón directo junto a **Muerte** (no hay desplegable), sin usar su especie. Lo agrupa en **Fósiles**, pero mantiene una huella **Fósil** en la ubicación registrada originalmente; **Deshacer** restaura la clasificación automática.
+- Se conserva el lugar registrado en el juego y el historial aunque el Pokémon cambie de caja, mote o especie. No se marcan muertes ni se alteran ROM o guardados.
+- Solo las **huellas confirmadas** se envían como datos mínimos al compañero Soul Link; la lista de todos los Pokémon vistos permanece local.
+- En ROM randomizadas la especie no se utiliza como prueba de fósil/intercambio. Para reforzar la detección de intercambios, conviene hacer un escaneo completo de las 32 cajas antes y después de intercambiar, sin operaciones intermedias. Una sustitución ambigua mantiene el estado histórico y permite la marca manual por ruta.

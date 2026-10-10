@@ -60,6 +60,47 @@ class CompanionTests(unittest.TestCase):
         entry['source'] = 'untrusted'
         self.assertNotIn('source', snapshot(current)['progress']['deaths']['33:1234'])
 
+    def test_share_origin_categories_safe_and_visible_to_partner(self):
+        local=state()
+        local['progress']['origins']={'33:1234':'fossil'}
+        shared=snapshot(local)
+        self.assertEqual(shared['progress']['origins'],{'33:1234':'fossil'})
+        self.assertEqual(viewer_state(shared)['progress']['origins']['33:1234'],'fossil')
+        for origins in ({'33:1234':'invalid'}, {'../../secret':'gift'},
+                        {'33:1234':None}, ['fossil']):
+            with self.subTest(origins=origins),self.assertRaises(ValueError):
+                local['progress']['origins']=origins
+                snapshot(local)
+
+    def test_traded_away_route_mark_reaches_partner_without_history(self):
+        local=state()
+        pokemon=mon()
+        local['progress']['encounters']={'33:1234':pokemon}
+        local['progress']['route_marks']={'33:1234':{
+          'kind':'trade','pokemon':pokemon,'recorded_at':'2026-10-09',
+          'private_token':'NEVER_SEND'}}
+        shared=snapshot(local)
+        self.assertNotIn('encounters',shared['progress'])
+        self.assertNotIn('private_token',json.dumps(shared))
+        mark=viewer_state(shared)['progress']['route_marks']['33:1234']
+        self.assertEqual(mark['kind'],'trade')
+        self.assertEqual(mark['pokemon']['nickname'],'Goty')
+        self.assertEqual(mark['pokemon']['met_location_id'],8)
+        local['progress']['route_marks']['33:1234']['kind']='unknown'
+        with self.assertRaises(ValueError):
+            snapshot(local)
+
+    def test_share_route_trade_flag_but_not_full_scan_baseline(self):
+        current=state()
+        current['progress']['traded_routes']=['8']
+        current['progress']['full_scan_baseline']={'33:1234':123456}
+        result=snapshot(current)
+        self.assertEqual(result['progress']['traded_routes'],['8'])
+        self.assertNotIn('full_scan_baseline',result['progress'])
+        self.assertEqual(viewer_state(result)['progress']['traded_routes'],['8'])
+        current['progress']['traded_routes']=['../../private']
+        with self.assertRaises(ValueError):snapshot(current)
+
     def test_viewer_can_render_last_session(self):
         old = snapshot(state('Ultra Moon 1.0'))
         view = viewer_state(old)

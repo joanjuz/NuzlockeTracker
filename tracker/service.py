@@ -46,7 +46,7 @@ class TrackerService:
         self.progress=RunProgress(self.output.with_name(self.output.stem+suffix+'-progress.json'))
         self.state['progress']=copy.deepcopy(self.progress.data)
         self.profile=PROFILES[self.state['game']]
-        self.reader=None;self.config=None;self.retry_at=0;self.scan_next=None;self.diagnostic=None;self.sun_box_base=None
+        self.reader=None;self.config=None;self.retry_at=0;self.scan_next=None;self.scan_verified=set();self.diagnostic=None;self.sun_box_base=None
         self.next_box_refresh_at=0.0
         # Companion credentials already persist independently. Restore the emulator
         # selection without requiring the user to re-pair on every launch.
@@ -165,6 +165,17 @@ class TrackerService:
         with self.condition:
             if 'party' in changes and not changes.get('stale',self.state['stale']):
                 self.progress.observe(changes['party'])
+            if ('party' in changes or 'boxes' in changes) and not changes.get('stale',self.state['stale']):
+                self.progress.remember(changes.get('party',self.state['party']),
+                                       changes.get('boxes',self.state['boxes']))
+            scan=changes.get('scan')
+            if (isinstance(scan,dict) and scan.get('active') is False
+                and scan.get('completed')==32 and changes.get('box_verified') is True
+                and self.scan_verified==set(range(1,33))
+                and not changes.get('stale',self.state['stale'])
+                and self.state['connection'].get('status')=='connected'):
+                self.progress.observe_full_scan(changes.get('party',self.state['party']),
+                                                changes.get('boxes',self.state['boxes']))
             changes['progress']=copy.deepcopy(self.progress.data)
             if all(self.state.get(k)==v for k,v in changes.items()):return False
             self.state.update(changes);self.state['revision']+=1
@@ -239,6 +250,8 @@ class TrackerService:
         if self.snapshot()['connection']['status']!='connected' or self.snapshot()['stale']:
             changes['connection']={'status':'connected','message':'Conectado · '+('Windows sin GDB' if (self.config or {}).get('mode','memory')=='memory' else 'GDB')}
         if self.scan_next:
+            if box_verified:
+                self.scan_verified.add(number)
             changes['scan']={'active':number<32,'completed':number};self.scan_next=number+1 if number<32 else None
         if self.diagnostic is not None:self.diagnostic.update(box_address=hex(self.profile.box_address),box_verified=box_verified,battle_hp=in_battle)
         self.update(**changes)
@@ -252,12 +265,21 @@ class TrackerService:
             self.revive(cmd)
         elif action=='route_miss':
             self.set_route_miss(cmd)
+        elif action=='route_trade':
+            self.set_route_trade(cmd)
+        elif action=='set_origin':
+            self.set_origin(cmd)
+        elif action=='mark_route':
+            self.mark_route(cmd)
+        elif action=='clear_route_mark':
+            self.clear_route_mark(cmd)
         elif action=='connect':self.config=cmd;self.retry_at=0;self.scan_next=None;self.connect()
         elif action=='disconnect':
             self.config=None;self.scan_next=None;self.close_reader();self.update(connection={'status':'disconnected','message':'Desconectado'},stale=True,scan={'active':False,'completed':0})
         elif action=='box':self.update(selected_box=cmd['number'])
         elif action=='scan':
             if not self.reader:raise ValueError('Conecta el tracker antes de leer las cajas.')
+            self.scan_verified=set()
             self.scan_next=1;self.update(scan={'active':True,'completed':0})
         elif action=='cancel':self.scan_next=None;self.update(scan={'active':False,'completed':self.snapshot()['scan']['completed']})
     def validate_mark_dead(self,cmd):
@@ -292,6 +314,91 @@ class TrackerService:
         snapshot=self.snapshot()
         # A healed, current party member can be rearmed immediately.
         self.update(party=snapshot['party'],stale=snapshot['stale'])
+    def validate_route_mark(self,cmd,undo=False):
+        from .progress import pokemon_key, ORIGIN_KEY_PATTERN
+        key=cmd.get('key')
+        if not isinstance(key,str) or ORIGIN_KEY_PATTERN.fullmatch(key) is None:
+            raise ValueError('Clave del Pokémon inválida')
+        if undo:
+            if key not in self.progress.data['route_marks']:
+                raise ValueError('No existe una marca para quitar')
+            return key, None
+        kind=cmd.get('kind')
+        if kind not in ('trade','fossil'):
+            raise ValueError('Selecciona Fósil o Intercambiado')
+        state=self.snapshot()
+        roster=[*state.get('party',[]),
+                *(p for box in state.get('boxes',{}).values() for p in box)]
+        match=next((p for p in roster if isinstance(p,dict) and
+                    p.get('checksum_valid') is True and pokemon_key(p)==key),None)
+        if match is None:
+            # The Pokémon may have left via trade AFTER the last valid scan.
+            saved=self.progress.data['encounters'].get(key)
+            if saved is None:
+                raise ValueError('No hay ningún encuentro registrado con esa clave')
+            match={**saved,'checksum_valid':True}
+        return key, match
+
+    def mark_route(self,cmd):
+        key, pokemon=self.validate_route_mark(cmd)
+        kind=cmd['kind']
+        changed=self.progress.mark_route(pokemon,kind)
+        if kind=='fossil':
+            changed=self.progress.set_origin(pokemon,'fossil') or changed
+        if changed:
+            self.update()
+
+    def clear_route_mark(self,cmd):
+        key,_=self.validate_route_mark(cmd,undo=True)
+        kind=self.progress.data['route_marks'][key]['kind']
+        changed=self.progress.clear_route_mark(key)
+        if kind=='fossil' and self.progress.data['origins'].get(key)=='fossil':
+            member={**self.progress.data['encounters'].get(key,{})}
+            if member and self.progress.set_origin(member,'auto'):
+                changed=True
+        if changed:
+            self.update()
+
+    def validate_set_origin(self,cmd):
+        """Only annotate a known member; never allow arbitrary cache injection."""
+        from .progress import ORIGIN_CATEGORIES, pokemon_key
+        key=cmd.get('key')
+        category=cmd.get('category')
+        if not isinstance(key,str) or not 1<=len(key)<=64:
+            raise ValueError('Identidad de Pokémon inválida')
+        if category!='auto' and category not in ORIGIN_CATEGORIES:
+            raise ValueError('Categoría de obtención inválida')
+        state=self.snapshot()
+        members=[*state.get('party',[]),
+                 *(p for box in state.get('boxes',{}).values() for p in box),
+                 *(entry.get('pokemon') for entry in (state.get('progress',{}).get('deaths',{}) or {}).values()
+                   if isinstance(entry,dict))]
+        target=next((p for p in members if isinstance(p,dict) and pokemon_key(p)==key
+                     and p.get('checksum_valid') is True),None)
+        if target is None:
+            raise ValueError('Pokémon no encontrado en equipo, cajas o Muertos')
+        return target
+
+    def set_origin(self,cmd):
+        target=self.validate_set_origin(cmd)
+        from .progress import pokemon_key
+        key=pokemon_key(target)
+        changed=self.progress.set_origin(target,cmd['category'])
+        if cmd['category']!='fossil' and self.progress.data['route_marks'].get(key,{}).get('kind')=='fossil':
+            changed=self.progress.clear_route_mark(key) or changed
+        if changed:
+            self.update()
+
+    def validate_route_trade(self,cmd):
+        ids={str(r['id']) for r in self.reference.routes(self.state['game'])['routes']}
+        if cmd.get('route') not in ids or type(cmd.get('traded')) is not bool:
+            raise ValueError('Ruta o estado Intercambiado inválido')
+
+    def set_route_trade(self,cmd):
+        self.validate_route_trade(cmd)
+        if self.progress.set_traded_route(cmd['route'],cmd['traded']):
+            self.update()
+
     def validate_route_miss(self,cmd):
         ids={str(r['id']) for r in self.reference.routes(self.state['game'])['routes']}
         if cmd.get('route') not in ids or type(cmd.get('missed')) is not bool:
