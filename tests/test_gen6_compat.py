@@ -73,8 +73,8 @@ class Gen6Tests(unittest.TestCase):
                 service.factory=lambda config:memory
                 service.config={'game':name,'mode':'gdb','port':24689}
                 service.connect()
-                self.assertIsNone(service.scan_next)
-                self.assertFalse(service.snapshot()['scan']['active'])
+                self.assertEqual(service.scan_next,1)
+                self.assertTrue(service.snapshot()['scan']['active'])
                 self.assertFalse(service.snapshot()['box_verified'])
                 service.poll()
                 state=service.snapshot()
