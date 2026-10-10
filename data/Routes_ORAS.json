@@ -1,0 +1,749 @@
+{
+  "schema_version": 1,
+  "game_key": "omega-ruby-alpha-sapphire-1.0",
+  "game": "Omega Ruby 1.0",
+  "region": "Hoenn",
+  "sources": [
+    "PKHeX Core, Spanish Gen6 location resources (Locations6_0.txt), identifiers are exact PK6 met-location IDs.",
+    "Orden editorial de progreso con zonas opcionales agregadas; no pretende ser un walkthrough ni afirmar encuentros garantizados."
+  ],
+  "routes": [
+    {
+      "id": 170,
+      "ids": [
+        170
+      ],
+      "name": "Villa Raíz",
+      "story_order": 1
+    },
+    {
+      "id": 204,
+      "ids": [
+        204
+      ],
+      "name": "Ruta 101",
+      "story_order": 2
+    },
+    {
+      "id": 172,
+      "ids": [
+        172
+      ],
+      "name": "Pueblo Escaso",
+      "story_order": 3
+    },
+    {
+      "id": 206,
+      "ids": [
+        206
+      ],
+      "name": "Ruta 102",
+      "story_order": 4
+    },
+    {
+      "id": 184,
+      "ids": [
+        184
+      ],
+      "name": "Ciudad Petalia",
+      "story_order": 5
+    },
+    {
+      "id": 210,
+      "ids": [
+        210
+      ],
+      "name": "Ruta 104",
+      "story_order": 6
+    },
+    {
+      "id": 282,
+      "ids": [
+        282
+      ],
+      "name": "Bosque Petalia",
+      "story_order": 7
+    },
+    {
+      "id": 190,
+      "ids": [
+        190
+      ],
+      "name": "Ciudad Férrica",
+      "story_order": 8
+    },
+    {
+      "id": 234,
+      "ids": [
+        234
+      ],
+      "name": "Ruta 116",
+      "story_order": 9
+    },
+    {
+      "id": 274,
+      "ids": [
+        274
+      ],
+      "name": "Túnel Fervergal",
+      "story_order": 10
+    },
+    {
+      "id": 232,
+      "ids": [
+        232
+      ],
+      "name": "Ruta 115",
+      "story_order": 11
+    },
+    {
+      "id": 214,
+      "ids": [
+        214
+      ],
+      "name": "Ruta 106",
+      "story_order": 12
+    },
+    {
+      "id": 280,
+      "ids": [
+        280
+      ],
+      "name": "Cueva Granito",
+      "story_order": 13
+    },
+    {
+      "id": 174,
+      "ids": [
+        174
+      ],
+      "name": "Pueblo Azuliza",
+      "story_order": 14
+    },
+    {
+      "id": 212,
+      "ids": [
+        212
+      ],
+      "name": "Ruta 105",
+      "story_order": 15
+    },
+    {
+      "id": 216,
+      "ids": [
+        216
+      ],
+      "name": "Ruta 107",
+      "story_order": 16
+    },
+    {
+      "id": 218,
+      "ids": [
+        218
+      ],
+      "name": "Ruta 108",
+      "story_order": 17
+    },
+    {
+      "id": 220,
+      "ids": [
+        220
+      ],
+      "name": "Ruta 109",
+      "story_order": 18
+    },
+    {
+      "id": 186,
+      "ids": [
+        186
+      ],
+      "name": "Ciudad Portual",
+      "story_order": 19
+    },
+    {
+      "id": 222,
+      "ids": [
+        222
+      ],
+      "name": "Ruta 110",
+      "story_order": 20
+    },
+    {
+      "id": 208,
+      "ids": [
+        208
+      ],
+      "name": "Ruta 103",
+      "story_order": 21
+    },
+    {
+      "id": 188,
+      "ids": [
+        188
+      ],
+      "name": "Ciudad Malvalona",
+      "story_order": 22
+    },
+    {
+      "id": 236,
+      "ids": [
+        236
+      ],
+      "name": "Ruta 117",
+      "story_order": 23
+    },
+    {
+      "id": 180,
+      "ids": [
+        180
+      ],
+      "name": "Pueblo Verdegal",
+      "story_order": 24
+    },
+    {
+      "id": 224,
+      "ids": [
+        224
+      ],
+      "name": "Ruta 111",
+      "story_order": 25
+    },
+    {
+      "id": 226,
+      "ids": [
+        226
+      ],
+      "name": "Ruta 112",
+      "story_order": 26
+    },
+    {
+      "id": 288,
+      "ids": [
+        288
+      ],
+      "name": "Senda Ígnea",
+      "story_order": 27
+    },
+    {
+      "id": 176,
+      "ids": [
+        176
+      ],
+      "name": "Pueblo Lavacalda",
+      "story_order": 28
+    },
+    {
+      "id": 286,
+      "ids": [
+        286
+      ],
+      "name": "Desfiladero",
+      "story_order": 29
+    },
+    {
+      "id": 284,
+      "ids": [
+        284
+      ],
+      "name": "Monte Cenizo",
+      "story_order": 30
+    },
+    {
+      "id": 228,
+      "ids": [
+        228
+      ],
+      "name": "Ruta 113",
+      "story_order": 31
+    },
+    {
+      "id": 178,
+      "ids": [
+        178
+      ],
+      "name": "Pueblo Pardal",
+      "story_order": 32
+    },
+    {
+      "id": 230,
+      "ids": [
+        230
+      ],
+      "name": "Ruta 114",
+      "story_order": 33
+    },
+    {
+      "id": 272,
+      "ids": [
+        272
+      ],
+      "name": "Cascada Meteoro",
+      "story_order": 34
+    },
+    {
+      "id": 238,
+      "ids": [
+        238
+      ],
+      "name": "Ruta 118",
+      "story_order": 35
+    },
+    {
+      "id": 240,
+      "ids": [
+        240
+      ],
+      "name": "Ruta 119",
+      "story_order": 36
+    },
+    {
+      "id": 192,
+      "ids": [
+        192
+      ],
+      "name": "Ciudad Arborada",
+      "story_order": 37
+    },
+    {
+      "id": 242,
+      "ids": [
+        242
+      ],
+      "name": "Ruta 120",
+      "story_order": 38
+    },
+    {
+      "id": 244,
+      "ids": [
+        244
+      ],
+      "name": "Ruta 121",
+      "story_order": 39
+    },
+    {
+      "id": 194,
+      "ids": [
+        194
+      ],
+      "name": "Ciudad Calagua",
+      "story_order": 40
+    },
+    {
+      "id": 290,
+      "ids": [
+        290
+      ],
+      "name": "Monte Pírico",
+      "story_order": 41
+    },
+    {
+      "id": 246,
+      "ids": [
+        246
+      ],
+      "name": "Ruta 122",
+      "story_order": 42
+    },
+    {
+      "id": 248,
+      "ids": [
+        248
+      ],
+      "name": "Ruta 123",
+      "story_order": 43
+    },
+    {
+      "id": 196,
+      "ids": [
+        196
+      ],
+      "name": "Ciudad Algaria",
+      "story_order": 44
+    },
+    {
+      "id": 250,
+      "ids": [
+        250
+      ],
+      "name": "Ruta 124",
+      "story_order": 45
+    },
+    {
+      "id": 252,
+      "ids": [
+        252
+      ],
+      "name": "Ruta 125",
+      "story_order": 46
+    },
+    {
+      "id": 254,
+      "ids": [
+        254
+      ],
+      "name": "Ruta 126",
+      "story_order": 47
+    },
+    {
+      "id": 198,
+      "ids": [
+        198
+      ],
+      "name": "Arrecípolis",
+      "story_order": 48
+    },
+    {
+      "id": 296,
+      "ids": [
+        296
+      ],
+      "name": "Cueva Ancestral",
+      "story_order": 49
+    },
+    {
+      "id": 256,
+      "ids": [
+        256
+      ],
+      "name": "Ruta 127",
+      "story_order": 50
+    },
+    {
+      "id": 258,
+      "ids": [
+        258
+      ],
+      "name": "Ruta 128",
+      "story_order": 51
+    },
+    {
+      "id": 294,
+      "ids": [
+        294
+      ],
+      "name": "Caverna Abisal",
+      "story_order": 52
+    },
+    {
+      "id": 260,
+      "ids": [
+        260
+      ],
+      "name": "Ruta 129",
+      "story_order": 53
+    },
+    {
+      "id": 262,
+      "ids": [
+        262
+      ],
+      "name": "Ruta 130",
+      "story_order": 54
+    },
+    {
+      "id": 264,
+      "ids": [
+        264
+      ],
+      "name": "Ruta 131",
+      "story_order": 55
+    },
+    {
+      "id": 182,
+      "ids": [
+        182
+      ],
+      "name": "Pueblo Oromar",
+      "story_order": 56
+    },
+    {
+      "id": 266,
+      "ids": [
+        266
+      ],
+      "name": "Ruta 132",
+      "story_order": 57
+    },
+    {
+      "id": 268,
+      "ids": [
+        268
+      ],
+      "name": "Ruta 133",
+      "story_order": 58
+    },
+    {
+      "id": 270,
+      "ids": [
+        270
+      ],
+      "name": "Ruta 134",
+      "story_order": 59
+    },
+    {
+      "id": 200,
+      "ids": [
+        200
+      ],
+      "name": "Ciudad Colosalia",
+      "story_order": 60
+    },
+    {
+      "id": 298,
+      "ids": [
+        298
+      ],
+      "name": "Calle Victoria",
+      "story_order": 61
+    },
+    {
+      "id": 202,
+      "ids": [
+        202
+      ],
+      "name": "Liga Pokémon",
+      "story_order": 62
+    },
+    {
+      "id": 300,
+      "ids": [
+        300
+      ],
+      "name": "Cueva Cardumen",
+      "story_order": 63
+    },
+    {
+      "id": 302,
+      "ids": [
+        302
+      ],
+      "name": "Malvalanova",
+      "story_order": 64
+    },
+    {
+      "id": 304,
+      "ids": [
+        304
+      ],
+      "name": "Malvamar",
+      "story_order": 65
+    },
+    {
+      "id": 306,
+      "ids": [
+        306
+      ],
+      "name": "Cueva Insular",
+      "story_order": 66
+    },
+    {
+      "id": 308,
+      "ids": [
+        308
+      ],
+      "name": "Tumba Antigua",
+      "story_order": 67
+    },
+    {
+      "id": 310,
+      "ids": [
+        310
+      ],
+      "name": "Cámara Sellada",
+      "story_order": 68
+    },
+    {
+      "id": 312,
+      "ids": [
+        312
+      ],
+      "name": "Gruta Solar",
+      "story_order": 69
+    },
+    {
+      "id": 314,
+      "ids": [
+        314
+      ],
+      "name": "Guarida Magma",
+      "story_order": 70
+    },
+    {
+      "id": 316,
+      "ids": [
+        316
+      ],
+      "name": "Pilar Celeste",
+      "story_order": 71
+    },
+    {
+      "id": 318,
+      "ids": [
+        318
+      ],
+      "name": "Resort Batalla",
+      "story_order": 72
+    },
+    {
+      "id": 320,
+      "ids": [
+        320
+      ],
+      "name": "Isla del Sur",
+      "story_order": 73
+    },
+    {
+      "id": 322,
+      "ids": [
+        322
+      ],
+      "name": "S.S. Marea",
+      "story_order": 74
+    },
+    {
+      "id": 324,
+      "ids": [
+        324
+      ],
+      "name": "Zona Safari",
+      "story_order": 75
+    },
+    {
+      "id": 326,
+      "ids": [
+        326
+      ],
+      "name": "Bosque Espejismo",
+      "story_order": 76
+    },
+    {
+      "id": 328,
+      "ids": [
+        328
+      ],
+      "name": "Cueva Espejismo",
+      "story_order": 77
+    },
+    {
+      "id": 330,
+      "ids": [
+        330
+      ],
+      "name": "Isla Espejismo",
+      "story_order": 78
+    },
+    {
+      "id": 332,
+      "ids": [
+        332
+      ],
+      "name": "Monte Espejismo",
+      "story_order": 79
+    },
+    {
+      "id": 334,
+      "ids": [
+        334
+      ],
+      "name": "Bosque Virgen",
+      "story_order": 80
+    },
+    {
+      "id": 336,
+      "ids": [
+        336
+      ],
+      "name": "Llanura Sinnombre",
+      "story_order": 81
+    },
+    {
+      "id": 338,
+      "ids": [
+        338
+      ],
+      "name": "Cueva Ignota",
+      "story_order": 82
+    },
+    {
+      "id": 340,
+      "ids": [
+        340
+      ],
+      "name": "Cueva Incierta",
+      "story_order": 83
+    },
+    {
+      "id": 342,
+      "ids": [
+        342
+      ],
+      "name": "Boquete Irregular",
+      "story_order": 84
+    },
+    {
+      "id": 344,
+      "ids": [
+        344
+      ],
+      "name": "Isla Creciente",
+      "story_order": 85
+    },
+    {
+      "id": 346,
+      "ids": [
+        346
+      ],
+      "name": "Islote Secreto",
+      "story_order": 86
+    },
+    {
+      "id": 348,
+      "ids": [
+        348
+      ],
+      "name": "Firmamento",
+      "story_order": 87
+    },
+    {
+      "id": 350,
+      "ids": [
+        350
+      ],
+      "name": "Costa Secreta",
+      "story_order": 88
+    },
+    {
+      "id": 352,
+      "ids": [
+        352
+      ],
+      "name": "Prado Secreto",
+      "story_order": 89
+    },
+    {
+      "id": 354,
+      "ids": [
+        354
+      ],
+      "name": "Base Secreta",
+      "story_order": 90
+    },
+    {
+      "id": 278,
+      "ids": [
+        278
+      ],
+      "name": "Ruinas del Desierto",
+      "story_order": 91
+    },
+    {
+      "id": 292,
+      "ids": [
+        292
+      ],
+      "name": "Guarida Aqua",
+      "story_order": 92
+    }
+  ],
+  "order_note": "Las zonas opcionales y eventos pueden visitarse fuera de este orden. Un ID de met-location puede abarcar más de una subzona; no se infiere una captura a partir del nombre."
+}
