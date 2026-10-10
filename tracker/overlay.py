@@ -18,7 +18,7 @@ from pathlib import Path
 from PIL import Image, UnidentifiedImageError
 
 from .progress import pokemon_key
-from .layout_export import BLANK_PNG, png_to_gif
+from .layout_export import BLANK_PNG, png_to_gif, normalize_custom_sprite, CUSTOM_EXTENSIONS
 
 PALETTE = {
     'high': '#5de09a', 'medium': '#f2c15c', 'low': '#ef5967',
@@ -106,13 +106,14 @@ def font_is_valid(raw, ext):
 
 
 class OverlayManager:
-    def __init__(self, service, runtime, layout):
+    def __init__(self, service, runtime, layout, custom_dir=None):
         self.service = service
         self.runtime = Path(runtime)
         self.layout = Path(layout)
         self.path = self.runtime / 'obs-overlay.json'
         self.fonts = self.runtime / 'obs-fonts'
         self.hp_images = self.runtime / 'obs-hp-images'
+        self.custom_dir = Path(custom_dir) if custom_dir is not None else self.layout.parent/'sprites_personalizados'
         self.lock = threading.RLock()
         self.settings = copy.deepcopy(DEFAULT)
         if self.path.is_file():
@@ -146,6 +147,39 @@ class OverlayManager:
             return []
         return sorted(p.name for p in self.fonts.iterdir()
                       if p.is_file() and re.fullmatch(r'[a-zA-Z0-9_-]{1,70}\.(?:ttf|otf|woff2?)', p.name))
+
+    def import_sprite(self,name,data):
+        """Import a safely named custom image for live OBS replacement.
+
+        No arbitrary paths, SVG, compressed archives or unvalidated files.
+        Never touches the original ROM, save or memory.
+        """
+        if not isinstance(name,str) or not re.fullmatch(
+                r'[A-Za-z0-9_-]{1,80}\\.(?:png|apng|gif|webp|jpe?g|bmp)',
+                name,re.IGNORECASE):
+            raise ValueError('Nombre de sprite inválido. Usa número o especie: 25.png / pikachu.webp')
+        if not isinstance(data,str) or len(data)>10_800_000:
+            raise ValueError('Sprite demasiado grande (máximo 8 MB)')
+        try:
+            raw=base64.b64decode(data,validate=True)
+        except (ValueError,base64.binascii.Error) as exc:
+            raise ValueError('Sprite Base64 inválido') from exc
+        if len(raw)>8_000_000:
+            raise ValueError('Sprite demasiado grande')
+        suffix='.'+name.rsplit('.',1)[1].lower()
+        normalize_custom_sprite(raw,suffix)
+        safe=name.rsplit('.',1)[0]+suffix
+        self.custom_dir.mkdir(parents=True,exist_ok=True)
+        target=self.custom_dir/safe
+        if target.is_symlink():
+            raise ValueError('No se permite sobrescribir enlaces simbólicos')
+        tmp=self.custom_dir/('.'+safe+'.tmp')
+        try:
+            tmp.write_bytes(raw)
+            os.replace(tmp,target)
+        finally:
+            tmp.unlink(missing_ok=True)
+        return {'name':safe,'bytes':len(raw),'path_hint':'sprites_personalizados'}
 
     def import_font(self, name, data):
         if not isinstance(name, str) or not re.fullmatch(r'[a-zA-Z0-9_-]{1,60}\.(?:ttf|otf|woff2?)', name, re.I):
