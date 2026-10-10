@@ -5,7 +5,7 @@ from dataclasses import replace
 from pathlib import Path
 from .process_memory import LimeProcessMemory,DiscoveryCancelled
 from .connectors import LimeGDB
-from .profiles import capture_party, PROFILES, ULTRA_MOON_10
+from .profiles import capture_party, PROFILES, ULTRA_MOON_10, GEN6_GAMES
 from .pokemon import decode_party
 from .boxes import read_box,decode_box
 from .catalog import Catalog
@@ -42,7 +42,7 @@ class TrackerService:
         # A damaged local cache must never prevent the tracker from starting.
             except (OSError,ValueError,TypeError):
                 pass
-        suffix='-ultra-sun' if self.state['game']=='Ultra Sun 1.0' else ''
+        suffix=self.progress_suffix(self.state['game'])
         self.progress=RunProgress(self.output.with_name(self.output.stem+suffix+'-progress.json'))
         self.state['progress']=copy.deepcopy(self.progress.data)
         self.profile=PROFILES[self.state['game']]
@@ -61,6 +61,15 @@ class TrackerService:
         self.state['templates']=self.templates.status()
         self.state['party']=[self.refresh_template(p) for p in self.state['party']]
         self.state['boxes']={k:[self.refresh_template(p) for p in box] for k,box in self.state['boxes'].items()}
+    @staticmethod
+    def progress_suffix(game):
+        if game=='Ultra Moon 1.0':return ''
+        if game=='Ultra Sun 1.0':return '-ultra-sun'
+        if game in GEN6_GAMES:
+            import re
+            return '-'+re.sub(r'[^a-z0-9]+','-',game.casefold()).strip('-')
+        raise ValueError('Juego fuera de los perfiles conocidos')
+
     @staticmethod
     def valid_connection(config):
         if not isinstance(config,dict) or config.get('game') not in PROFILES or config.get('mode') not in ('memory','gdb'):
@@ -203,16 +212,19 @@ class TrackerService:
         profile=PROFILES[self.config.get('game','Ultra Moon 1.0')]
         if profile.name!=self.profile.name:
             self.profile=profile
-            suffix='-ultra-sun' if profile.name=='Ultra Sun 1.0' else ''
+            suffix=self.progress_suffix(profile.name)
             self.progress=RunProgress(self.output.with_name(self.output.stem+suffix+'-progress.json'))
             self.update(game=profile.name,party=[None]*6,boxes={},stale=True)
         self.profile=profile;self.sun_box_base=None
+        self.scan_next=None;self.scan_verified=set()
         self.update(connection={'status':'connecting','message':'Localizando RAM…'},stale=True,scan={'active':False,'completed':0})
         mode=self.config['mode']
         if self.factory:self.reader=self.factory(self.config)
         elif mode=='memory':
             generation=self.config.get('_connection_generation',self.connection_generation)
-            self.reader=LimeProcessMemory(self.config.get('pid'),lambda msg:self.update(connection={'status':'connecting','message':msg}),dynamic=self.profile.name=='Ultra Sun 1.0',cancel=lambda:generation!=self.connection_generation or self.stop.is_set())
+            self.reader=LimeProcessMemory(self.config.get('pid'),lambda msg:self.update(connection={'status':'connecting','message':msg}),dynamic=self.profile.name=='Ultra Sun 1.0' or self.profile.generation==6,
+                cancel=lambda:generation!=self.connection_generation or self.stop.is_set(),
+                generation=self.profile.generation)
             self.profile=replace(self.profile,party_address=self.reader.party_address)
             self.diagnostic={'game':self.profile.name,
                              'party_address':hex(self.profile.party_address),
@@ -220,14 +232,32 @@ class TrackerService:
                              'discovery':getattr(self.reader.process,'discovery_report',{})}
         else:
             self.reader=LimeGDB(self.config.get('port',24689));self.reader.identify();self.reader.resume()
-        # Start a complete box scan as soon as a game is connected.
-        # Refresh periodically to detect changes made while playing.
-        self.scan_next=1
-        self.next_box_refresh_at=time.monotonic()+180.0
-        self.update(connection={'status':'connected','message':'Conectado · '+('Windows sin GDB' if mode=='memory' else 'GDB')},scan={'active':True,'completed':0})
+        # Gen6 box addresses have NOT been verified; don't reuse USUM pointers.
+        # Validate a decoded team before reporting any Gen6 game as connected.
+        if self.profile.generation==6:
+            party=decode_party(capture_party(self.reader,self.profile),max_species=721)
+            if not any(party):
+                raise ValueError('No se detectó equipo PK6 válido. Abre una partida con al menos un Pokémon y guarda diagnóstico.')
+            self.scan_next=None
+        else:
+            self.scan_next=1
+        self.next_box_refresh_at=time.monotonic()+180.0 if self.profile.generation==7 else float('inf')
+        self.update(connection={'status':'connected','message':('Gen6 experimental · solo equipo (cajas pendientes)' if self.profile.generation==6 else
+            'Conectado · '+('Windows sin GDB' if mode=='memory' else 'GDB'))},
+            box_verified=self.profile.generation==7,
+            scan={'active':self.profile.generation==7,'completed':0})
         self.save_session()
     def poll(self):
-        party=[self.enrich(p) for p in decode_party(capture_party(self.reader,self.profile))]
+        party=[self.enrich(p) for p in decode_party(capture_party(self.reader,self.profile),
+             max_species=721 if self.profile.generation==6 else 807)]
+        if self.profile.generation==6:
+            if not any(party):raise ValueError('Equipo PK6 no válido o vacío: sin actualizar datos.')
+            self.update(party=party,boxes={},box_verified=False,stale=False,
+                battle_hp=False,scan={'active':False,'completed':0},
+                connection={'status':'connected','message':'Gen6 experimental · equipo en vivo, cajas y PS de combate pendientes'})
+            if self.diagnostic is not None:
+                self.diagnostic.update(box_status='no_verified_gen6',party_species=[p['species_id'] for p in party if p])
+            return
         party,in_battle=apply_battle_hp(self.reader,party,self.profile.name)
         number=self.scan_next or self.snapshot()['selected_box']
         boxes=self.snapshot()['boxes'];box_verified=True
@@ -278,6 +308,7 @@ class TrackerService:
             self.config=None;self.scan_next=None;self.close_reader();self.update(connection={'status':'disconnected','message':'Desconectado'},stale=True,scan={'active':False,'completed':0})
         elif action=='box':self.update(selected_box=cmd['number'])
         elif action=='scan':
+            if self.profile.generation==6:raise ValueError('Lectura de cajas Gen6 pendiente de validación; solo equipo disponible.')
             if not self.reader:raise ValueError('Conecta el tracker antes de leer las cajas.')
             self.scan_verified=set()
             self.scan_next=1;self.update(scan={'active':True,'completed':0})
