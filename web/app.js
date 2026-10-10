@@ -25,7 +25,7 @@ $('route-intro').textContent=gen6?
 $('analysis-source-note').textContent=gen6?
   'Análisis aproximado con referencias USUM: confirmar habilidades, movimientos y formas en Gen6 antes de usarlo para decisiones.':
   'Referencia USUM · Puede variar con el randomizer.';
-$('box').disabled=gen6;$('global').disabled=gen6;
+$('box').disabled=gen6;$('global').disabled=gen6;$('open-companion').disabled=gen6;
 $('game').disabled=Boolean(state.demo)||companionView;if(routeGame!==state.game){routeGame=state.game;const game=routeGame;fetch('/api/routes').then(r=>r.json()).then(data=>{if(state.game===game){routeCatalog=data.routes;placeSignature='';renderPlaces()}}).catch(()=>{routeGame=''})}$('eyebrow').textContent=companionView?'AVENTURA DE TU COMPAÑERO':state.demo?'MODO DEMO':'';$('eyebrow').hidden=!companionView&&!state.demo;renderMini();renderPlaces();renderDead();renderAnalysis();$('demo-tools').hidden=!state.demo;if(state.demo){$('demo-scenario').value=state.demo_scenario;$('box').value=state.selected_box;}$('status').textContent=state.connection.message;const connected=state.connection.status==='connected'&&!state.stale;$('badge').textContent=companionView?'● Última sesión':connected?(state.demo?'● Demostración':state.battle_hp?'● PS de combate':'● En vivo'):state.connection.status==='connecting'?'Localizando RAM':state.connection.status==='retrying'?'Reconectando':'Sin datos actuales';$('badge').classList.toggle('live',connected);$('notice').hidden=companionView||!state.stale;$('notice').textContent='Última lectura · Esperando reconexión.';nodes.forEach((node,i)=>{const p=state.party[i],sig=JSON.stringify(p);if(node.dataset.signature===sig)return;node.dataset.signature=sig;node.classList.toggle('empty',!p);node.innerHTML=card(p,i)});$('scan-status').textContent=gen6?'Gen6 experimental: lectura de cajas no disponible hasta verificar las direcciones de memoria con una captura real.':`${state.box_verified===false?'Dirección de cajas sin validar · ':''}${Object.keys(state.boxes).length} / 32 cajas leídas${state.scan.active?` · Lectura global: ${state.scan.completed} / 32`:state.stale&&Object.keys(state.boxes).length?' · Última lectura guardada (sin conexión)':''}`;$('cancel').hidden=companionView||!state.scan.active;renderBoxes();if(selected&&$('detail').open){const [kind,a,b]=selected.split(':');const p=kind==='dead'?state.progress?.deaths?.[`${a}:${b}`]?.pokemon:kind==='party'?state.party[a]:state.boxes[a]?.[b];if(p)detail(p);else $('detail').close()}}
 async function exportWithDialog(kind){
  const button=$(kind==='diagnostic'?'diagnostic':'save-session');
@@ -179,7 +179,7 @@ function renderPlaces(){
   let filled=0;
   for(const r of routeCatalog)
     if(tradedRoutes.includes(String(r.id))||[30,31,32,33].some(v=>(r.ids||[r.id]).some(id=>locations.has(`${v}:${id}`))))filled++;
-  $('places-count').textContent=`${filled} / ${routeCatalog.length} zonas con historial`;
+  $('places-count').textContent=routeCatalog.length?`${filled} / ${routeCatalog.length} zonas con historial`:`${locations.size} lugares registrados · catálogo pendiente`;
   const routes=routeCatalog.filter(r=>normalize(r.name).includes(query));
   if(routes.length){
     const section=document.createElement('section');section.className='route-section';
