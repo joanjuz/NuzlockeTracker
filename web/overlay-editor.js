@@ -112,6 +112,29 @@
     }
     return result;
   };
+  $('sprite-upload').onchange=async()=>{
+    const files=[...($('sprite-upload').files||[])];
+    if(!files.length)return;
+    if(files.length>30){say('Importa hasta 30 sprites por lote',true);return;}
+    let imported=0;
+    try{
+      for(const file of files){
+        if(file.size>8_000_000)throw new Error(file.name+': máximo 8 MB por sprite');
+        const ext=(file.name.split('.').pop()||'').toLowerCase();
+        if(!['png','apng','gif','webp','jpg','jpeg','bmp'].includes(ext))
+          throw new Error(file.name+': extensión no admitida');
+        const rawName=file.name.slice(0,-ext.length-1);
+        const stem=rawName.normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
+          .replace(/[^A-Za-z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80);
+        if(!stem)throw new Error('Nombre de archivo inválido');
+        await post('/api/overlay/sprite',{name:stem+'.'+ext,data:await encodeFile(file)});
+        imported++;
+        say('Sprites importados: '+imported+' / '+files.length);
+      }
+      $('sprite-import-info').textContent='Importados '+imported+' sprites. OBS los actualizará automáticamente.';
+    }catch(error){say('Importación ('+imported+'/'+files.length+'): '+error.message,true);}
+    finally{$('sprite-upload').value='';}
+  };
   async function importHealth(kind){
     const control=$('hp_'+kind+'_upload');
     const file=control.files?.[0];if(!file)return;
