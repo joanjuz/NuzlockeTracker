@@ -1,5 +1,6 @@
 """Diagnóstico interactivo Gen6 para Lime3DS/Citra/Azahar. No escribe RAM."""
 import json
+import sys
 from dataclasses import replace
 from datetime import datetime,timezone
 from pathlib import Path
@@ -50,7 +51,8 @@ def main():
             'created_at':datetime.now(timezone.utc).isoformat(),
             'pc':{},'battle':{},'status':'incomplete',
             'privacy':'No contiene bytes crudos, nombres de entrenador, guardados ni credenciales.'}
-    out=Path(__file__).resolve().parent/'runtime'/(
+    base=Path(sys.executable).resolve().parent if getattr(sys,'frozen',False) else Path(__file__).resolve().parent
+    out=base/'runtime'/(
         'diagnostico_gen6_'+datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')+'.json')
     reader=None
     try:
