@@ -139,7 +139,7 @@
     const control=$('hp_'+kind+'_upload');
     const file=control.files?.[0];if(!file)return;
     try{
-      if(file.size>2_000_000)throw new Error('El PNG supera los 2 MB');
+      if(file.size>8_000_000)throw new Error('El PNG supera los 8 MB');
       if(!file.name.toLowerCase().endsWith('.png'))throw new Error('Selecciona un archivo PNG');
       const info=await post('/api/overlay/hp-image',{kind,data:await encodeFile(file)});
       $('hp_custom_'+kind).checked=true;
