@@ -15,7 +15,7 @@ Las direcciones son **candidatas históricas de Citra**; NO equivalen a direccio
 - Descifrado de PK6 con la rutina común de 232 bytes, comprobación de checksum, límite de 721 especies, estado del equipo y estadísticas del bloque correspondiente si es válido.
 - Nombres localizados de procedencia Gen6 (Kalos/Hoenn) por IDs PKHeX, sin inferir especies ni rutas a partir de un randomizer.
 - Descubrimiento experimental de RAM Windows para la región de invitado `0x08000000..0x0FFFFFFF`, separado de Gen7.
-- **Cajas PK6 (experimental):** direcciones candidatas `0x08C861C8` (X/Y) y `0x08C9E134` (ORAS), según `Sources/PKHeX.cpp` de `samabr85/Gen6CTRPFrameworkOverhauled` (`DetermineSpeciesPointer()`). Gen6 emplea 31 cajas de 30 espacios. Se lee cada caja dos veces; no se publica ninguna hasta comprobar las 31 lecturas con checksum válido y al menos un Pokémon presente. Un PC totalmente vacío o una lectura inestable se reportan como **no verificables**.
+- **Cajas PK6 (experimental):** direcciones validadas `0x08C861B8` (X) y `0x08C9A144` (Omega Ruby), candidatas `0x08C861C8` (Y) y `0x08C9A144` (Alpha Sapphire), según `Sources/PKHeX.cpp` de `samabr85/Gen6CTRPFrameworkOverhauled` (`DetermineSpeciesPointer()`). Gen6 emplea 31 cajas de 30 espacios. Se lee cada caja dos veces; no se publica ninguna hasta comprobar las 31 lecturas con checksum válido y al menos un Pokémon presente. Un PC totalmente vacío o una lectura inestable se reportan como **no verificables**.
 - **PS durante combate (experimental):** estructura candidata a partir de `Citra-Tracker-v2/getaddresses()` y lectura Gen6 `hpnum` (stride 580). Solo se aceptan PS cuando coinciden equipo PK6, identidad EC, especie, nivel, habilidad, PS máximos y dos lecturas consecutivas; en caso contrario, se conservan los PS del equipo fuera de combate.
 - Diagnóstico exportable sin volcado de memoria, PIN, token o lista de Pokémon.
 
@@ -72,3 +72,18 @@ Los dos archivos `diagnostico_gen6_20261010_044658.json` y `diagnostico_gen6_202
 - Los offsets anteriores son específicos de **la instalación de Pokémon X 1.0 en Lime3DS probada**, y no se consideran automáticamente comprobados para Y/ORAS ni otros emuladores.
 
 La rama sigue siendo **experimental**; no fusionar con `master` antes de validar la nueva versión ejecutable en el juego real.
+
+## Captura real de Rubí Omega: PC localizado (2026-10-10)
+
+El usuario confirmó en Lime3DS que **Pokémon X e Y funcionan con equipo, PC y PS en combate**. En **Omega Ruby y Alpha Sapphire**, el equipo y los PS en combate funcionan; solo falla el PC con las direcciones antiguas.
+
+Se examinó `diagnostico_gen6_20261010_051139OmegaRubyCajas.json` de **Omega Ruby 1.0**:
+
+- Pokémon de referencia depositado en **Caja 1, casilla 1**. La herramienta leyó los **128 MiB** de RAM Gen6 sin errores.
+- Encontró 6 coincidencias EC y 4 PK6 almacenados válidos. La única base que verificó **las 31 cajas completas** fue **`0x08C9A144`**, sin ambigüedad.
+- Las otras tres direcciones (`0x0832195C`, `0x08ECB918`, `0x08ECBA00`) se rechazaron por datos PK6 inválidos en las posiciones 2/3.
+- El equipo se localizó en `0x08CF71FC`, 128 bytes antes de la dirección de referencia `0x08CF727C`. La base anterior de las cajas era `0x08C9E134`: la corrección real es **−0x3FF0** (16368 bytes), no el mismo −128 del equipo.
+- Se actualiza **Omega Ruby** con la dirección verificada. **Alpha Sapphire** comparte esa dirección como **candidata** porque ambos juegos reutilizan la estructura ORAS, pero falta verificar el PC de Zafiro Alfa en Lime3DS.
+- El diagnóstico no hizo lectura de PS en combate (etapa omitida); se conserva el lector de batalla ORAS que el usuario ya validó previamente.
+
+Próxima validación: abrir el tracker experimental, conectar primero en Omega Ruby y pulsar **Cajas → Actualizar todas las cajas**; repetir con Alpha Sapphire, con un Pokémon almacenado en el PC. `master` permanece sin cambios hasta recibir confirmación real de ambas lecturas.
