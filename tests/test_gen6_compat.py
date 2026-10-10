@@ -44,7 +44,7 @@ class Gen6Tests(unittest.TestCase):
         self.assertEqual(len(GEN6_GAMES),4)
         for game in GEN6_GAMES:
             p=PROFILES[game]
-            self.assertEqual((p.slot_stride,p.slot_size,p.generation,p.box_address),(484,484,6,0x08C861B8 if game=='Pokémon X 1.0' else 0x08C861C8 if game=='Pokémon Y 1.0' else 0x08C9E134))
+            self.assertEqual((p.slot_stride,p.slot_size,p.generation,p.box_address),(484,484,6,0x08C861B8 if game=='Pokémon X 1.0' else 0x08C861C8 if game=='Pokémon Y 1.0' else 0x08C9A144))
             self.assertFalse(p.verified)
             self.assertEqual(p.party_address,0x08CE1CE8 if 'Pokémon ' in game else 0x08CF727C)
         self.assertEqual(PROFILES['Ultra Moon 1.0'].generation,7)
