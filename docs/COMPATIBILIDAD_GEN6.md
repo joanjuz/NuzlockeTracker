@@ -1,6 +1,6 @@
 # Compatibilidad experimental: Pokémon X/Y y ORAS (Gen6)
 
-**Fase 1: lectura del equipo y diagnóstico. No es soporte completo ni validado en hardware real.**
+**Fase 2 experimental: equipo validado por el usuario en los cuatro juegos; cajas y PS en combate pendientes de validación real.**
 
 ## Juegos
 - Pokémon X 1.0 y Pokémon Y 1.0: candidato de equipo `0x08CE1CE8`.
@@ -15,13 +15,15 @@ Las direcciones son **candidatas históricas de Citra**; NO equivalen a direccio
 - Descifrado de PK6 con la rutina común de 232 bytes, comprobación de checksum, límite de 721 especies, estado del equipo y estadísticas del bloque correspondiente si es válido.
 - Nombres localizados de procedencia Gen6 (Kalos/Hoenn) por IDs PKHeX, sin inferir especies ni rutas a partir de un randomizer.
 - Descubrimiento experimental de RAM Windows para la región de invitado `0x08000000..0x0FFFFFFF`, separado de Gen7.
+- **Cajas PK6 (experimental):** direcciones candidatas `0x08C861C8` (X/Y) y `0x08C9E134` (ORAS), según `Sources/PKHeX.cpp` de `samabr85/Gen6CTRPFrameworkOverhauled` (`DetermineSpeciesPointer()`). Gen6 emplea 31 cajas de 30 espacios. Se lee cada caja dos veces; no se publica ninguna hasta comprobar las 31 lecturas con checksum válido y al menos un Pokémon presente. Un PC totalmente vacío o una lectura inestable se reportan como **no verificables**.
+- **PS durante combate (experimental):** estructura candidata a partir de `Citra-Tracker-v2/getaddresses()` y lectura Gen6 `hpnum` (stride 580). Solo se aceptan PS cuando coinciden equipo PK6, identidad EC, especie, nivel, habilidad, PS máximos y dos lecturas consecutivas; en caso contrario, se conservan los PS del equipo fuera de combate.
 - Diagnóstico exportable sin volcado de memoria, PIN, token o lista de Pokémon.
 
 ## Pendiente y expresamente deshabilitado
 
-- **Cajas y escaneo 32 cajas:** desconocemos la dirección PC válida para Gen6. No se reutiliza jamás `0x33015AB0` de USUM.
-- **PS durante combate:** direcciones y estructuras todavía no validadas; se mantienen datos del equipo fuera de combate.
-- **Catálogo completo de rutas Nuzlocke X/Y/Hoenn:** actualmente se muestran los lugares registrados del equipo como «Otros orígenes», pero no se inventan contadores ni marcas MISS para zonas no verificadas.
+- **Cajas:** direcciones candidatas aún requieren validación en los cuatro juegos y emuladores. Gen6 usa 31 cajas, no 32.
+- **PS en combate:** los candidatos pueden no coincidir según juego/versión, y quedan por validar contra cambios de daño en batalla real. Se descartan valores sospechosos.
+- **Catálogo completo de rutas Nuzlocke X/Y/Hoenn:** se muestran lugares registrados del equipo y cajas si se verifican como «Otros orígenes»; no se inventan contadores ni marcas MISS para zonas no verificadas.
 - **Análisis y evoluciones:** utilizan referencias generales existentes, con posibles diferencias entre generaciones; se muestran como aproximación, no como análisis Gen6 verificado.
 - **Soul Link entre generaciones:** requiere comprobaciones de localizaciones y emparejamientos Gen6 antes de considerarse compatible.
 
@@ -31,7 +33,7 @@ Las direcciones son **candidatas históricas de Citra**; NO equivalen a direccio
 2. Abre una partida **1.0** de X o Y, u Omega Ruby/Alpha Sapphire, en Citra/Azahar/Lime3DS, preferiblemente con uno o más Pokémon en el equipo.
 3. En Pokémon Tracker, Conexión → elige el título correspondiente → Memoria Windows y, si aparecen dos emuladores, indica PID.
 4. Espera la detección. Si no funciona, usa **Guardar diagnóstico…** y comparte el JSON; no necesitas compartir ROM, guardado, credenciales ni memoria cruda.
-5. Si funciona, comprueba seis slots, nivel, PS, especie, mote, datos de captura y que el juego siga funcionando al salir de combate. Repite con el otro juego y el mismo emulador.
+5. Durante un combate, recibe daño y comprueba que los PS se actualicen antes de salir de la batalla. Luego sal del combate y vuelve a comprobar los PS.
 6. Para validar **cajas** en una fase posterior harán falta capturas de diagnóstico más específicas, siempre solo datos necesarios y con permiso del usuario.
 
 **No fusionar con master hasta que se pruebe en juegos reales.**
