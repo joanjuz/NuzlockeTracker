@@ -256,7 +256,7 @@ class TrackerService:
                 battle_hp=False,scan={'active':False,'completed':0},
                 connection={'status':'connected','message':'Gen6 experimental · equipo en vivo, cajas y PS de combate pendientes'})
             if self.diagnostic is not None:
-                self.diagnostic.update(box_status='no_verified_gen6',party_species=[p['species_id'] for p in party if p])
+                self.diagnostic.update(box_status='no_verified_gen6',validated_team_slots=sum(p is not None for p in party))
             return
         party,in_battle=apply_battle_hp(self.reader,party,self.profile.name)
         number=self.scan_next or self.snapshot()['selected_box']
