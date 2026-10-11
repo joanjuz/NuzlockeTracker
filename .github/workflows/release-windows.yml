@@ -1,0 +1,112 @@
+name: Publicar Progressive Tracker para Windows
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/release-windows.yml'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Etiqueta semantica (ejemplo v0.25.0); requiere docs/releases/<tag>.md'
+        required: true
+        default: 'v0.24.0'
+        type: string
+
+jobs:
+  release-windows:
+    if: github.repository == 'joanjuz/NuzlockeTracker'
+    runs-on: windows-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag || 'v0.24.0' }}
+
+    steps:
+      - name: Obtener codigo
+        uses: actions/checkout@v4
+
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          architecture: x64
+
+      - name: Preparar Node.js para pruebas
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Instalar dependencias
+        run: python -m pip install -r requirements-desktop.txt
+
+      - name: Ejecutar pruebas Python
+        run: python -m unittest discover -s tests -v
+
+      - name: Ejecutar pruebas de interfaz JavaScript
+        shell: pwsh
+        run: |
+          Get-ChildItem 'tests/test_*.js' | ForEach-Object {
+            node $_.FullName
+            if ($LASTEXITCODE -ne 0) { throw "Fallo test JavaScript: $($_.Name)" }
+          }
+
+      - name: Compilar ejecutable Windows portable y smoke test
+        shell: powershell
+        run: |
+          Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+          .\tools\build_windows.ps1
+
+      - name: Verificar paquete listo para publicar
+        shell: pwsh
+        run: |
+          if (-not (Test-Path 'out/PokemonTracker-Windows-x64.zip')) { throw 'ZIP no encontrado' }
+          if (-not (Test-Path 'dist/PokemonTracker.exe')) { throw 'EXE no encontrado' }
+          if (-not (Test-Path 'dist/LEEME.txt')) { throw 'Guia no encontrada' }
+          if (-not (Test-Path 'dist/LICENSE.txt')) { throw 'Licencia no encontrada' }
+          $items = @((tar -tf 'out/PokemonTracker-Windows-x64.zip'))
+          if ($LASTEXITCODE -ne 0) { throw 'ZIP no legible' }
+          foreach ($required in @('PokemonTracker.exe','LEEME.txt','LICENSE.txt')) {
+            if (-not ($items | Where-Object { $_ -like "*$required" })) {
+              throw "No se encontro $required dentro del ZIP"
+            }
+          }
+
+      - name: Preparar notas de version y SHA-256
+        shell: pwsh
+        run: |
+          $tag = $env:RELEASE_TAG
+          if ($tag -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') {
+            throw "Etiqueta invalida: $tag"
+          }
+          $notes = Join-Path 'docs/releases' "$tag.md"
+          if (-not (Test-Path $notes)) { throw "Faltan notas para $tag en $notes" }
+          Copy-Item $notes 'out/RELEASE_NOTES.md'
+          $sha = (Get-FileHash 'out/PokemonTracker-Windows-x64.zip' -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$sha  PokemonTracker-Windows-x64.zip" | Set-Content -Path 'out/SHA256SUMS.txt' -Encoding utf8
+
+      - name: Guardar paquete como artefacto de respaldo
+        uses: actions/upload-artifact@v4
+        with:
+          name: ProgressiveTracker-Windows-x64-${{ env.RELEASE_TAG }}
+          path: |
+            out/PokemonTracker-Windows-x64.zip
+            out/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publicar GitHub Release con descarga
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          target_commitish: ${{ github.sha }}
+          name: Progressive Tracker ${{ env.RELEASE_TAG }}
+          body_path: out/RELEASE_NOTES.md
+          files: |
+            out/PokemonTracker-Windows-x64.zip
+            out/SHA256SUMS.txt
+          fail_on_unmatched_files: true
+          draft: false
+          prerelease: false
+          make_latest: true
