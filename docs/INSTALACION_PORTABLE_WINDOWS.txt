@@ -1,0 +1,52 @@
+PROGRESSIVE TRACKER v0.24.0 - GUIA DE INICIO (WINDOWS)
+
+DESCARGAR
+1. Descarga PokemonTracker-Windows-x64.zip desde:
+   https://github.com/joanjuz/NuzlockeTracker/releases/latest
+2. Extrae el contenido en una carpeta nueva.
+3. Abre PokemonTracker.exe con doble clic (Windows 10/11 de 64 bits).
+   No requiere instalar Python, Node.js ni abrir una consola.
+4. La interfaz utiliza Microsoft Edge WebView2 Runtime.
+5. La primera ejecucion puede tardar unos segundos adicionales mientras
+   el EXE portable extrae sus recursos temporales.
+
+CONECTAR UN JUEGO
+1. Inicia Lime3DS y carga una partida compatible:
+   Ultra Sol, Ultra Luna, X, Y, Rubi Omega o Zafiro Alfa (version 1.0).
+2. Abre la pestaña Conexion del tracker, elige el juego y su proceso (PID).
+3. Conecta y comprueba el equipo. Las cajas se actualizan automaticamente.
+4. Si Gen6 no localiza el equipo, prueba reiniciar el JUEGO dentro del
+   emulador; la reconexion en algunas situaciones sigue en investigacion.
+5. Azahar/Citra y otras versiones de juegos no estan validadas por completo.
+
+OBS
+1. Abre el editor OBS dentro de Progressive Tracker.
+2. Copia las URL locales de sprites, motes, PS o composicion.
+3. Pegalas en OBS Studio como Fuente de navegador, con fondo transparente.
+4. Puedes importar sprites PNG, APNG, GIF o WebP personalizados desde
+   el editor, o utilizar la carpeta sprites_personalizados.
+5. Ajusta escala, fuentes y barras, y verifica el resultado en OBS.
+   Mantiene abierto el tracker mientras transmites.
+
+PERFILES, RESPALDOS Y ACTUALIZACIONES
+- Tu progreso y preferencias se guardan normalmente en:
+  %LOCALAPPDATA%\PokemonTracker\runtime
+- Antes de actualizar: cierra el tracker y respalda esa carpeta.
+- Para actualizar: extrae la nueva descarga en OTRA carpeta y ejecuta
+  el nuevo EXE. No reemplaces archivos mientras el programa este abierto.
+- Es portable y no incluye instalador ni desinstalador.
+- En dos instancias, comprueba el PID correcto de cada emulador.
+- Soul Link necesita configuracion opcional de su servicio Cloudflare.
+- Ninguna muerte remota mata automaticamente al Pokemon local.
+- El ZIP no contiene ROMs, partidas, credenciales ni tokens privados.
+
+DIAGNOSTICO
+- Si la ventana falla, instala o repara WebView2 Runtime y revisa:
+  %LOCALAPPDATA%\PokemonTracker\desktop-error.log
+- Si Windows SmartScreen muestra una advertencia, verifica que la descarga
+  proceda del release oficial. El programa no esta firmado digitalmente.
+- El tracker no altera la RAM ni la ROM; solo efectua lecturas.
+- Algunas funciones de OBS HD aun requieren validacion visual final.
+
+PROYECTO: https://github.com/joanjuz/NuzlockeTracker
+AYUDA: docs/DESKTOP_WINDOWS.md en el repositorio.
