@@ -1,82 +1,71 @@
-# Pokemon Tracker
+# Progressive Tracker
 
-Tracker local para **Pokemon Ultra Sol / Ultra Luna 1.0** en Lime3DS.
+**Progressive Tracker** (antes *Pokémon Tracker*) es una aplicación local para Windows que lee los datos de Pokémon desde la memoria del emulador, organiza aventuras Nuzlocke y Soul Link y genera fuentes visuales para OBS.
 
-> Version estable: **v0.20.2**, validada en ambos juegos.
+> **Versión de descarga:** **v0.24.0**, con soporte de Gen6 y Gen7 y mejoras OBS HD. La versión descargable es una aplicación **portable**: no hace falta instalar Python ni Node.js.
 
-## Funcionalidades
+## Descargar para Windows
 
-- Lee en vivo el equipo y las cajas desde la memoria del emulador.
-- Muestra las estadisticas, movimientos, objetos, habilidades y sprites del equipo.
-- Actualiza los PS durante el combate en Ultra Sol y Ultra Luna 1.0.
-- Permite cambiar de juego sin reiniciar el servidor.
-- Incluye secciones de rutas, Pokemon debilitados y analisis ofensivo/defensivo.
-- Incluye modo de demostracion sin emulador.
+**[Descargar la última versión (GitHub Releases)](https://github.com/joanjuz/NuzlockeTracker/releases/latest)**
 
-## Sincronización Soul Link (experimental)
+1. Abre la versión más reciente y, en **Assets**, descarga **`PokemonTracker-Windows-x64.zip`**.
+2. Extrae el ZIP en una carpeta nueva.
+3. Ejecuta **`PokemonTracker.exe`** en Windows 10/11 de 64 bits.
+4. Abre Lime3DS y selecciona juego/PID en **Conexión**.
 
-Desde los tres puntos (`···`) puedes vincular tu partida de Ultra Sol con la de tu compañero en Ultra Luna, y ver su última sesión en Equipo, Cajas, Rutas, Muertos y Análisis. Requiere desplegar un Cloudflare Worker + D1: instrucciones en [`docs/SOULLINK_COMPANION.md`](docs/SOULLINK_COMPANION.md). No necesita abrir puertos LAN ni exponer tu emulador.
+Requiere **Microsoft Edge WebView2 Runtime**. El EXE no está firmado digitalmente. **Nunca descargues una ROM desde este proyecto**: no se incluyen juegos ni partidas.
 
-## Requisitos
+Los datos se conservan en `%LOCALAPPDATA%\PokemonTracker\runtime`. Antes de actualizar, cierra la aplicación y haz una copia de seguridad de esta carpeta.
 
-- Windows y Python 3 (para lectura de memoria real con Lime3DS).
-- Lime3DS con una version compatible del juego.
-- Navegador web moderno. No requiere Node.js para ejecutar el tracker.
+## Juegos compatibles
 
-## Uso
+| Generación | Juego (versión 1.0) | Equipo | Cajas | PS durante combate |
+| --- | --- | --- | --- | --- |
+| 6 | Pokémon X / Y | Sí | 31 | Sí |
+| 6 | Pokémon Rubí Omega / Zafiro Alfa | Sí | 31 | Sí |
+| 7 | Pokémon Ultra Sol / Ultra Luna | Sí | 32 | Sí |
 
-1. Abre Lime3DS con Ultra Sol o Ultra Luna 1.0.
-2. Ejecuta `Iniciar.bat`, ubicado en la raiz del proyecto.
-3. Se abrira la interfaz web local. En **Conexion**, selecciona el juego y pulsa **Conectar**.
+Las funciones principales se han validado con **Lime3DS en Windows**. La compatibilidad con Azahar, Citra, otras revisiones y todas las ROM personalizadas no está garantizada.
 
-Para iniciar la demostracion sin Lime3DS, ejecuta `Iniciar_Demo.bat`.
-El servidor escucha solo en `127.0.0.1` y utiliza un puerto local disponible.
+## Características
 
-## Pruebas
+- Equipo y PC con lectura de RAM **solo lectura**, búsqueda y actualización automática de cajas.
+- **Living Dex** por orden nacional con Poké Balls o sprites de especies ausentes.
+- Rutas, capturas, MISS, muertes, revivir, fósiles, regalos, huevos, intercambios e historial.
+- Información de movimientos, estadísticas, IV/EV y análisis de tipos ofensivo/defensivo.
+- Importación informativa de CSV de **pk3DS Progressive** (movimientos, estadísticas base y evoluciones).
+- **Soul Link Companion** opcional y visualización del equipo, cajas y progreso del compañero. No registra muertes locales automáticamente por eventos remotos.
+- Overlays transparentes para **OBS**, con sprites, motes y barras de vida independientes, estilos, fuentes y escalado HD.
+- Sprites personalizados PNG, APNG, GIF, WebP y otros formatos estáticos admitidos, con recarga en caliente.
 
-```powershell
-py -3 -m unittest discover -s tests
-node tests/test_analysis.js
-node tests/test_progress_ui.js
-node tests/test_mini_sprites.js
-```
+## OBS
 
-Node.js solo es necesario para ejecutar las pruebas JavaScript, no para usar la aplicacion.
+Desde el editor OBS de la aplicación puedes copiar URLs para **Fuentes de navegador** y personalizar sprites, texto y PS. Las URL son locales, normalmente en `127.0.0.1` con el puerto elegido por el tracker. Se admite compartir, de manera opcional y controlada, una vista de solo lectura por Radmin VPN.
+
+Los gráficos OBS HD están cubiertos por pruebas automatizadas; se recomienda verificar el resultado visual real de cada escena, sobre todo las animaciones y el escalado.
 
 ## Desarrollo
 
-- `master`: version estable.
-- `development`: integracion de nuevas funciones.
-- `feature/*`: trabajo en funcionalidades individuales mediante pull requests.
-- `backup/nuztracker-react-20261008`: respaldo de la version React/Tauri anterior.
+La rama **`master`** contiene la versión principal; los cambios se preparan en `feature/*` y se integran mediante pull requests.
 
-El historial tecnico anterior se encuentra en [`docs/HISTORIAL_VERSIONES.md`](docs/HISTORIAL_VERSIONES.md).
-Los datos personales y registros locales se guardan en `runtime/`, que no se sube a Git.
+Para ejecutar en modo desarrollo, utiliza Python 3.13 y las dependencias pertinentes. Para compilar la aplicación portable en Windows:
 
-## Fuentes y licencias
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/build_windows.ps1
+```
 
-Vease `LICENSE.txt` y los avisos de atribucion presentes en `data/` y `web/fonts/`.
-## Dos jugadores Soul Link en una PC
+Las compilaciones y pruebas se ejecutan en GitHub Actions. El flujo de release genera el ZIP desde Windows, ejecuta pruebas, verifica que el EXE se inicia y publica la descarga junto a su hash SHA-256.
 
-Para ejecutar Ultra Sol y Ultra Luna simultáneamente en la misma computadora, usa `Iniciar.bat` para el primer jugador y `Iniciar_Segundo_Jugador.bat` para el segundo. Los procesos usan distintos puertos locales y carpetas `runtime/`; selecciona el PID de cada Lime3DS en **Conexión** para evitar mezclarlos. Consulta [la guía de dos instancias](docs/SOULLINK_2_INSTANCIAS.md).
+## Documentación
 
-## Companion v0.23.0
+- [Instalación de la versión portable](docs/INSTALACION_PORTABLE_WINDOWS.txt)
+- [Notas de la versión v0.24.0](docs/releases/v0.24.0.md)
+- [Instrucciones de escritorio y resolución de problemas](docs/DESKTOP_WINDOWS.md) (incluye documentación histórica)
+- [Compatibilidad Gen6](docs/COMPATIBILIDAD_GEN6.md)
+- [Gráficos OBS HD](docs/OBS_HD_CUSTOM_SPRITES.md)
+- [Soul Link Companion](docs/SOULLINK_COMPANION.md)
+- [Historial de versiones](docs/HISTORIAL_VERSIONES.md)
 
-La sincronización reacciona a cambios en la partida y consulta el estado del compañero cada cinco segundos. Las 32 cajas se leen automáticamente al conectar y se revisan en segundo plano. Se comparte un único enlace de invitación con el Worker y el código (sin credenciales administrativas); la URL pública predeterminada está configurada en `companion/sync.py`. `CREATE_KEY` continúa siendo una clave de administración privada.
+## Seguridad y atribuciones
 
-## Soul Link Companion v0.23.1
-
-La sección **Rutas** incorpora **Muerte** (sin icono ni confirmación) debajo de cada sprite para registrar manualmente Pokémon en **Muertos**; no mata automáticamente a su pareja Soul Link. **Cajas** conserva la última lectura al desconectar o reiniciar el tracker, diferenciándola de la RAM en vivo. Se retiró el texto de lectura automática, pero el escaneo en segundo plano se mantiene.
-
-## Aplicación de escritorio para Windows (experimental)
-
-La nueva rama `feature/app-escritorio-windows` permite compilar `PokemonTracker.exe`: ventana WebView2 propia (sin CMD y sin navegador externo), selector de perfil principal/segundo jugador, datos persistentes en `%LOCALAPPDATA%\\PokemonTracker\\runtime` y traspaso local no destructivo de los perfiles anteriores. El ZIP portable incluye solamente ejecutable, dependencias y recursos de uso (sin BAT, tests, código de Cloudflare ni herramientas). Consulta [guía Windows](docs/DESKTOP_WINDOWS.md). Para compilar en Windows: `powershell -ExecutionPolicy Bypass -File tools/build_windows.ps1` con Python 3.13 instalado. La compilación y ZIP también se publican como artefacto de GitHub Actions en el PR experimental. Los BAT siguen en el repositorio hasta validar el `.exe`.
-
-### Reparación Python.NET en el EXE
-
-La primera build `--onedir` podía bloquear `Python.Runtime.dll` por la marca de seguridad de Windows al extraer ZIP. La compilación de escritorio pasa a `--onefile`, sin `_internal`, y GitHub Actions valida ahora la importación real de `webview.platforms.winforms` además de los endpoints. El archivo `runtime` no se incluye ni se sobrescribe.
-
-
-### Sprites animados en OBS
-
-La carpeta `sprites_personalizados` admite `25.gif`, `94.gif`, `37-alola.gif` y los nombres `.png` previos. El tracker genera `layout/pokemon_1.gif`…`pokemon_6.gif` para fuentes de imagen animadas de OBS y conserva los seis `.png` como vistas estáticas. Si falta GIF se usa un fotograma estático. Muertos en escala de grises por fotograma; Revivir restaura los colores. Ver [instrucciones de escritorio](docs/DESKTOP_WINDOWS.md).
+El tracker **no escribe en la RAM del emulador** ni edita ROMs o partidas. Las credenciales Soul Link, sesiones privadas y demás archivos de `runtime` no se incluyen en las descargas. Consulta [LICENSE.txt](LICENSE.txt) y las atribuciones correspondientes de sprites, datos y fuentes incluidas en el repositorio.
