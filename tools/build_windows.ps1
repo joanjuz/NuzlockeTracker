@@ -30,7 +30,7 @@ $exe = Join-Path $bundle 'PokemonTracker.exe'
 if (-not (Test-Path $exe)) { throw 'No se encontró PokemonTracker.exe.' }
 # The ZIP contains just the self-extracting EXE, the app license and the guide.
 Copy-Item 'LICENSE.txt' (Join-Path $bundle 'LICENSE.txt')
-Copy-Item 'docs\DESKTOP_WINDOWS.md' (Join-Path $bundle 'LEEME.txt')
+Copy-Item 'docs\INSTALACION_PORTABLE_WINDOWS.txt' (Join-Path $bundle 'LEEME.txt')
 
 # Check packaged executable without opening the window, with isolated data.
 $oldAppData = $env:LOCALAPPDATA
