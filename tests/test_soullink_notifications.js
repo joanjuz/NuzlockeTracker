@@ -29,7 +29,7 @@ const pokemon=(species,id,nick,route=15,extra={})=>({
 });
 const first=pokemon(25,101,'Chispa'),second=pokemon(133,202,'Eevee'),
  other=pokemon(94,303,'Fantasma',99),dead=pokemon(150,999,'Thor');
-const own={party:[first,second,null,null,null,null],
+const own={game:'Ultra Moon 1.0',party:[first,second,null,null,null,null],
  boxes:{'1':[first,other,...Array(28).fill(null)]},
  progress:{deaths:{}},connection:{status:'connected'},stale:false};
 const partnerState={schema_version:1,game:'Ultra Moon 1.0',
@@ -115,6 +115,33 @@ async function settle(){await new Promise(resolve=>setImmediate(resolve));}
  };
  await poll();await settle();
  assert.equal(notice.hidden,false,'Independent manual loss still prompts');
+ node('soullink-dismiss').onclick();
+ // Numeric location collisions across regions must never propose a death.
+ // All Pokémon keep origin_version 33 deliberately: trades cannot choose scope.
+ let sequence=0;
+ async function checkScope(localGame,remoteGame,expected,label){
+   own.game=localGame;partnerState.game=remoteGame;status.partner.game=remoteGame;
+   partnerState.progress.deaths['scope-'+(++sequence)]={pokemon:dead,recorded_at:'scope-'+sequence};
+   await poll();await settle();
+   assert.equal(notice.hidden,!expected,label);
+   if(expected)node('soullink-dismiss').onclick();
+ }
+ await checkScope('Pokémon X 1.0','Ultra Moon 1.0',false,'XY/USUM same location ID stays silent');
+ await checkScope('Pokémon X 1.0','Omega Ruby 1.0',false,'XY/ORAS same location ID stays silent');
+ await checkScope('Omega Ruby 1.0','Ultra Sun 1.0',false,'ORAS/USUM same location ID stays silent');
+ await checkScope('Pokémon X 1.0','Pokémon Y 1.0',true,'X/Y routes remain compatible despite origin_version 33');
+ await checkScope('Omega Ruby 1.0','Alpha Sapphire 1.0',true,'ORAS routes remain compatible');
+ await checkScope('Ultra Sun 1.0','Ultra Moon 1.0',true,'USUM routes remain compatible');
+ await checkScope('unknown','Ultra Moon 1.0',false,'Unknown local game fails closed');
+ await checkScope('Ultra Moon 1.0','unknown',false,'Unknown remote game fails closed');
+ // A proposal already displayed must recheck session scope before posting.
+ own.game='Pokémon X 1.0';partnerState.game='Pokémon Y 1.0';status.partner.game='Pokémon Y 1.0';
+ partnerState.progress.deaths['scope-pending']={pokemon:dead,recorded_at:'pending'};
+ await poll();await settle();assert.equal(notice.hidden,false);
+ own.game='Ultra Moon 1.0';const beforePosts=posted.length;
+ await kill.onclick();await settle();
+ assert.equal(posted.length,beforePosts,'Session region change prevents posting a stale proposal');
+ assert.equal(node('soullink-notice-error').hidden,false,'Stale proposal error remains visible');
  node('soullink-dismiss').onclick();
  console.log('Soul Link: selección, sprite, fuente de muerte y anti-rebote OK');
 })().catch(error=>{console.error(error);process.exitCode=1});

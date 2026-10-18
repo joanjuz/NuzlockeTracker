@@ -26,7 +26,7 @@ const context={
 };
 vm.createContext(context);
 vm.runInContext(code,context);
-setImmediate(()=>{
+setImmediate(async()=>{
   try {
     assert.equal(get('companion-toggle').hidden,false);
     assert.match(code, /setInterval\(getStatus, 5000\)/);
@@ -39,6 +39,17 @@ setImmediate(()=>{
     get('companion-toggle').onclick();
     assert.equal(events[1][0],false);
     assert.equal(get('companion-toggle').textContent,'Compañero');
+    for(const game of ['Pokémon X 1.0','Pokémon Y 1.0','Omega Ruby 1.0','Alpha Sapphire 1.0','Ultra Sun 1.0','Ultra Moon 1.0']){
+      const isolatedEvents=[],copy=structuredClone(status);
+      copy.partner.game=game;copy.partner.state.game=game;
+      const local={...context,window:{setCompanionView:(...args)=>isolatedEvents.push(args)},fetch:async()=>({ok:true,json:async()=>copy})};
+      vm.createContext(local);vm.runInContext(code,local);
+      // Feed the known snapshot directly through the configured refresh action.
+      await get('companion-refresh').onclick();
+      get('companion-toggle').onclick();
+      assert.equal(isolatedEvents.at(-1)[0],true,game+' remote view opens');
+      assert.equal(isolatedEvents.at(-1)[1].game,game,game+' preserved');
+    }
     console.log('Compañero: vista remota y retorno a mi partida OK');
   } catch(error) {console.error(error);process.exitCode=1}
 });

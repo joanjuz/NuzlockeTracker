@@ -10,10 +10,10 @@ const start = source.indexOf('function wikidexUrl(');
 const end = source.indexOf('\nfunction normalize(', start);
 assert.ok(start >= 0 && end > start, 'Pokemon detail renderer must be found');
 const elements = {};
-const $ = id => elements[id] ||= {innerHTML: ''};
+const $ = id => elements[id] ||= {innerHTML: '',contains:()=>false,querySelector:()=>null};
 const context = {
   $, esc: value => String(value ?? ''), portrait: () => '<div class="portrait"></div>',
-  detailPokemon: null, detailSignature: '',
+  detailPokemon: null, detailSignature: '', document:{activeElement:null},
 };
 vm.createContext(context);
 vm.runInContext(source.slice(start, end), context);

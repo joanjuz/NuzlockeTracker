@@ -1,8 +1,26 @@
 # Progressive Tracker
 
+## v0.25.0: partidas, Soul Link directo y vidas OBS
+
+La barra superior permite crear, seleccionar y eliminar partidas con datos independientes.
+El botón Eliminar partida borra la seleccionada y protege las partidas abiertas y la principal.
+Soul Link puede conectar directamente dos trackers en una red local o VPN, con
+una aplicación como host. OBS incorpora muertes o vidas restantes, icono PNG
+personalizado y vidas perdidas ocultas o en gris. Ultra Luna usa búsqueda dinámica
+sin cambiar su nombre a Ultra Sol. La conexión muestra los procesos abiertos y
+comprueba que su juego coincida; revalida la caché de la instancia, prueba una
+sonda acotada y recurre a la búsqueda completa cuando hace falta. Las cajas Gen7
+se publican tras validar las 32 con lecturas repetidas: un PC vacío sin confirmar
+se mantiene pendiente y conserva la última lectura guardada.
+
+Consulta [partidas independientes](docs/PERFILES_PARTIDAS.md),
+[contadores OBS](docs/CONTADORES_OBS.md) y
+[conexión Soul Link directa](docs/SOULLINK_DIRECTO.md). El ejecutable local se genera con `tools/build_windows.ps1`;
+la distribución publicada se encuentra en GitHub Releases.
+
 **Progressive Tracker** (antes *Pokémon Tracker*) es una aplicación local para Windows que lee los datos de Pokémon desde la memoria del emulador, organiza aventuras Nuzlocke y Soul Link y genera fuentes visuales para OBS.
 
-> **Versión de descarga:** **v0.24.0**, con soporte de Gen6 y Gen7 y mejoras OBS HD. La versión descargable es una aplicación **portable**: no hace falta instalar Python ni Node.js.
+> **Versión de descarga:** **v0.25.0**, con perfiles independientes, Soul Link directo, seis juegos y contadores OBS. La versión descargable es una aplicación **portable**: no hace falta instalar Python ni Node.js.
 
 ## Descargar para Windows
 
@@ -59,6 +77,7 @@ Las compilaciones y pruebas se ejecutan en GitHub Actions. El flujo de release g
 ## Documentación
 
 - [Instalación de la versión portable](docs/INSTALACION_PORTABLE_WINDOWS.txt)
+- [Notas de la versión v0.25.0](docs/releases/v0.25.0.md)
 - [Notas de la versión v0.24.0](docs/releases/v0.24.0.md)
 - [Instrucciones de escritorio y resolución de problemas](docs/DESKTOP_WINDOWS.md) (incluye documentación histórica)
 - [Compatibilidad Gen6](docs/COMPATIBILIDAD_GEN6.md)

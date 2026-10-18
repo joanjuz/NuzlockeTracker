@@ -43,7 +43,7 @@ class ProcessMemoryTests(unittest.TestCase):
   self.assertEqual(error.diagnostic['winerror'],5)
   api.OpenProcess.assert_called_once_with(0x0400|0x0010,False,1432)
 
- def test_ultra_moon_on_azahar_uses_dynamic_while_lime3ds_stays_fixed(self):
+ def test_all_emulators_use_validated_dynamic_policy_in_legacy_connector(self):
   # The service previously passed dynamic=False for Ultra Moon. The connector
   # must still select dynamic when the host is Azahar/Citra.
   class Process:
@@ -51,7 +51,7 @@ class ProcessMemoryTests(unittest.TestCase):
    def close(self):self.closed=True
   from tracker.process_memory import LimeProcessMemory
   for name,choose_dynamic in [('azahar-qt.exe',True),('citra-qt.exe',True),
-                              ('lime3ds.exe',False)]:
+                              ('lime3ds.exe',True)]:
    with self.subTest(name=name):
     proc=Process(name)
     with patch('tracker.process_memory.WindowsProcess',return_value=proc), \

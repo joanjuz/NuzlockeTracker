@@ -33,11 +33,23 @@ class GuiBridgeTests(unittest.TestCase):
             export_api.save_export.assert_called_once_with('session')
             self.assertIs(export_api.window, window)
 
+    def test_native_export_resolves_active_profile_after_switch(self):
+        window = Mock()
+        backend = SimpleNamespace(service=object(), url='http://127.0.0.1:12345/')
+        webview = SimpleNamespace(create_window=Mock(return_value=window))
+        with patch('desktop.DesktopExportApi') as factory:
+            create_desktop_window(backend, webview)
+            current = object()
+            backend.service = current
+            window.expose.call_args.args[0]('session')
+            self.assertIs(factory.return_value.service, current)
+            factory.return_value.save_export.assert_called_once_with('session')
+
     def test_death_counter_is_right_of_mini_team_left_of_equipo_tab(self):
         html = (Path(__file__).resolve().parent.parent / 'web' / 'index.html').read_text(encoding='utf-8')
         mini = html.index('id="mini-team"')
         deaths = html.index('id="death-counter"')
-        nav = html.index('<nav aria-label="Secciones del tracker">')
+        nav = html.index('<nav ')
         equipo = html.index('data-tab="party"')
         self.assertTrue(mini < deaths < nav < equipo)
         self.assertEqual(html.count('id="death-counter"'), 1)

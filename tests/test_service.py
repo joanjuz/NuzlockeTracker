@@ -14,9 +14,9 @@ class ServiceTests(unittest.TestCase):
   snapshot=self.service.snapshot();snapshot['party'][0]={'wrong':True};self.assertIsNone(self.service.snapshot()['party'][0])
  def test_scan_all_boxes(self):
   self.service.reader=object();self.service.handle({'action':'scan'})
-  with patch('tracker.service.capture_party',return_value=b''),patch('tracker.service.decode_party',return_value=[None]*6),patch('tracker.service.read_box',return_value=b''),patch('tracker.service.decode_box',return_value=[None]*30):
+  with patch('tracker.service.capture_party',return_value=b''),patch('tracker.service.decode_party',return_value=[None]*6),patch('tracker.gen7_pc.read_box',return_value=bytes(6960)):
    for _ in range(32):self.service.poll()
-  state=self.service.snapshot();self.assertEqual(len(state['boxes']),32);self.assertEqual(state['scan'],{'active':False,'completed':32});self.assertIsNone(self.service.scan_next)
+  state=self.service.snapshot();self.assertEqual(state['boxes'],{});self.assertEqual(state['box_status'],'pending_empty');self.assertFalse(state['box_verified']);self.assertEqual(state['scan'],{'active':False,'completed':32});self.assertIsNone(self.service.scan_next)
  def test_diagnostic_saved_to_disk_without_partner_secrets(self):
   self.service.diagnostic={'error':'No se encontró RAM','pid':5678,
                             'mode':'dynamic','regions_scanned':1050}
@@ -104,9 +104,11 @@ class ServiceTests(unittest.TestCase):
   with patch('tracker.service.capture_party',return_value=b''), \
        patch('tracker.service.decode_party',return_value=[None]*6), \
        patch('tracker.service.apply_battle_hp',return_value=([None]*6,False)), \
-       patch('tracker.service.read_box',side_effect=readbox), \
-       patch('tracker.service.decode_box',return_value=[{'species_id':25}]+[None]*29), \
+       patch('tracker.gen7_pc.read_box',side_effect=readbox), \
+       patch('tracker.gen7_pc.decode_box',return_value=[{'species_id':25}]+[None]*29), \
        patch.object(self.service,'enrich',side_effect=lambda p:p):
+   for _ in range(31):self.service.poll()
+   self.assertEqual(self.service.snapshot()['boxes'],{})
    self.service.poll()
   self.assertIn(shifted,calls)
   self.assertEqual(self.service.sun_box_base,shifted)

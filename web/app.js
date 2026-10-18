@@ -1,16 +1,118 @@
 'use strict';
+// Named runs keep all UI state fresh by reloading after the backend swaps services.
+async function profileRequest(payload){
+  const response=await fetch('/api/profiles',payload?{method:'POST',headers:{'Content-Type':'application/json','X-Tracker-Token':token},body:JSON.stringify(payload)}:{});
+  const result=await response.json();
+  if(!response.ok)throw Error(result.error||'No se pudo abrir la partida.');
+  return result;
+}
+async function selectRunProfile(ident){
+  const select=$('run-profile'),previous=select.dataset.active;
+  select.disabled=true;$('new-run-profile').disabled=true;
+  try{
+    await profileRequest({action:'select',id:ident});
+    window.location.reload();
+  }catch(error){
+    select.value=previous;
+    $('status').textContent=error.message;
+    throw error;
+  }finally{select.disabled=false;$('new-run-profile').disabled=false;}
+}
+async function loadRunProfiles(known){
+  try{
+    const result=known||await profileRequest(),select=$('run-profile');
+    select.replaceChildren(...result.profiles.map(profile=>new Option(profile.name,profile.id)));
+    select.value=result.active;select.dataset.active=result.active;
+    $('run-profile-controls').hidden=false;
+    configureProfileDeletion(result);
+    select.onchange=()=>selectRunProfile(select.value).catch(()=>{});
+    $('new-run-profile').onclick=()=>{
+      $('run-profile-feedback').textContent='';
+      $('run-profile-name').value='';
+      $('run-profile-dialog').showModal();$('run-profile-name').focus();
+    };
+    $('run-profile-close').onclick=()=>$('run-profile-dialog').close();
+    $('run-profile-form').onsubmit=async event=>{
+      event.preventDefault();
+      const button=$('run-profile-create'),name=$('run-profile-name').value.trim();
+      if(!name){$('run-profile-feedback').textContent='Escribe un nombre para la partida.';return;}
+      button.disabled=true;$('run-profile-close').disabled=true;
+      $('run-profile-feedback').textContent='Creando partida…';
+      try{
+        const created=await profileRequest({action:'create',name});
+        // Keep a newly created run accessible even if switching must be retried.
+        await loadRunProfiles();
+        await selectRunProfile(created.created);
+      }catch(error){$('run-profile-feedback').textContent=error.message;}
+      finally{button.disabled=false;$('run-profile-close').disabled=false;}
+    };
+  }catch(error){$('run-profile-controls').hidden=true;}
+}
+function configureProfileDeletion(result){
+  const open=$('delete-run-profile');if(!open)return;
+  open.onclick=()=>{
+    const options=result.profiles.map(profile=>{
+      const option=new Option(profile.name,profile.id);
+      option.disabled=profile.id==='principal'||profile.id===result.active;
+      return option;
+    });
+    const picker=$('delete-run-profile-select');picker.replaceChildren(...options);
+    const available=result.profiles.filter(profile=>profile.id!=='principal'&&profile.id!==result.active);
+    picker.value=available[0]?.id||'';
+    const check=()=>{$('delete-run-profile-confirm').disabled=!available.some(profile=>profile.id===picker.value);};
+    picker.onchange=check;check();
+    $('delete-run-profile-feedback').textContent=available.length?'':'Abre otra partida para poder eliminar la actual. La partida Principal se conserva.';
+    $('delete-run-profile-dialog').showModal();
+  };
+  $('delete-run-profile-close').onclick=()=>$('delete-run-profile-dialog').close();
+  $('delete-run-profile-confirm').onclick=()=>deleteRunProfile($('delete-run-profile-select').value,result);
+}
+async function deleteRunProfile(ident,result){
+  const profile=result.profiles.find(profile=>profile.id===ident),feedback=$('delete-run-profile-feedback');
+  if(!profile||ident==='principal'||ident===result.active){feedback.textContent='No se puede eliminar Principal ni la partida abierta. Abre otra partida primero.';return;}
+  const button=$('delete-run-profile-confirm');button.disabled=true;$('delete-run-profile-select').disabled=true;$('delete-run-profile-close').disabled=true;
+  try{
+    const updated=await profileRequest({action:'delete',id:ident});
+    await loadRunProfiles(updated);$('delete-run-profile-dialog').close();
+    $('status').textContent='Partida «'+profile.name+'» eliminada.';
+  }catch(error){feedback.textContent=error.message;}
+  finally{button.disabled=false;$('delete-run-profile-select').disabled=false;$('delete-run-profile-close').disabled=false;}
+}
+// End named run controls.
 const $=id=>document.getElementById(id),esc=value=>String(value??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let routeGame='';
 let state=null,localState=null,companionView=false,token=null,selected=null,boxSignature='',socket,miniSignature='',placeSignature='',detailSignature='',routeCatalog=[],detailPokemon=null,moveRequest=0,analysisData=null,analysisSignature='',analysisTeamSignature='',deadSignature='';
 const labels=[['ATQ','Ataque'],['DEF','Defensa'],['ATE','At. esp.'],['DEE','Def. esp.'],['VEL','Velocidad']];
-const nodes=Array.from({length:6},(_,i)=>{const node=document.createElement('article');node.className='card empty';node.innerHTML=`<strong>0${i+1}</strong><p>Esperando equipo</p>`;node.tabIndex=0;node.onclick=()=>openDetail(state?.party[i],`party:${i}`);node.onkeydown=e=>{if(e.key==='Enter')node.click()};$('party').append(node);return node});
+// Consume both halves of card activation, even when the dialog moves focus.
+const cardActivationKeys=new Set();
+function activatePartyCard(event,node){
+  if(event.key!=='Enter'&&event.key!==' ')return;
+  event.preventDefault();event.stopPropagation();
+  if(event.repeat)return;
+  cardActivationKeys.add(event.key);node.click();
+}
+document.addEventListener('keyup',event=>{
+  if(!cardActivationKeys.delete(event.key))return;
+  event.preventDefault();event.stopPropagation();
+},true);
+window.addEventListener('blur',()=>cardActivationKeys.clear());
+const nodes=Array.from({length:6},(_,i)=>{const node=document.createElement('article');node.className='card empty';node.innerHTML=`<strong>0${i+1}</strong><p>Esperando equipo</p>`;node.tabIndex=0;node.setAttribute('role','button');node.setAttribute('aria-label',`Abrir Pokémon ${i+1}`);node.onclick=()=>openDetail(state?.party[i],`party:${i}`);node.onkeydown=e=>activatePartyCard(e,node);$('party').append(node);return node});
 for(let i=1;i<=32;i++)$('box').add(new Option(`Caja ${i}`,i));
-function portrait(p){return `<div class="portrait"><img src="/sprites/${p.species_id}.png" alt="${esc(p.species)}" onerror="if(!this.dataset.remote){this.dataset.remote='1';this.src='https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.species_id}.png'}else{this.hidden=true;this.nextElementSibling.hidden=false}"><div class="sprite-fallback" hidden>${p.species_id}</div><div><h2>${esc(p.nickname||p.species)}</h2><p>${esc(p.species)} · ${p.level?`Nivel ${p.level}`:'En caja'}</p></div></div>`}
+function portrait(p){return `<div class="portrait"><img src="/sprites/${p.species_id}.png" alt="${esc(p.species)}" loading="lazy" onerror="if(!this.dataset.remote){this.dataset.remote='1';this.src='https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.species_id}.png'}else{this.hidden=true;this.nextElementSibling.hidden=false}"><div class="sprite-fallback" hidden>${p.species_id}</div><div><h2>${esc(p.nickname||p.species)}</h2><p>${esc(p.species)} · ${p.level?`Nivel ${p.level}`:'En caja'}</p></div></div>`}
 function card(p,i){if(!p)return `<strong>0${i+1}</strong><p>Sin Pokémon</p>`;const hp=p.max_hp?Math.max(0,Math.min(100,p.hp/p.max_hp*100)):0;return `<div class="card-top"><span>EQUIPO / 0${i+1}</span><span>${p.hp===0?'DEBILITADO':`NIVEL ${p.level??'—'}`}</span></div>${portrait(p)}<div class="hp-label"><span>PS</span><span>${p.hp??'—'} / ${p.max_hp??'—'}</span></div><div class="hp-track"><span style="width:${hp}%"></span></div><div class="stats">${labels.map(([key,name])=>`<div class="stat"><small>${name}</small><strong>${p.stats?.[key]??'—'}</strong></div>`).join('')}</div><div class="traits"><div><span>Habilidad</span>${esc(p.ability)}</div><div><span>Objeto</span>${esc(p.item)}</div><div><span>Origen</span>${esc(p.met_location||'Sin lugar registrado')}</div></div><div class="moves">${p.move_names.map(m=>`<div class="move">${esc(m)}</div>`).join('')}</div>`}
 function openDetail(p,key){if(!p)return;selected=key;detailSignature='';detail(p);if(!$('detail').open)$('detail').showModal()}
 function wikidexUrl(name){return 'https://www.wikidex.net/wiki/'+encodeURIComponent(String(name||'').trim().replace(/\s+/g,'_'))}
 function wikiPokemonName(p){return Number(p.form)===1&&[20,26,27,28,37,38,50,51,52,53,74,75,76,88,89,103,105].includes(Number(p.species_id))?p.species+' de Alola':p.species}
-function detail(p){detailPokemon=p;const signature=JSON.stringify(p);if(signature===detailSignature)return;detailSignature=signature;$('detail-content').innerHTML=portrait(p)+`<p class="subtitle">${esc(p.nature)} · ${esc(p.ability)} · ${esc(p.item)}</p><div class="moves">${p.move_names.map((m,i)=>`<button class="move move-button" data-move-index="${i}" ${p.moves[i]?'':'disabled'}>${esc(m)} <span>↗</span></button>`).join('')}</div>${p.base_stats?`<section class="template-base-stats"><h3>Estadísticas base · pk3DS Progressive</h3><div class="template-base-grid">${Object.entries(p.base_stats).map(([key,val])=>`<div><small>${esc(key)}</small><strong>${esc(val)}</strong></div>`).join('')}</div><p class="subtitle">Los valores actuales de la partida y los IV/EV se muestran por separado.</p></section>`:''}${p.evolutions?.length?`<section class="evolution-info"><div class="evolution-heading"><h3>Cómo evoluciona</h3><a class="evolution-wiki" href="${esc(wikidexUrl(wikiPokemonName(p)))}" target="_blank" rel="noopener noreferrer" aria-label="Consultar ${esc(wikiPokemonName(p))} en WikiDex">WikiDex ↗</a></div>${p.evolutions.map(e=>`<div class="evolution-option"><img src="/sprites/${Number(e.sprite_id||e.target)}.png" alt="${esc(e.target_name||'Pokémon '+e.target)}" loading="lazy" onerror="if(!this.dataset.remote){this.dataset.remote='1';this.src='https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${Number(e.sprite_id||e.target)}.png'}else{this.hidden=true;this.nextElementSibling.hidden=false}"><span class="sprite-fallback" hidden>#${Number(e.target)}</span><div><div class="evolution-pokemon-title"><strong>${esc(e.target_name||'#'+e.target)}</strong><a class="evolution-wiki" href="${esc(wikidexUrl(e.target_name||'Pokémon '+e.target))}" target="_blank" rel="noopener noreferrer" aria-label="Ver ${esc(e.target_name||'Pokémon '+e.target)} en WikiDex">WikiDex ↗</a></div><p>${esc(e.method)}</p>${e.source==='pk3DS Progressive'?'<small class="evolution-modified">Método modificado por pk3DS Progressive</small>':'<small class="reference-note">Referencia de evolución</small>'}</div></div>`).join('')}</section>`:''}<div class="origin-info"><strong>Lugar registrado</strong><p>${esc(p.met_location||'Sin lugar registrado')}</p><small>Nivel de encuentro: ${p.met_level||'—'} · Fecha: ${esc(p.met_date)}${p.egg_location_id?`<br>Origen del huevo: ${esc(p.egg_location)}`:''}</small></div><h3>Valores individuales y esfuerzo</h3><table class="detail-stats"><thead><tr><th>Estadística</th><th>IV</th><th>EV</th></tr></thead><tbody>${[['PS',0],['Ataque',1],['Defensa',2],['At. especial',4],['Def. especial',5],['Velocidad',3]].map(([name,i])=>`<tr><td>${name}</td><td>${p.iv[i]}</td><td>${p.ev[i]}</td></tr>`).join('')}</tbody></table>`}
+function detail(p){detailPokemon=p;const signature=JSON.stringify(p);if(signature===detailSignature)return;detailSignature=signature;
+const content=$('detail-content'),active=document.activeElement;
+const focusedMove=content.contains(active)?active?.getAttribute('data-move-index'):null;
+content.innerHTML=portrait(p)+`<p class="subtitle">${esc(p.nature)} · ${esc(p.ability)} · ${esc(p.item)}</p><div class="moves">${p.move_names.map((m,i)=>`<button class="move move-button" data-move-index="${i}" ${p.moves[i]?'':'disabled'}>${esc(m)} <span>↗</span></button>`).join('')}</div>${p.base_stats?`<section class="template-base-stats"><h3>Estadísticas base · pk3DS Progressive</h3><div class="template-base-grid">${Object.entries(p.base_stats).map(([key,val])=>`<div><small>${esc(key)}</small><strong>${esc(val)}</strong></div>`).join('')}</div><p class="subtitle">Los valores actuales de la partida y los IV/EV se muestran por separado.</p></section>`:''}${p.evolutions?.length?`<section class="evolution-info"><div class="evolution-heading"><h3>Cómo evoluciona</h3><a class="evolution-wiki" href="${esc(wikidexUrl(wikiPokemonName(p)))}" target="_blank" rel="noopener noreferrer" aria-label="Consultar ${esc(wikiPokemonName(p))} en WikiDex">WikiDex ↗</a></div>${p.evolutions.map(e=>`<div class="evolution-option"><img src="/sprites/${Number(e.sprite_id||e.target)}.png" alt="${esc(e.target_name||'Pokémon '+e.target)}" loading="lazy" onerror="if(!this.dataset.remote){this.dataset.remote='1';this.src='https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${Number(e.sprite_id||e.target)}.png'}else{this.hidden=true;this.nextElementSibling.hidden=false}"><span class="sprite-fallback" hidden>#${Number(e.target)}</span><div><div class="evolution-pokemon-title"><strong>${esc(e.target_name||'#'+e.target)}</strong><a class="evolution-wiki" href="${esc(wikidexUrl(e.target_name||'Pokémon '+e.target))}" target="_blank" rel="noopener noreferrer" aria-label="Ver ${esc(e.target_name||'Pokémon '+e.target)} en WikiDex">WikiDex ↗</a></div><p>${esc(e.method)}</p>${e.source==='pk3DS Progressive'?'<small class="evolution-modified">Método modificado por pk3DS Progressive</small>':'<small class="reference-note">Referencia de evolución</small>'}</div></div>`).join('')}</section>`:''}<div class="origin-info"><strong>Lugar registrado</strong><p>${esc(p.met_location||'Sin lugar registrado')}</p><small>Nivel de encuentro: ${p.met_level||'—'} · Fecha: ${esc(p.met_date)}${p.egg_location_id?`<br>Origen del huevo: ${esc(p.egg_location)}`:''}</small></div><h3>Valores individuales y esfuerzo</h3><table class="detail-stats"><thead><tr><th>Estadística</th><th>IV</th><th>EV</th></tr></thead><tbody>${[['PS',0],['Ataque',1],['Defensa',2],['At. especial',4],['Def. especial',5],['Velocidad',3]].map(([name,i])=>`<tr><td>${name}</td><td>${p.iv[i]}</td><td>${p.ev[i]}</td></tr>`).join('')}</tbody></table>`;
+const title=content.querySelector('h2');if(title)title.id='detail-pokemon-title';
+if(focusedMove!==null&&$('detail').open){
+  const replacement=content.querySelector('[data-move-index="'+focusedMove+'"]');
+  if(replacement&&!replacement.disabled)replacement.focus({preventScroll:true});
+}
+}
 function normalize(v){return String(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()}
 function nationalDexLimit(game){return ['Pokémon X 1.0','Pokémon Y 1.0','Omega Ruby 1.0','Alpha Sapphire 1.0'].includes(game)?721:807}
 function livingDexEntries(boxes,limit){
@@ -116,6 +218,14 @@ function renderBoxes(){
     p.textContent=keys.some(k=>state.boxes[k])?'Sin resultados o caja vacía.':'Caja sin leer.';
     $('boxes').append(p);}
 }
+function gen7ScanStatus(snapshot){
+  const count=Object.keys(snapshot.boxes||{}).length;
+  const pending={pending:'Verificando la dirección de las cajas',pending_empty:'PC vacío: dirección pendiente de confirmar; deposita un Pokémon y vuelve a leer',ambiguous:'Se encontraron varias ubicaciones de cajas; vuelve a leer para confirmar',invalid:'No se pudieron validar las cajas; vuelve a leer'};
+  const unverified=snapshot.box_verified===false;
+  const label=unverified?(pending[snapshot.box_status]||'Dirección de cajas sin validar')+' · ':'';
+  const cached=unverified&&count?' · Cajas guardadas: no verificadas en esta conexión':'';
+  return label+count+' / 32 cajas leídas'+cached+(snapshot.scan?.active?' · Lectura global: '+snapshot.scan.completed+' / 32':snapshot.stale&&count?' · Última lectura guardada (sin conexión)':'');
+}
 function render(next){localState=next;if(!companionView)renderScreen(next)}
 function renderScreen(next){state=next;$('game-name').textContent=state.game.replace(' 1.0','');
 const gen6=['Pokémon X 1.0','Pokémon Y 1.0','Omega Ruby 1.0','Alpha Sapphire 1.0'].includes(state.game);
@@ -134,7 +244,7 @@ if($('box').options?.length>=32){
   $('box').options[31].hidden=gen6;$('box').options[31].disabled=gen6;
 }
 if(gen6&&Number($('box').value)>31)$('box').value='1';
-$('game').disabled=Boolean(state.demo)||companionView;if(routeGame!==state.game){routeGame=state.game;routeCatalog=[];placeSignature='';const game=routeGame;fetch('/api/routes').then(r=>r.json()).then(data=>{if(state.game===game){routeCatalog=data.routes;placeSignature='';renderPlaces()}}).catch(()=>{routeGame=''})}$('eyebrow').textContent=companionView?'AVENTURA DE TU COMPAÑERO':state.demo?'MODO DEMO':'';$('eyebrow').hidden=!companionView&&!state.demo;renderMini();renderPlaces();renderDead();renderAnalysis();$('demo-tools').hidden=!state.demo;if(state.demo){$('demo-scenario').value=state.demo_scenario;$('box').value=state.selected_box;}$('status').textContent=state.connection.message;const connected=state.connection.status==='connected'&&!state.stale;$('badge').textContent=companionView?'● Última sesión':connected?(state.demo?'● Demostración':state.battle_hp?'● PS de combate':'● En vivo'):state.connection.status==='connecting'?'Localizando RAM':state.connection.status==='retrying'?'Reconectando':'Sin datos actuales';$('badge').classList.toggle('live',connected);$('notice').hidden=companionView||!state.stale;$('notice').textContent='Última lectura · Esperando reconexión.';nodes.forEach((node,i)=>{const p=state.party[i],sig=JSON.stringify(p);if(node.dataset.signature===sig)return;node.dataset.signature=sig;node.classList.toggle('empty',!p);node.innerHTML=card(p,i)});$('scan-status').textContent=gen6?'Gen6 experimental: '+(state.box_verified?'cajas PK6 verificadas':'cajas pendientes de verificación; deposita un Pokémon en el PC y actualiza la lectura')+` · ${Object.keys(state.boxes).length} / 31 cajas leídas`+(state.scan.active?` · Escaneo: ${state.scan.completed}/31`:''):`${state.box_verified===false?'Dirección de cajas sin validar · ':''}${Object.keys(state.boxes).length} / 32 cajas leídas${state.scan.active?` · Lectura global: ${state.scan.completed} / 32`:state.stale&&Object.keys(state.boxes).length?' · Última lectura guardada (sin conexión)':''}`;$('cancel').hidden=companionView||!state.scan.active;renderBoxes();if(selected&&$('detail').open){const [kind,a,b]=selected.split(':');const p=kind==='dead'?state.progress?.deaths?.[`${a}:${b}`]?.pokemon:kind==='party'?state.party[a]:state.boxes[a]?.[b];if(p)detail(p);else $('detail').close()}}
+$('game').disabled=Boolean(state.demo)||companionView;if(routeGame!==state.game){routeGame=state.game;routeCatalog=[];placeSignature='';const game=routeGame;fetch('/api/routes').then(r=>r.json()).then(data=>{if(state.game===game){routeCatalog=data.routes;placeSignature='';if(!$('places-view').hidden)renderPlaces()}}).catch(()=>{routeGame=''})}$('eyebrow').textContent=companionView?'AVENTURA DE TU COMPAÑERO':state.demo?'MODO DEMO':'';$('eyebrow').hidden=!companionView&&!state.demo;renderMini();$('dead-count').textContent=Object.keys(state.progress?.deaths||{}).length;renderActiveView();$('demo-tools').hidden=!state.demo;if(state.demo){$('demo-scenario').value=state.demo_scenario;$('box').value=state.selected_box;}$('status').textContent=state.connection.message;const connected=state.connection.status==='connected'&&!state.stale;$('badge').textContent=companionView?'● Última sesión':connected?(state.demo?'● Demostración':state.battle_hp?'● PS de combate':'● En vivo'):state.connection.status==='connecting'?'Localizando RAM':state.connection.status==='retrying'?'Reconectando':'Sin datos actuales';$('badge').classList.toggle('live',connected);$('notice').hidden=companionView||!state.stale;$('notice').textContent='Última lectura · Esperando reconexión.';nodes.forEach((node,i)=>{const p=state.party[i],sig=JSON.stringify(p);node.setAttribute('aria-label',p?'Abrir ficha de '+(p.nickname||p.species):'Espacio '+(i+1)+' vacío');node.setAttribute('aria-disabled',String(!p));node.tabIndex=p?0:-1;if(node.dataset.signature===sig)return;node.dataset.signature=sig;node.classList.toggle('empty',!p);node.innerHTML=card(p,i)});$('scan-status').textContent=gen6?'Gen6 experimental: '+(state.box_verified?'cajas PK6 verificadas':'cajas pendientes de verificación; deposita un Pokémon en el PC y actualiza la lectura')+` · ${Object.keys(state.boxes).length} / 31 cajas leídas`+(state.scan.active?` · Escaneo: ${state.scan.completed}/31`:''):gen7ScanStatus(state);$('cancel').hidden=companionView||!state.scan.active;if(selected&&$('detail').open){const [kind,a,b]=selected.split(':');const p=kind==='dead'?state.progress?.deaths?.[`${a}:${b}`]?.pokemon:kind==='party'?state.party[a]:state.boxes[a]?.[b];if(p)detail(p);else $('detail').close()}}
 async function exportWithDialog(kind){
  const button=$(kind==='diagnostic'?'diagnostic':'save-session');
  if(!button||button.disabled)return;
@@ -155,18 +265,88 @@ function showExportFeedback(message){
 }
 async function command(cmd){try{if(companionView)throw Error('La sesión del compañero es de solo lectura.');if(!token)throw Error('El servidor local aún no está disponible.');const response=await fetch('/api/command',{method:'POST',headers:{'Content-Type':'application/json','X-Tracker-Token':token},body:JSON.stringify(cmd)});const result=await response.json();if(!response.ok)throw Error(result.error||'No se pudo realizar la acción.')}catch(e){$('status').textContent=e.message}}
 function subscribe(){socket=new WebSocket(`ws://${location.host}/ws`);socket.onmessage=e=>{try{render(JSON.parse(e.data))}catch(error){console.error(error)}};socket.onclose=()=>{$('badge').textContent='Servidor local desconectado';$('badge').classList.remove('live');$('notice').hidden=false;$('notice').textContent='Mantén abierta la ventana del servidor. Intentando reconectar…';setTimeout(start,2000)};socket.onerror=()=>socket.close()}
-async function start(){try{const session=await(await fetch('/api/session')).json();token=session.token;document.title='Pokémon Tracker';const saved=session.saved_connection;if(saved){$('game').value=saved.game;$('mode').value=saved.mode;$('pid').value=saved.pid??'';$('port').value=saved.port??24689;$('port-label').hidden=saved.mode!=='gdb';$('saved-session-status').textContent='Sesión guardada · '+saved.game+' · conexión automática al iniciar'+(saved.pid?' · PID '+saved.pid:'');}routeCatalog=(await(await fetch('/api/routes')).json()).routes;analysisData=await(await fetch('/api/analysis')).json();render(await(await fetch('/api/state')).json());subscribe()}catch(e){$('status').textContent='Esperando al servidor local…';setTimeout(start,2000)}}
+async function start(){try{const session=await(await fetch('/api/session')).json();token=session.token;await loadRunProfiles();document.title='Pokémon Tracker';const saved=session.saved_connection;if(saved){$('game').value=saved.game;$('mode').value=saved.mode;$('pid').value=saved.pid??'';$('port').value=saved.port??24689;$('port-label').hidden=saved.mode!=='gdb';$('saved-session-status').textContent='Sesión guardada · '+saved.game+' · conexión automática al iniciar'+(saved.pid?' · PID '+saved.pid:'');}routeCatalog=(await(await fetch('/api/routes')).json()).routes;analysisData=await(await fetch('/api/analysis')).json();render(await(await fetch('/api/state')).json());subscribe()}catch(e){$('status').textContent='Esperando al servidor local…';setTimeout(start,2000)}}
 $('connect').onclick=()=>command({action:'connect',game:$('game').value,mode:$('mode').value,pid:$('pid').value?Number($('pid').value):null,port:Number($('port').value)});$('disconnect').onclick=()=>command({action:'disconnect'});$('save-session').onclick=()=>exportWithDialog('session');$('mode').onchange=()=>{$('port-label').hidden=$('mode').value!=='gdb'};$('box').onchange=()=>{renderBoxes();command({action:'box',number:Number($('box').value)})};$('search').oninput=renderBoxes;$('global').onchange=renderBoxes;$('living-dex').onchange=()=>{$('box').disabled=$('living-dex').checked;$('global').disabled=$('living-dex').checked;$('living-dex-sprites').disabled=!$('living-dex').checked;boxSignature='';renderBoxes()};$('living-dex-sprites').onchange=()=>{boxSignature='';renderBoxes()};$('cancel').onclick=()=>command({action:'cancel'});$('close-detail').onclick=()=>$('detail').close();$('diagnostic').onclick=()=>exportWithDialog('diagnostic');
 const filesToImport=[['moves','template-moves'],['stats','template-stats'],['evolutions','template-evolutions']];
 async function templateStatus(){try{const r=await fetch('/api/templates');const j=await r.json();if(r.ok)$('template-status').textContent=`Plantillas guardadas: ${j.counts.moves} movimientos · ${j.counts.stats} especies · ${j.counts.evolutions} especies con evoluciones modificadas.`;}catch(e){$('template-status').textContent=e.message}}
 $('import-templates').onclick=async()=>{const button=$('import-templates');button.disabled=true;try{const files={};for(const [key,id] of filesToImport){const file=$(id).files?.[0];if(file){if(file.size>180000)throw Error('Plantilla demasiado grande: '+file.name);files[key]=await file.text();}}if(!Object.keys(files).length)throw Error('Selecciona al menos un archivo CSV.');const r=await fetch('/api/templates',{method:'POST',headers:{'Content-Type':'application/json','X-Tracker-Token':token},body:JSON.stringify({files})});const j=await r.json();if(!r.ok)throw Error(j.error||'No se pudo importar');$('template-status').textContent='Plantillas importadas y guardadas. Los datos de equipo y cajas se actualizarán.';for(const [,id] of filesToImport)$(id).value='';await templateStatus()}catch(e){$('template-status').textContent='Error: '+e.message}finally{button.disabled=false}};
 templateStatus();
 const views={dead:['Muertos',''],party:['Equipo actual',''],boxes:['Tus cajas',''],places:['Rutas',''],analysis:['Análisis del equipo',''],overlay:['Diseñar overlay para OBS',''],connection:['Conexión','']};
-function switchTab(tab){if(companionView&&tab==='connection'){return;}if(tab==='overlay'){const frame=$('overlay-editor-frame');if(!frame.src)frame.src=frame.dataset.src;} document.querySelectorAll('nav button').forEach(b=>{const active=b.dataset.tab===tab;b.classList.toggle('active',active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});for(const key of Object.keys(views))$(key+'-view').hidden=key!==tab;$('title').textContent=views[tab][0];$('subtitle').textContent=views[tab][1];$('subtitle').hidden=!views[tab][1];}
+function switchTab(tab){if(companionView&&tab==='connection'){return;}if(tab==='overlay'){const frame=$('overlay-editor-frame');if(!frame.src)frame.src=frame.dataset.src;} document.querySelectorAll('nav button').forEach(b=>{const active=b.dataset.tab===tab;b.classList.toggle('active',active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});for(const key of Object.keys(views))$(key+'-view').hidden=key!==tab;$('title').textContent=views[tab][0];$('subtitle').textContent=views[tab][1];$('subtitle').hidden=!views[tab][1];renderActiveView();if(tab==='connection')refreshProcesses();}
+function renderActiveView(){
+  if(!state)return;
+  if(!$('boxes-view').hidden)renderBoxes();
+  if(!$('places-view').hidden)renderPlaces();
+  if(!$('dead-view').hidden)renderDead();
+  if(!$('analysis-view').hidden)renderAnalysis();
+}
+
+// The editor reports its natural content height; only this iframe may resize it.
+function resizeOverlayEditor(event){
+  const frame=$('overlay-editor-frame'),data=event.data;
+  if(event.origin!==location.origin||event.source!==frame.contentWindow||!data||data.type!=='tracker-overlay-resize')return;
+  if(typeof data.height!=='number'||!Number.isFinite(data.height)||data.height<1||data.height>20000)return;
+  frame.style.height=Math.max(240,Math.ceil(data.height))+'px';
+  frame.style.minHeight='0';frame.setAttribute('scrolling','no');
+}
+window.addEventListener('message',resizeOverlayEditor);
+
+function updateNavigationOverflow(){
+  const nav=$('section-nav');if(!nav)return;
+  const overflow=nav.scrollWidth>nav.clientWidth+1;
+  $('nav-scroll-back').hidden=$('nav-scroll-forward').hidden=!overflow;
+  $('nav-scroll-back').disabled=nav.scrollLeft<=1;
+  $('nav-scroll-forward').disabled=nav.scrollLeft+nav.clientWidth>=nav.scrollWidth-1;
+}
+for(const [id,step] of [['nav-scroll-back',-1],['nav-scroll-forward',1]]){
+  const button=$(id);if(button)button.onclick=()=>{$('section-nav').scrollBy({left:step*180,behavior:'auto'});};
+}
+if($('section-nav')){
+  $('section-nav').addEventListener('scroll',updateNavigationOverflow);
+  if(typeof ResizeObserver!=='undefined')new ResizeObserver(updateNavigationOverflow).observe($('section-nav'));
+  window.addEventListener('resize',updateNavigationOverflow);updateNavigationOverflow();
+}
+
+// Process discovery only suggests candidates; it never silently changes a PID.
+let processCandidates=[],processRequest=0;
+function showProcessCandidates(){
+  const picker=$('process-picker');if(!picker)return;
+  const selectedGame=$('game').value;
+  picker.replaceChildren(new Option('Elegir un emulador abierto…',''));
+  const ranked=[...processCandidates].sort((a,b)=>Number(b.game===selectedGame)-Number(a.game===selectedGame));
+  for(const item of ranked){
+    const mismatch=Boolean(item.game&&item.game!==selectedGame);
+    const label=[item.pid,item.name,item.title||item.game||'Juego sin identificar'].filter(Boolean).join(' · ');
+    const option=new Option(label,String(item.pid));option.disabled=mismatch;option.title=label+(mismatch?' · Selecciona su juego para usarlo.':'');picker.add(option);
+  }
+  picker.value='';
+}
+async function refreshProcesses(){
+  const picker=$('process-picker'),button=$('refresh-processes');if(!picker||!button)return;
+  const request=++processRequest;button.disabled=true;
+  $('process-status').textContent='Buscando emuladores abiertos…';
+  try{
+    const response=await fetch('/api/processes',{cache:'no-store'}),result=await response.json();
+    if(request!==processRequest)return;
+    if(!response.ok||result.error)throw Error(result.error||'No se pudieron consultar los emuladores.');
+    processCandidates=(result.processes||[]).filter(item=>Number.isInteger(item.pid)&&item.pid>0);
+    showProcessCandidates();
+    $('process-status').textContent=processCandidates.length?'Elige la ventana de tu partida; también puedes escribir el PID.':'No hay emuladores detectados. Puedes escribir el PID manualmente.';
+  }catch(error){if(request===processRequest){processCandidates=[];showProcessCandidates();$('process-status').textContent=error.message+' Puedes escribir el PID manualmente.';}}
+  finally{if(request===processRequest)button.disabled=false;}
+}
+if($('refresh-processes'))$('refresh-processes').onclick=refreshProcesses;
+if($('process-picker'))$('process-picker').onchange=()=>{
+  const item=processCandidates.find(item=>String(item.pid)===$('process-picker').value);
+  if(!item||(item.game&&item.game!==$('game').value))return;
+  $('pid').value=String(item.pid);$('process-status').textContent='Seleccionado PID '+item.pid+' · '+(item.title||item.name)+'.';
+};
+$('game').onchange=showProcessCandidates;
+
 document.querySelectorAll('nav button').forEach(button=>button.onclick=()=>switchTab(button.dataset.tab));$('quick-connect').onclick=()=>switchTab('connection');
 function setCompanionView(enabled,remote){
   if(companionView&&enabled){renderScreen(remote);return;}
-  companionView=Boolean(enabled);selected=null;for(const id of ['detail','move-detail'])if($(id).open)$(id).close();
+  companionView=Boolean(enabled);$('quick-connect').hidden=companionView;$('quick-connect').disabled=companionView;selected=null;for(const id of ['detail','move-detail'])if($(id).open)$(id).close();
   miniSignature='';boxSignature='';placeSignature='';deadSignature='';analysisSignature='';analysisTeamSignature='';detailSignature='';
   $('box').value='1';
   document.querySelector('nav button[data-tab="connection"]').disabled=companionView;
@@ -174,7 +354,7 @@ function setCompanionView(enabled,remote){
   if(companionView&&document.querySelector('nav button.active')?.dataset.tab==='connection')switchTab('party');
 }
 window.setCompanionView=setCompanionView;
-function renderMini(){if($('death-counter-value'))$('death-counter-value').textContent=String(state.progress?.death_count??Object.keys(state.progress?.deaths||{}).length);const signature=JSON.stringify(state.party.map(p=>p?[p.species_id,p.nickname,p.hp===0]:null));$('party-count').textContent=state.party.filter(Boolean).length;$('box-count').textContent=Object.keys(state.boxes).length;if(signature===miniSignature)return;miniSignature=signature;$('mini-team').replaceChildren();state.party.forEach((p,i)=>{const b=document.createElement('button');b.title=p?`${p.nickname||p.species} · ${p.species}`:`Slot ${i+1} vacío`;b.className=p?.hp===0?'fainted':'';b.innerHTML=p?`<img src="/sprites/${p.species_id}.png" alt="${esc(p.species)}" onerror="if(!this.dataset.remote){this.dataset.remote='1';this.src='https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.species_id}.png'}else{this.hidden=true;this.nextElementSibling.hidden=false}"><span hidden>${i+1}</span>`:`<span>·</span>`;b.onclick=()=>{switchTab('party');if(p)openDetail(state.party[i],`party:${i}`)};$('mini-team').append(b)})}
+function renderMini(){if($('death-counter-value'))$('death-counter-value').textContent=String(state.progress?.death_count??Object.keys(state.progress?.deaths||{}).length);const signature=JSON.stringify(state.party.map(p=>p?[p.species_id,p.nickname,p.hp===0]:null));$('party-count').textContent=state.party.filter(Boolean).length;$('box-count').textContent=Object.keys(state.boxes).length;if(signature===miniSignature)return;miniSignature=signature;$('mini-team').replaceChildren();state.party.forEach((p,i)=>{const b=document.createElement('button');b.title=p?`${p.nickname||p.species} · ${p.species}`:`Slot ${i+1} vacío`;b.className=p?.hp===0?'fainted':'';b.innerHTML=p?`<img src="/sprites/${p.species_id}.png" alt="${esc(p.species)}" loading="lazy" onerror="if(!this.dataset.remote){this.dataset.remote='1';this.src='https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.species_id}.png'}else{this.hidden=true;this.nextElementSibling.hidden=false}"><span hidden>${i+1}</span>`:`<span>·</span>`;b.onclick=()=>{switchTab('party');if(p)openDetail(state.party[i],`party:${i}`)};$('mini-team').append(b)})}
 function pokemonKey(p){return `${p.origin_version??33}:${p.encryption_constant}`}
 function isDead(p){return Boolean(state?.progress?.deaths?.[pokemonKey(p)])}
 function renderDead(){
@@ -193,7 +373,7 @@ function renderDead(){
  }
  if(!Object.keys(deaths).length)$('dead').innerHTML='<p class="subtitle">Sin muertes registradas.</p>';
 }
-function sprite(p){return `<div class="route-sprite ${isDead(p)?'dead-sprite':''}" title="${isDead(p)?'Muerto · ':''}${esc(p.nickname||p.species)} · ${esc(p.species)}"><img src="/sprites/${p.species_id}.png" alt="${esc(p.species)}" onerror="if(!this.dataset.remote){this.dataset.remote='1';this.src='https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.species_id}.png'}else{this.hidden=true;this.nextElementSibling.hidden=false}"><span class="sprite-number" hidden>#${p.species_id}</span></div>`}
+function sprite(p){return `<div class="route-sprite ${isDead(p)?'dead-sprite':''}" title="${isDead(p)?'Muerto · ':''}${esc(p.nickname||p.species)} · ${esc(p.species)}"><img src="/sprites/${p.species_id}.png" alt="${esc(p.species)}" loading="lazy" onerror="if(!this.dataset.remote){this.dataset.remote='1';this.src='https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.species_id}.png'}else{this.hidden=true;this.nextElementSibling.hidden=false}"><span class="sprite-number" hidden>#${p.species_id}</span></div>`}
 
 const ORIGIN_TYPES={
   route:'Ruta',fossil:'Fósil',gift:'Regalo',egg:'Huevo',trade:'Intercambio'
@@ -399,3 +579,19 @@ function multiplier(value){return value===null?'—':`${Number(value.toFixed(3))
 function cellClass(value){return value===0?'immune':value>1?'weak':value<1?'resist':'neutral'}
 function renderAnalysis(){if(!state||!analysisData)return;const team=state.party.filter(Boolean),teamSig=JSON.stringify(team.map(p=>[p.slot,p.nickname,p.species]));if(teamSig!==analysisTeamSignature){analysisTeamSignature=teamSig;for(const id of ['analysis-a','analysis-b']){const before=$(id).value;$(id).replaceChildren();for(const p of team)$(id).add(new Option(`${p.nickname||p.species} · ${p.species}`,p.slot));if(team.some(p=>String(p.slot)===before))$(id).value=before}if($('analysis-b').value===$('analysis-a').value&&team.length>1)$('analysis-b').value=String(team[1].slot)}const simple=$('analysis-defense').value==='simple';const mode=$('analysis-mode').value,abilities=$('analysis-abilities').checked,dual=$('analysis-dual').checked,a=$('analysis-a').value,b=$('analysis-b').value;$('analysis-defense-label').hidden=mode!=='defense';$('analysis-a-label').hidden=mode==='defense';$('analysis-b-label').hidden=mode!=='double';$('analysis-dual-label').hidden=mode==='defense';const signature=JSON.stringify([team.map(p=>[p.types,p.ability_id,p.analysis_moves,p.slot,p.nickname]),mode,a,b,abilities,dual,simple]);if(signature===analysisSignature)return;analysisSignature=signature;const content=$('analysis-content');if(!team.length){content.innerHTML='<p class="subtitle">Sin Pokémon en el equipo.</p>';return}const types=analysisData.types,chart=analysisData.chart;if(mode==='defense'){content.innerHTML=`<div class="analysis-scroll"><table class="analysis-table ${simple?'analysis-simple':''}"><caption>${simple?'Pokémon por tipo · Sin neutrales':'Efectividad defensiva'}</caption><thead><tr><th>Tipo atacante</th>${simple?'':team.map(p=>`<th>${esc(p.nickname||p.species)}<small>${esc((p.types||[]).join(' / '))}<br>${abilities?esc(p.ability):''}</small></th>`).join('')}<th>Débiles</th><th>Resisten</th><th>Inmunes</th></tr></thead><tbody>${types.map(type=>{const values=team.map(p=>TypeAnalysis.defensive(chart,type,p,abilities));return `<tr><th>${esc(type)}</th>${simple?'':values.map(v=>`<td class="${cellClass(v)}">${multiplier(v)}</td>`).join('')}<td>${values.filter(v=>v>1).length}</td><td>${values.filter(v=>v>0&&v<1).length}</td><td>${values.filter(v=>v===0).length}</td></tr>`}).join('')}</tbody></table></div>`;return}const chosen=team.filter(p=>String(p.slot)===a||(mode==='double'&&String(p.slot)===b));if(mode==='double'&&(chosen.length<2||a===b)){content.innerHTML='<p class="subtitle">Selecciona dos Pokémon diferentes del equipo.</p>';return}const moves=chosen.flatMap(p=>(p.analysis_moves||[]).filter(m=>m&&m.category!=='Estado').map(m=>[m,p]));const targets=types.map(t=>[t]);if(dual)for(let i=0;i<types.length;i++)for(let j=i+1;j<types.length;j++)targets.push([types[i],types[j]]);const results=targets.map(target=>({target,best:TypeAnalysis.coverage(chart,chosen,target,abilities)}));content.innerHTML=`<div class="coverage-moves">${moves.map(([m,p])=>`<span>${esc(m.name)} <small>${esc(TypeAnalysis.attackType(m,p,abilities))} · ${esc(p.nickname||p.species)}</small></span>`).join('')||'<p>No hay movimientos ofensivos disponibles.</p>'}</div><p class="subtitle">Mejor cobertura · Sin sumar ataques</p><div class="coverage-summary"><span>${results.filter(r=>r.best?.value>1).length} supereficaces</span><span>${results.filter(r=>r.best?.value===1).length} neutrales</span><span>${results.filter(r=>r.best&&r.best.value<1).length} resistidos / inmunes</span></div><div class="coverage-grid">${results.map(({target,best})=>`<article class="coverage-cell ${best?cellClass(best.value):'neutral'}"><strong>${esc(target.join(' / '))}</strong><b>${multiplier(best?.value??null)}</b><small>${best?esc(best.move.name)+' · '+esc(best.pokemon.nickname||best.pokemon.species):'Sin ataque'}</small></article>`).join('')}</div>`}
 for(const id of ['analysis-defense','analysis-mode','analysis-a','analysis-b','analysis-abilities','analysis-dual'])$(id).onchange=renderAnalysis;
+
+// Optional Companion dependency can be recovered after a transient local load failure.
+let companionRetryPending=false;
+function companionScriptFailed(){
+  companionRetryPending=false;
+  $('companion-load-error').hidden=false;
+  $('companion-load-retry').disabled=false;
+}
+window.companionScriptFailed=companionScriptFailed;
+$('companion-load-retry').onclick=()=>{
+  if(companionRetryPending)return;
+  companionRetryPending=true;$('companion-load-retry').disabled=true;
+  const script=document.createElement('script');script.src='/companion.js';
+  script.onload=()=>{companionRetryPending=false;$('companion-load-error').hidden=true;};
+  script.onerror=companionScriptFailed;document.body.append(script);
+};

@@ -180,6 +180,25 @@ class OverlayTests(unittest.TestCase):
             {'name':'25.webp','data':payload},
             {'X-Tracker-Token':'wrong-token'})[0],403)
 
+    def test_counter_routes_require_auth_and_public_readonly(self):
+        payload={'data':base64.b64encode(blank_sprite(32)).decode()}
+        self.assertEqual(self.req('GET','/overlay/counter-icon.png')[0],404)
+        self.assertEqual(self.req('POST','/api/overlay/counter-icon',payload)[0],403)
+        headers={'X-Tracker-Token':'test-token'}
+        status,raw,_=self.req('POST','/api/overlay/counter-icon',payload,headers)
+        self.assertEqual(status,200)
+        self.assertEqual(json.loads(raw)['kind'],'counter')
+        status,raw,response=self.req('GET','/overlay/counter-icon.png')
+        self.assertEqual(status,200)
+        self.assertEqual(response['Content-Type'],'image/png')
+        self.assertEqual(response['Cache-Control'],'no-store')
+        self.assertEqual(raw,self.manager.counter_icon_bytes())
+        current=json.loads(self.req('GET','/api/overlay/settings')[1])
+        self.assertEqual(current['counter_icon_version'],self.manager.counter_icon_version())
+        self.assertEqual(self.req('POST','/api/overlay/counter-icon',{'data':'!!'},headers)[0],400)
+        self.assertEqual(self.req('GET','/overlay/counter-icon.png')[1],raw)
+        self.assertEqual(self.req('GET','/overlay/../state.json')[0],404)
+
     def test_remote_server_is_only_readable_overlay(self):
         read_only=ThreadingHTTPServer(('127.0.0.1',0),
             make_handler(self.service,'remote-token',overlay=self.manager,remote_only=True))
@@ -193,6 +212,11 @@ class OverlayTests(unittest.TestCase):
                 response=conn.getresponse()
                 self.assertEqual(response.status,200,path)
                 response.read()
+            self.manager.import_counter_icon(base64.b64encode(blank_sprite(32)).decode())
+            conn.request('GET','/overlay/counter-icon.png')
+            response=conn.getresponse()
+            self.assertEqual(response.status,200)
+            self.assertEqual(response.read(),self.manager.counter_icon_bytes())
             for path in ('/api/session','/api/state','/api/command','/ws',
                          '/overlay/editor','/api/overlay/share'):
                 conn.request('GET',path)
@@ -200,6 +224,11 @@ class OverlayTests(unittest.TestCase):
                 self.assertEqual(response.status,404,path)
                 response.read()
             conn.request('POST','/api/overlay/settings','{}',
+                         {'X-Tracker-Token':'remote-token'})
+            response=conn.getresponse()
+            self.assertEqual(response.status,403)
+            response.read()
+            conn.request('POST','/api/overlay/counter-icon','{}',
                          {'X-Tracker-Token':'remote-token'})
             response=conn.getresponse()
             self.assertEqual(response.status,403)

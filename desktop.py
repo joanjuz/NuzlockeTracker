@@ -9,6 +9,7 @@ import argparse
 import json
 import os
 import shutil
+import socket
 import sys
 import threading
 import traceback
@@ -23,9 +24,23 @@ from tracker.service import TrackerService
 from tracker.layout_export import PartyLayoutExporter, layout_directory
 from tracker.overlay import OverlayManager
 from tracker.desktop_export import DesktopExportApi
+from tracker.run_profiles import RunProfileStore, acquire_run_lock
 
 APP_NAME = 'PokemonTracker'
 PROFILE_CHOICES = ('principal', 'segundo-jugador')  # Internal only; never shown in the UI.
+
+
+class LocalHTTPServer(ThreadingHTTPServer):
+    # Windows SO_REUSEADDR can bind two listeners to the same live port, sending
+    # requests to another app instance instead of triggering the safe fallback.
+    allow_reuse_address = False
+    request_queue_size = 128
+    daemon_threads = True
+
+    def server_bind(self):
+        if sys.platform == 'win32':
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
 
 
 def app_home(env=None):
@@ -86,24 +101,7 @@ def auto_migrate_local_checkout(home, executable=None):
 
 def acquire_profile_lock(home, profile):
     """Prevent concurrent writes from two windows using the same profile."""
-    if sys.platform != 'win32':
-        return None
-    import msvcrt
-
-    folder = Path(home) / '.locks'
-    folder.mkdir(parents=True, exist_ok=True)
-    file = open(folder / (profile + '.lock'), 'a+b')
-    try:
-        file.seek(0, os.SEEK_END)
-        if file.tell() == 0:
-            file.write(b'0')
-            file.flush()
-        file.seek(0)
-        msvcrt.locking(file.fileno(), msvcrt.LK_NBLCK, 1)
-    except OSError:
-        file.close()
-        raise RuntimeError('Ese perfil ya está abierto. Elige el otro jugador.') from None
-    return file
+    return acquire_run_lock(home, profile)
 
 
 def automatic_profile(home):
@@ -120,11 +118,44 @@ def automatic_profile(home):
     raise RuntimeError('Ya hay dos ventanas de Pokémon Tracker abiertas.')
 
 
+def automatic_session(home):
+    """Reserve a window's OBS output separately from its changeable run."""
+    store = RunProfileStore(Path(home) / 'runtime')
+    for slot in PROFILE_CHOICES:
+        try:
+            slot_lock = acquire_profile_lock(home, 'window-' + slot)
+        except RuntimeError:
+            continue
+        available = [p['id'] for p in store.profiles()]
+        candidates = dict.fromkeys([p for p in [slot, *PROFILE_CHOICES, *available] if p in available])
+        for profile in candidates:
+            lock = None
+            try:
+                lock = acquire_profile_lock(home, profile)
+                store.require(profile)
+                return profile, lock, slot, slot_lock
+            except (RuntimeError, ValueError):
+                if lock:
+                    lock.close()
+                continue
+        slot_lock.close()
+    raise RuntimeError('Ya hay dos ventanas de Pokémon Tracker abiertas.')
+
+
 class LocalBackend:
     """Start/stop the same tracker core as server.py, without an external browser."""
-    def __init__(self, runtime, profile, layout_path=None, sprite_cache=None, custom_dir=None):
+    def __init__(self, runtime, profile, layout_path=None, sprite_cache=None, custom_dir=None,
+                 profile_lock=None, slot_profile=None, slot_lock=None):
         self.runtime = Path(runtime)
         self.profile = profile
+        base = self.runtime if profile == 'principal' else self.runtime.parent.parent
+        self.profiles = RunProfileStore(base)
+        self.lock_home = base.parent
+        self.profile_lock = profile_lock
+        self.request_lock = threading.RLock()
+        self.slot_profile = slot_profile or ('principal' if profile == 'principal' else 'segundo-jugador')
+        self.slot_lock = slot_lock
+        self.token = secrets.token_urlsafe(32)
         self.layout_path = Path(layout_path) if layout_path else self.runtime.parent / 'layout'
         self.sprite_cache = Path(sprite_cache) if sprite_cache else self.runtime.parent / 'sprite-cache'
         self.custom_dir = Path(custom_dir) if custom_dir else self.layout_path.parent / 'sprites_personalizados'
@@ -142,52 +173,142 @@ class LocalBackend:
         return f'http://127.0.0.1:{self.server.server_port}/'
 
     def start(self):
+        if self.profile_lock is None:
+            self.profile_lock = acquire_profile_lock(self.lock_home, self.profile)
+        try:
+            if self.slot_lock is None:
+                self.slot_lock = acquire_profile_lock(self.lock_home, 'window-' + self.slot_profile)
+        except Exception:
+            self.profile_lock.close()
+            self.profile_lock = None
+            raise
+        self._start_services()
+        handler = self._handler()
+        # Stable URL in OBS after restart, with a safe fallback if in use.
+        preferred_port = 8765 if self.slot_profile == 'principal' else 8766
+        try:
+            self.server = LocalHTTPServer(('127.0.0.1', preferred_port), handler)
+        except OSError:
+            self.server = LocalHTTPServer(('127.0.0.1', 0), handler)
+        self.http_thread = threading.Thread(target=self.server.serve_forever,
+                                             name='tracker-http', daemon=True)
+        self.http_thread.start()
+        return self
+
+    def _handler(self):
+        return make_handler(self.service, self.token, self.companion,
+                            profile=self.profile, overlay=self.overlay,
+                            share=self.remote_share, sprite_cache=self.sprite_cache,
+                            profiles=self)
+
+    def _start_services(self):
         self.service = TrackerService(self.runtime / 'state.json')
         self.companion = CompanionSync(self.service, self.runtime)
         self.overlay = OverlayManager(self.service, self.runtime, self.layout_path,custom_dir=self.custom_dir)
         self.remote_share = RemoteOverlayShare(
-            self.service, self.overlay, preferred_port=8767 if self.profile == 'principal' else 8768)
-        handler = make_handler(self.service, secrets.token_urlsafe(32),
-                               self.companion, profile=self.profile,overlay=self.overlay,
-                               share=self.remote_share,sprite_cache=self.sprite_cache)
-        # Stable URL in OBS after restart, with a safe fallback if in use.
-        preferred_port = 8765 if self.profile == 'principal' else 8766
-        try:
-            self.server = ThreadingHTTPServer(('127.0.0.1', preferred_port),handler)
-        except OSError:
-            self.server = ThreadingHTTPServer(('127.0.0.1', 0),handler)
-        self.http_thread = threading.Thread(target=self.server.serve_forever,
-                                             name='tracker-http', daemon=True)
+            self.service, self.overlay, preferred_port=8767 if self.slot_profile == 'principal' else 8768)
         self.worker = threading.Thread(target=self.service.run,
                                         name='tracker-memory', daemon=True)
-        self.http_thread.start()
         self.worker.start()
         self.companion.start()
         self.layout = PartyLayoutExporter(self.service, self.layout_path,
                                           cache_dir=self.sprite_cache,
                                           custom_dir=self.custom_dir)
         self.layout.start()
-        return self
 
-    def close(self):
-        if self.remote_share:
-            self.remote_share.close()
-        if self.layout:
-            self.layout.close()
+    def profiles_status(self):
+        with self.request_lock:
+            return {'active': self.profile, 'profiles': self.profiles.profiles()}
+
+    def create_profile(self, name):
+        with self.request_lock:
+            created = self.profiles.create(name)
+            return {**self.profiles_status(), 'created': created['id']}
+
+    def delete_profile(self, ident):
+        with self.request_lock:
+            if ident == self.profile:
+                raise ValueError('Abre otra partida antes de eliminar la que estás usando.')
+            self.profiles.delete(ident)
+            return self.profiles_status()
+
+    def switch_profile(self, ident):
+        with self.request_lock:
+            runtime = self.profiles.require(ident)
+            if ident == self.profile:
+                if self.service.stop.is_set():
+                    self._stop_services()
+                    self._start_services()
+                    self.server.RequestHandlerClass = self._handler()
+                return self.profiles_status()
+            # Never disconnect the current game if another window owns the target.
+            lock = acquire_profile_lock(self.lock_home, ident)
+            try:
+                # Another window may have deleted it while this one waited.
+                runtime = self.profiles.require(ident)
+            except Exception:
+                lock.close()
+                raise
+            previous_runtime, previous_profile = self.runtime, self.profile
+            previous_lock = self.profile_lock
+            try:
+                self._stop_services()
+            except Exception:
+                lock.close()
+                raise
+            try:
+                self.runtime, self.profile = runtime, ident
+                self.profile_lock = lock
+                self._start_services()
+                self.server.RequestHandlerClass = self._handler()
+            except Exception:
+                # Keep the current run recoverable after a failed target startup.
+                # Do not release its lock or restart a service until all target
+                # workers have actually stopped.
+                self._stop_services()
+                lock.close()
+                self.runtime, self.profile = previous_runtime, previous_profile
+                self.profile_lock = previous_lock
+                self._start_services()
+                self.server.RequestHandlerClass = self._handler()
+                raise
+            self.profile_lock = lock
+            if previous_lock:
+                previous_lock.close()
+            return self.profiles_status()
+
+    def _stop_services(self):
         if self.service:
             self.service.stop.set()
             with self.service.condition:
                 self.service.condition.notify_all()
+        if self.remote_share:
+            self.remote_share.close()
+        if self.layout:
+            self.layout.close()
         if self.companion:
             self.companion.close()
+        if self.worker:
+            self.worker.join(timeout=12)
+        for worker in (self.worker, getattr(self.layout, 'thread', None),
+                       getattr(self.companion, 'thread', None)):
+            if worker and worker.is_alive():
+                raise RuntimeError('La conexión no pudo cerrarse. Cierra y vuelve a abrir la aplicación antes de cambiar de partida.')
+
+    def close(self):
+        self._stop_services()
         if self.server:
             if self.http_thread and self.http_thread.is_alive():
                 self.server.shutdown()
             self.server.server_close()
         if self.http_thread:
             self.http_thread.join(timeout=4)
-        if self.worker:
-            self.worker.join(timeout=4)
+        if self.profile_lock:
+            self.profile_lock.close()
+            self.profile_lock = None
+        if self.slot_lock:
+            self.slot_lock.close()
+            self.slot_lock = None
 
 
 def smoke_test_native():
@@ -243,6 +364,8 @@ def create_desktop_window(backend, webview):
     export_api = DesktopExportApi(backend.service)
 
     def save_export(kind):
+        # Profiles swap the service without rebuilding the native window.
+        export_api.service = backend.service
         return export_api.save_export(kind)
 
     window = webview.create_window('Pokémon Tracker', backend.url,
@@ -264,22 +387,26 @@ def main(argv=None):
     home.mkdir(parents=True, exist_ok=True)
     backend = None
     locked = None
+    slot_lock = None
     try:
         if not opts.smoke_test:
             auto_migrate_local_checkout(home)
         if opts.profile:
             profile = opts.profile
+            slot = profile
             locked = acquire_profile_lock(home, profile)
         elif opts.smoke_test:
             profile = 'principal'
+            slot = profile
             locked = acquire_profile_lock(home, profile)
         else:
-            profile, locked = automatic_profile(home)
+            profile, locked, slot, slot_lock = automatic_session(home)
         backend = LocalBackend(
             runtime_directory(home, None if profile == 'principal' else profile),
-            profile, layout_path=layout_directory(home, profile),
+            profile, layout_path=layout_directory(home, slot),
             sprite_cache=home / 'sprite-cache',
-            custom_dir=layout_directory(home).parent / 'sprites_personalizados'
+            custom_dir=layout_directory(home).parent / 'sprites_personalizados',
+            profile_lock=locked, slot_profile=slot, slot_lock=slot_lock
         ).start()
         if opts.smoke_test:
             smoke_test(backend)
@@ -301,6 +428,8 @@ def main(argv=None):
             backend.close()
         if locked:
             locked.close()
+        if slot_lock:
+            slot_lock.close()
 
 
 if __name__ == '__main__':

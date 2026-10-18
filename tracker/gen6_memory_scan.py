@@ -6,12 +6,21 @@ PK6 is a *hint*; publishing boxes still requires an unambiguous complete
 """
 from .pokemon import decode_slot
 from .boxes import read_box, decode_box
+from .process_memory import DiscoveryCancelled
 
 WINDOW_RADIUS=0x80000
 CHUNK=0x10000
 MAX_VERIFY=24
 
-def search_pc_memory(reader, reference, radius=WINDOW_RADIUS):
+def search_pc_memory(reader, reference, radius=WINDOW_RADIUS, cancel=None):
+    def check_cancel():
+        if cancel and cancel():raise DiscoveryCancelled('Búsqueda de PC Gen6 cancelada.')
+    def read(address,length):
+        check_cancel()
+        data=reader.read(address,length)
+        check_cancel()
+        return data
+    check_cancel()
     if not isinstance(reference,int) or not 0x08000000<=reference<0x10000000:
         raise ValueError('Referencia de memoria Gen6 no válida')
     if not 0x1000<=radius<=WINDOW_RADIUS:
@@ -25,8 +34,9 @@ def search_pc_memory(reader, reference, radius=WINDOW_RADIUS):
     for address in range(start,stop,CHUNK):
         count=min(CHUNK,stop-address)
         try:
-            data=reader.read(address,count)
+            data=read(address,count)
             if len(data)!=count:raise ValueError('Bloque incompleto')
+        except DiscoveryCancelled:raise
         except (ValueError,ConnectionError,OSError):
             read_errors+=1
             tail=b''
@@ -37,6 +47,7 @@ def search_pc_memory(reader, reference, radius=WINDOW_RADIUS):
         # All Gen6 PK6 slot addresses in a PC are 4-byte aligned.
         begin=(-absolute)%4
         for pos in range(begin,len(combined)-231,4):
+            if pos%1024==begin%1024:check_cancel()
             if (combined[pos+4] or combined[pos+5] or
                 not any(combined[pos:pos+4]) or
                 not any(combined[pos+6:pos+8])):
@@ -52,15 +63,22 @@ def search_pc_memory(reader, reference, radius=WINDOW_RADIUS):
     candidates=sorted(found,key=lambda addr:(abs(addr-reference),addr))
     confirmed=[]
     attempted=0
+    check_cancel()
     for base in candidates[:MAX_VERIFY]:
+        check_cancel()
         attempted+=1
         boxes={}
         try:
             for number in range(1,32):
+                check_cancel()
                 one=read_box(reader,number,base,box_count=31)
-                if one!=read_box(reader,number,base,box_count=31):
+                check_cancel()
+                two=read_box(reader,number,base,box_count=31)
+                check_cancel()
+                if one!=two:
                     raise ValueError('Lectura inconsistente')
                 boxes[str(number)]=decode_box(one,max_species=721)
+                check_cancel()
             if boxes['1'][0] is None:
                 continue
             if not any(mon for box in boxes.values() for mon in box):
@@ -68,8 +86,10 @@ def search_pc_memory(reader, reference, radius=WINDOW_RADIUS):
             confirmed.append((base,boxes))
             if len(confirmed)>1:
                 break
+        except DiscoveryCancelled:raise
         except (ValueError,ConnectionError,OSError):
             continue
+    check_cancel()
     result={'scan_bytes':scanned,'read_errors':read_errors,
             'valid_pk6_hits':len(candidates),'candidate_addresses':
             [hex(x) for x in candidates[:12]],'bases_checked':attempted,

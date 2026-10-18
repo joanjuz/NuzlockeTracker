@@ -1,3 +1,13 @@
+# 0.25.0 — Partidas independientes, Soul Link directo y vidas OBS
+
+- Perfiles con datos separados, cambio seguro entre ventanas y eliminación sin escribir el nombre.
+- Soul Link con host local/VPN y compatibilidad de Companion con X/Y, ORAS y USUM; se conserva Cloudflare.
+- Contadores OBS de muertes o vidas, icono propio y vidas perdidas ocultas o grises.
+- Detección por instancia y juego, caché revalidada, sonda acotada y respaldo dinámico; PC Gen7 completo antes de publicar cajas.
+- Correcciones de teclado, foco, selectores, navegación, estilo Companion y editor OBS adaptable.
+
+[Notas completas de v0.25.0](releases/v0.25.0.md).
+
 # 0.20 — Ultra Sol en combate, sprites y cambio rápido de juego
 
 Ultra Sol 1.0: la captura real confirma el mismo bloque de PS de combate que

@@ -1,18 +1,31 @@
 """Loopback HTTP + WebSocket server, using the Python standard library."""
 import argparse,base64,hashlib,ipaddress,json,re,secrets,socket,struct,sys,threading,time,webbrowser
+from contextlib import nullcontext
 from http.server import ThreadingHTTPServer,BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlsplit
 from tracker.service import TrackerService
+from tracker.process_memory import list_emulator_instances
 from companion.sync import CompanionSync
 from tracker.overlay import OverlayManager, DEFAULT
 from tracker.layout_export import fetch_sprite, validate_png
 ROOT=Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent))
 
+class TrackerHTTPServer(ThreadingHTTPServer):
+    # Windows otherwise permits a second HTTPServer to bind the same address,
+    # which can mix independent runs' responses instead of falling back safely.
+    allow_reuse_address = False
+    request_queue_size = 128
+    daemon_threads = True
+    def server_bind(self):
+        if sys.platform=='win32':
+            self.socket.setsockopt(socket.SOL_SOCKET,socket.SO_EXCLUSIVEADDRUSE,1)
+        super().server_bind()
+
 def runtime_directory(root, profile=None):
     """Separate game state, progress, partner credentials and cache for each local player."""
     base=Path(root)/'runtime'
-    if profile is None:
+    if profile is None or profile == 'principal':
         return base  # Keep existing accounts/credentials in the original location.
     if not isinstance(profile,str) or not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,31}',profile):
         raise ValueError('Perfil invalido: usa entre 1 y 32 letras minusculas, numeros, _ o -')
@@ -65,12 +78,12 @@ class RemoteOverlayShare:
             handler = make_handler(self.service, secrets.token_urlsafe(32),
                                    overlay=self.overlay, remote_only=True)
             try:
-                server = ThreadingHTTPServer((ip, self.preferred_port), handler)
+                server = TrackerHTTPServer((ip, self.preferred_port), handler)
             except OSError as exc:
                 # Solo intentar puerto dinámico cuando el predeterminado está ocupado.
                 if getattr(exc, 'errno', None) not in (98, 10048):
                     raise ValueError('No se pudo usar esa IP. Comprueba la IP de Radmin VPN: ' + str(exc)) from exc
-                server = ThreadingHTTPServer((ip, 0), handler)
+                server = TrackerHTTPServer((ip, 0), handler)
             server.daemon_threads = True
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()
@@ -92,7 +105,7 @@ class RemoteOverlayShare:
 
 
 def make_handler(service,token,companion=None,profile='principal',overlay=None,
-                 share=None,remote_only=False,sprite_cache=None):
+                 share=None,remote_only=False,sprite_cache=None,profiles=None):
     # Los avisos Soul Link pueden referirse a un Pokémon guardado en cajas.
     # Resolver sprites en el servidor evita depender del acceso GitHub/WebView2
     # de cada cliente y guarda lo descargado para uso sin conexión posterior.
@@ -141,7 +154,7 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None,
             if remote_only:
                 remote_files = ('/overlay', '/overlay.js', '/overlay.css',
                                 '/api/overlay/public', '/api/overlay/settings',
-                                '/fonts/Oxanium.ttf')
+                                '/fonts/Oxanium.ttf', '/overlay/counter-icon.png')
                 media = (path.startswith('/overlay/media/pokemon_') or
                          path.startswith('/overlay/font/') or
                          path.startswith('/overlay/hp-image/'))
@@ -157,6 +170,7 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None,
                 if path=='/api/overlay/settings':
                     config=overlay.get_settings()
                     config['hp_asset_versions']=overlay.hp_asset_versions()
+                    config['counter_icon_version']=overlay.counter_icon_version()
                     self.reply(200,config);return
                 if path=='/api/overlay/defaults':
                     self.reply(200,DEFAULT);return
@@ -170,6 +184,10 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None,
                     kind={'ttf':'font/ttf','otf':'font/otf',
                           'woff':'font/woff','woff2':'font/woff2'}.get(extension,'application/octet-stream')
                     self.reply(200,raw,kind);return
+                if path=='/overlay/counter-icon.png':
+                    raw=overlay.counter_icon_bytes()
+                    if raw is None:self.reply(404,{});return
+                    self.reply(200,raw,'image/png');return
                 if path.startswith('/overlay/hp-image/'):
                     match=re.fullmatch(r'/overlay/hp-image/(fill|frame)\.png',path)
                     if not match:self.reply(404,{});return
@@ -195,6 +213,19 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None,
                     return
                 self.reply(404,{});return
             if path=='/api/session':self.reply(200,{'token':token,'profile':profile,'saved_connection':service.config if service.snapshot().get('session_saved') else None});return
+            if path=='/api/processes':
+                try:
+                    processes = [{'pid': p['pid'], 'name': p.get('name', ''),
+                                  'title': p.get('title', ''), 'game': p.get('game_hint'),
+                                  'creation_time': p.get('creation_id')}
+                                 for p in list_emulator_instances()]
+                    self.reply(200, {'processes': processes})
+                except (OSError, RuntimeError, ValueError) as exc:
+                    self.reply(200, {'processes': [], 'error': str(exc)})
+                return
+            if path=='/api/profiles':
+                if profiles is None:self.reply(404,{'error':'Perfiles no disponibles'});return
+                self.reply(200,profiles.profiles_status());return
             if path=='/api/state':self.reply(200,service.snapshot());return
             if path=='/api/templates':self.reply(200,service.templates.status());return
             if path=='/api/companion':
@@ -245,8 +276,34 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None,
                 if file.is_file():self.reply(200,file.read_bytes(),'image/png');return
             self.reply(404,{})
         def do_POST(self):
+            # Serialize profile switching with all writes. A request accepted
+            # on an old keep-alive connection cannot mutate the previous run.
+            with profiles.request_lock if profiles is not None else nullcontext():
+                if getattr(service,'stop',None) is not None and service.stop.is_set():
+                    self.reply(409,{'error':'La partida cambió. Actualiza la ventana.'});return
+                self.post_current_profile()
+        def post_current_profile(self):
             if remote_only:self.reply(403,{'error':'Solo lectura OBS'});return
             if not self.allowed() or self.headers.get('X-Tracker-Token')!=token:self.reply(403,{});return
+            if self.path=='/api/profiles':
+                if profiles is None:self.reply(404,{'error':'Perfiles no disponibles'});return
+                try:
+                    length=int(self.headers.get('Content-Length','0'))
+                    if not 0<length<=1024:raise ValueError('Solicitud demasiado grande')
+                    obj=json.loads(self.rfile.read(length))
+                    if not isinstance(obj,dict):raise ValueError('Solicitud incorrecta')
+                    if obj.get('action')=='create':result=profiles.create_profile(obj.get('name'))
+                    elif obj.get('action')=='select':result=profiles.switch_profile(obj.get('id'))
+                    elif obj.get('action')=='delete':
+                        ident=obj.get('id')
+                        if not isinstance(ident,str) or not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,31}',ident):
+                            raise ValueError('Perfil inválido.')
+                        result=profiles.delete_profile(ident)
+                    else:raise ValueError('Acción de perfil inválida')
+                    self.reply(200,result)
+                except (ValueError,TypeError,RuntimeError,OSError) as exc:
+                    self.reply(400,{'error':str(exc)})
+                return
             if self.path=='/api/overlay/share':
                 if share is None:self.reply(404,{});return
                 try:
@@ -258,11 +315,11 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None,
                 except (ValueError,TypeError,OSError) as exc:
                     self.reply(400,{'error':str(exc)})
                 return
-            if self.path in ('/api/overlay/settings','/api/overlay/font','/api/overlay/hp-image','/api/overlay/sprite'):
+            if self.path in ('/api/overlay/settings','/api/overlay/font','/api/overlay/hp-image','/api/overlay/sprite','/api/overlay/counter-icon'):
                 if overlay is None:self.reply(404,{});return
                 try:
                     size=int(self.headers.get('Content-Length','0'))
-                    limit=10850000 if self.path.endswith('/sprite') or self.path.endswith('/hp-image') else 4300000 if self.path.endswith('/font') else 8192
+                    limit=10850000 if self.path.endswith(('/sprite','/hp-image','/counter-icon')) else 4300000 if self.path.endswith('/font') else 8192
                     if not 0<size<=limit:raise ValueError('Solicitud de overlay demasiado grande')
                     obj=json.loads(self.rfile.read(size))
                     if not isinstance(obj,dict):raise ValueError('JSON inválido')
@@ -272,6 +329,8 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None,
                         result=overlay.import_sprite(obj.get('name'),obj.get('data'))
                     elif self.path.endswith('/hp-image'):
                         result=overlay.import_hp_image(obj.get('kind'),obj.get('data'))
+                    elif self.path.endswith('/counter-icon'):
+                        result=overlay.import_counter_icon(obj.get('data'))
                     else:
                         result=overlay.set_settings(obj)
                     self.reply(200,result)
@@ -286,7 +345,7 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None,
                     cmd=json.loads(self.rfile.read(size))
                     if not isinstance(cmd,dict):raise ValueError('JSON incorrecto')
                     action=cmd.get('action')
-                    if action not in ('create','join','refresh','leave'):raise ValueError('Acción inválida')
+                    if action not in ('create','join','refresh','leave','direct_host','direct_join'):raise ValueError('Acción inválida')
                     self.reply(200,companion.perform(action,cmd))
                 except (ValueError,TypeError) as exc:self.reply(400,{'error':str(exc)})
                 return
@@ -336,6 +395,21 @@ def main():
     parser=argparse.ArgumentParser();parser.add_argument('--no-browser',action='store_true');parser.add_argument('--demo',action='store_true',help='Interfaz con datos simulados, sin emulador');parser.add_argument('--profile',help='Perfil local independiente (ej. segundo-jugador)');args=parser.parse_args()
     try:runtime=runtime_directory(ROOT,args.profile)
     except ValueError as error:parser.error(str(error))
+    if not args.demo:
+        # Reuse the desktop lifecycle so named runs behave the same in the
+        # browser launcher, including locking and safe profile switches.
+        from desktop import LocalBackend
+        backend=LocalBackend(runtime,args.profile or 'principal',
+            layout_path=runtime/'layout',sprite_cache=ROOT/'sprite-cache',
+            custom_dir=ROOT/'sprites_personalizados')
+        try:
+            backend.start()
+            print('Tracker local: '+backend.url+'\nMantén esta ventana abierta. Ctrl+C para cerrar.')
+            if not args.no_browser:webbrowser.open(backend.url)
+            while backend.http_thread.is_alive():backend.http_thread.join(timeout=.5)
+        except KeyboardInterrupt:pass
+        finally:backend.close()
+        return
     if args.demo:
         from tracker.demo import DemoService
         service=DemoService(runtime/'demo-state.json')
@@ -344,7 +418,7 @@ def main():
     companion.start()
     overlay=OverlayManager(service,runtime,runtime/'layout')
     share=RemoteOverlayShare(service,overlay)
-    server=ThreadingHTTPServer(('127.0.0.1',0),
+    server=TrackerHTTPServer(('127.0.0.1',0),
         make_handler(service,secrets.token_urlsafe(32),companion,
                      profile=args.profile or 'principal',overlay=overlay,share=share,
                      sprite_cache=runtime.parent/'sprite-cache'))

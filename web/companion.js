@@ -9,11 +9,28 @@
   let viewingPartner = false;
   let lastUpdate = -1;
   let working = false;
+  let connectionMode = 'direct';
+  const transportControl = el('companion-transport');
+  function updateTransport() {
+    connectionMode = transportControl?.value === 'cloud' ? 'cloud' : 'direct';
+    const direct = connectionMode === 'direct';
+    const fields = el('companion-direct-fields');
+    if (fields) fields.hidden = !direct;
+    el('companion-create').hidden = direct;
+    const keyLabel = el('companion-setup-key').closest?.('label');
+    if (keyLabel) keyLabel.hidden = direct;
+    const urlDetails = el('companion-url').closest?.('details');
+    if (urlDetails) urlDetails.hidden = direct;
+    el('companion-join').textContent = direct ? 'Unirme al host' : 'Unirme por Cloudflare';
+    el('companion-invite').placeholder = direct ? 'nuzlocke://192.168.1.10:8770/join#…' : 'Enlace o código de Cloudflare';
+  }
+  if (transportControl) transportControl.onchange = updateTransport;
+  updateTransport();
 
   function asView(p) {
     if (!p?.state || p.state.schema_version !== 1) return null;
     const source = p.state;
-    if (!['Ultra Sun 1.0', 'Ultra Moon 1.0'].includes(source.game) || !Array.isArray(source.party) || !source.boxes || !source.progress)
+    if (!['Pokémon X 1.0', 'Pokémon Y 1.0', 'Omega Ruby 1.0', 'Alpha Sapphire 1.0', 'Ultra Sun 1.0', 'Ultra Moon 1.0'].includes(source.game) || !Array.isArray(source.party) || !source.boxes || !source.progress)
       return null;
     return {
       ...source, stale: true, demo: false, selected_box: 1, battle_hp: false,
@@ -44,8 +61,17 @@
   }
   // Equipo primero, después cajas: una misma captura se muestra UNA sola vez.
   // La clave coincide con la que valida el servidor al marcar una muerte.
-  function routeCandidates(remoteMon){
-    const own=localState;
+  function routeFamily(game){
+    if(['Pokémon X 1.0','Pokémon Y 1.0'].includes(game))return 'xy';
+    if(['Omega Ruby 1.0','Alpha Sapphire 1.0'].includes(game))return 'oras';
+    if(['Ultra Sun 1.0','Ultra Moon 1.0'].includes(game))return 'usum';
+    return null;
+  }
+  function routeCandidates(remoteMon,remoteGame){
+    const own=localState, family=routeFamily(own?.game);
+    // Location IDs are local to each game's region. A traded Pokémon's origin
+    // version does not identify the current session or provide a route mapping.
+    if(!family || family!==routeFamily(remoteGame))return [];
     if(!remoteMon || !own || own.stale || own.connection?.status!=='connected')return [];
     const members=[];
     (own.party||[]).forEach((mon,i)=>members.push({mon,where:'Equipo '+(i+1)}));
@@ -97,7 +123,7 @@
     if(souls.pending || !soulToggle.checked)return;
     while(souls.queue.length){
       const next=souls.queue.shift();
-      const candidates=routeCandidates(next.remoteMon);
+      const candidates=routeCandidates(next.remoteMon,next.remoteGame);
       if(!candidates.length)continue;
       souls.pending={...next,candidates,selectedKey:candidates.length===1?candidates[0].key:''};
       soulChoice.replaceChildren();
@@ -125,12 +151,13 @@
   }
   function observePartnerDeaths(info){
     if(!info.configured || !info.partner?.state?.progress?.deaths) return;
-    const pair=String(info.worker_url||info.default_worker_url)+'|'+String(info.my_name)+'|'+String(info.partner.name);
+    const pair=String(info.transport)+'|'+String(info.host_address||info.worker_url||info.default_worker_url)+'|'+String(info.my_name)+'|'+String(info.partner.name);
     if(souls.pair!==pair){
       souls.pair=pair;souls.seen.clear();souls.initialized=false;
       souls.queue=[];souls.pending=null;soulNotice.hidden=true;
     }
     const deaths=info.partner.state.progress.deaths;
+    const remoteGame=info.partner.state.game||info.partner.game;
     if(!souls.initialized || !soulToggle.checked){
       for(const [key,entry] of Object.entries(deaths))souls.seen.add(deathIdentity(entry,key));
       souls.initialized=true;return;
@@ -143,9 +170,9 @@
       // ya está vinculada: no crear una notificación de rebote.
       if(entry?.source==='soullink-response')continue;
       const remoteMon=entry?.pokemon;
-      if(!remoteMon || !routeCandidates(remoteMon).length)continue;
+      if(!remoteMon || !routeCandidates(remoteMon,remoteGame).length)continue;
       souls.queue.push({
-        id,remoteMon,partnerName:String(info.partner.name||'Tu compañero'),
+        id,remoteMon,remoteGame,partnerName:String(info.partner.name||'Tu compañero'),
         remoteName:String(remoteMon.nickname||remoteMon.species||'Pokémon'),
       });
     }
@@ -158,7 +185,7 @@
   el('soullink-kill').onclick=async()=>{
     const current=souls.pending;
     if(!current || !token || souls.busy)return;
-    const selected=routeCandidates(current.remoteMon).find(p=>p.key===current.selectedKey);
+    const selected=routeCandidates(current.remoteMon,current.remoteGame).find(p=>p.key===current.selectedKey);
     if(!selected){
       soulError.textContent='Ese Pokémon ya no está disponible. Ignora el aviso si cambió tu equipo.';
       soulError.hidden=false;return;
@@ -196,6 +223,7 @@
     if (info.configured) {
       const status = hasPartner ? `Sincronizado con ${p.name} · ${p.game}` : 'Esperando a tu compañero';
       el('companion-joined-text').textContent = status + (p?.updated_at ? ` · ${stamp(p.updated_at)}` : '');
+      if (info.transport === 'direct') el('companion-joined-text').textContent += info.direct_role === 'host' ? ` · Host: ${info.host_address}` : ' · Conexión directa';
       el('companion-share').value = info.invite_link || info.invite_code || (hasPartner ? 'Compañero vinculado' : 'Código utilizado o no disponible');
       el('companion-copy').disabled = !info.invite_code;
     }
@@ -228,7 +256,7 @@
   async function action(actionName, extra = {}) {
     if (working) return;
     working = true;
-    for(const id of ['companion-create','companion-join','companion-refresh','companion-leave']) el(id).disabled = true;
+    for(const id of ['companion-create','companion-join','companion-refresh','companion-leave','companion-direct-host']) {if(el(id))el(id).disabled = true;}
     indicator.textContent = 'Procesando…';
     try {
       if (!token) throw Error('Espera a que conecte el servidor local.');
@@ -245,7 +273,7 @@
     } finally {
       el('companion-setup-key').value = '';
       working = false;
-      for(const id of ['companion-create','companion-join','companion-refresh','companion-leave']) el(id).disabled = false;
+      for(const id of ['companion-create','companion-join','companion-refresh','companion-leave','companion-direct-host']) {if(el(id))el(id).disabled = false;}
     }
   }
   const fields = () => ({
@@ -255,14 +283,19 @@
   });
   el('open-companion').onclick = () => {
     document.querySelectorAll('details[open]').forEach(d => d.open = false);
+    const game = typeof localState === 'object' ? localState?.game : null;
+    if(game && Array.from(el('companion-game').options || []).some(option=>option.value===game))el('companion-game').value=game;
     dialog.showModal();getStatus();
   };
   el('companion-close').onclick = () => dialog.close();
   el('companion-create').onclick = () => action('create', {...fields(),setup_key:el('companion-setup-key').value});
-  el('companion-join').onclick = () => action('join', {...fields(),invite_code:el('companion-invite').value.trim()});
+  if (el('companion-direct-host')) el('companion-direct-host').onclick = () => action('direct_host', {
+    ...fields(),host:el('companion-host').value.trim(),port:Number(el('companion-port').value),
+  });
+  el('companion-join').onclick = () => action(connectionMode === 'direct' ? 'direct_join' : 'join', {...fields(),invite_code:el('companion-invite').value.trim()});
   el('companion-refresh').onclick = () => action('refresh');
   el('companion-leave').onclick = () => {
-    if (confirm('¿Desvincular la pareja y eliminar todas las sesiones compartidas de Cloudflare?')) action('leave');
+    if (confirm('¿Desvincular la pareja? La conexión directa se cerrará; en Cloudflare se eliminarán las sesiones compartidas.')) action('leave');
   };
   el('companion-copy').onclick = async () => {
     const code = el('companion-share').value;

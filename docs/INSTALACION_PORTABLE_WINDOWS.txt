@@ -1,4 +1,4 @@
-PROGRESSIVE TRACKER v0.24.0 - GUIA DE INICIO (WINDOWS)
+PROGRESSIVE TRACKER v0.25.0 - GUIA DE INICIO (WINDOWS)
 
 DESCARGAR
 1. Descarga PokemonTracker-Windows-x64.zip desde:
@@ -21,7 +21,7 @@ CONECTAR UN JUEGO
 
 OBS
 1. Abre el editor OBS dentro de Progressive Tracker.
-2. Copia las URL locales de sprites, motes, PS o composicion.
+2. Copia las URL locales de sprites, motes, PS, muertes/vidas o composicion.
 3. Pegalas en OBS Studio como Fuente de navegador, con fondo transparente.
 4. Puedes importar sprites PNG, APNG, GIF o WebP personalizados desde
    el editor, o utilizar la carpeta sprites_personalizados.
@@ -36,7 +36,10 @@ PERFILES, RESPALDOS Y ACTUALIZACIONES
   el nuevo EXE. No reemplaces archivos mientras el programa este abierto.
 - Es portable y no incluye instalador ni desinstalador.
 - En dos instancias, comprueba el PID correcto de cada emulador.
-- Soul Link necesita configuracion opcional de su servicio Cloudflare.
+- La barra Partida permite crear, abrir y eliminar perfiles independientes.
+- Para eliminar la partida actual, abre otra primero. Principal se conserva.
+- Soul Link permite conexion directa con un tracker como host en LAN/VPN;
+  Cloudflare sigue disponible como alternativa. Ambos admiten los seis juegos.
 - Ninguna muerte remota mata automaticamente al Pokemon local.
 - El ZIP no contiene ROMs, partidas, credenciales ni tokens privados.
 

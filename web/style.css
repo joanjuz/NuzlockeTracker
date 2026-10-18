@@ -233,3 +233,30 @@ h1,h2,h3,.brand{font-weight:700;letter-spacing:.01em}.topbar nav button{font-wei
 .living-dex-sprites-label:has(input:disabled){opacity:.5}
 .living-dex-missing-sprite{width:76px;height:76px;object-fit:contain;image-rendering:pixelated;filter:grayscale(1) contrast(1.25);opacity:.54}
 .living-dex-missing .living-dex-missing-sprite.living-dex-ball{opacity:.52}
+.run-profile-controls{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.run-profile-controls[hidden]{display:none}.run-profile-controls>label{font-size:11px;color:var(--muted)}.run-profile-controls select{width:150px;max-width:22vw;font-size:12px}.run-profile-controls button{font-size:11px;padding:8px}#run-profile-dialog{width:min(440px,calc(100vw - 32px));max-height:85vh;overflow:auto}#run-profile-form{display:flex;flex-direction:column;gap:12px}#run-profile-form input{width:100%}#run-profile-feedback{font-size:13px;line-height:1.5;color:var(--muted)}@media(max-width:850px){.run-profile-controls select{max-width:180px}.run-profile-controls{order:5;width:100%}}
+
+@media(max-width:1450px){.topbar-inner{flex-wrap:wrap}.topbar nav{order:4;width:100%;margin-left:0}.topbar .options{margin-left:auto}}
+
+/* Audit refinements retain the existing Progressive palette and typography. */
+.card:focus-visible,nav:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.card[aria-disabled="true"]{cursor:default}
+.connection{flex-wrap:wrap}
+.connection label:nth-child(2){flex:1 1 320px;width:auto;min-width:min(100%,250px)}
+.connection label:nth-child(n+3){flex:0 1 140px}
+.process-picker-row{display:flex;align-items:end;gap:12px;flex-wrap:wrap;margin-top:14px}
+.process-picker-row>label{flex:1 1 320px;min-width:0}
+.process-picker-row>p{flex-basis:100%;margin:0}
+.topbar-inner{flex-wrap:wrap}
+.navigation-strip{display:flex;align-items:center;gap:6px;order:4;flex:1 0 100%;width:100%;min-width:0}
+.topbar .navigation-strip nav{display:flex;flex:1;min-width:0;width:auto;margin:0;overflow-x:auto;justify-content:flex-start;scrollbar-width:thin;scrollbar-color:var(--accent) transparent;gap:3px;padding:3px}
+.topbar .navigation-strip nav button{flex:0 0 auto}
+.nav-scroll-control{flex:0 0 30px;min-width:30px;padding:7px 4px;font-size:21px;line-height:1;color:var(--accent)}
+.nav-scroll-control:disabled{opacity:.35;cursor:default}
+.card-top,.stat small{font-size:11px;letter-spacing:0}
+.box-pokemon strong,.box-pokemon small,.coverage-cell strong,.coverage-cell small{max-width:100%;overflow-wrap:anywhere}
+.coverage-cell{min-width:0}
+.box-pokemon small,.route-tile .route-death,.route-death-status,.route-not-found,.origin-location{font-size:11px}
+@media(max-width:650px){.coverage-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.process-picker-row>button{width:100%}}
+@media(max-width:360px){.coverage-grid{grid-template-columns:1fr}.box-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+#delete-run-profile-dialog{width:min(480px,calc(100vw - 32px));max-height:85vh;overflow:auto}#delete-run-profile-dialog label{display:flex;flex-direction:column;gap:8px;margin:14px 0}#delete-run-profile-dialog input,#delete-run-profile-dialog select{width:100%}.dependency-error{position:fixed;bottom:16px;left:16px;right:16px;z-index:100;background:var(--surface);border:1px solid var(--accent);border-radius:12px;padding:16px;box-shadow:0 4px 18px #0005}.dependency-error button{margin-left:10px}

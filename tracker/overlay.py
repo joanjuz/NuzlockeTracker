@@ -1,7 +1,7 @@
 """Safe OBS browser overlays backed by the already-running localhost tracker.
 
-Read-only public payload contains only six party slots: nickname, health,
-species, live/stale/dead flags and image revisions. No saved Pokémon,
+Read-only public payload contains a death total and six party slots: nickname,
+health, species, live/stale/dead flags and image revisions. No saved Pokémon,
 PID, partner data, session token, templates, or credentials are sent to OBS.
 """
 from __future__ import annotations
@@ -40,6 +40,9 @@ DEFAULT = {
     'sprite_shadow': False, 'sprite_padding': 0,
     'hp_animation_ms': 250,
     'hp_custom_fill': False, 'hp_custom_frame': False,
+    'counter_mode': 'off', 'counter_total': 10, 'counter_lost': 'gray',
+    'counter_in_composition': False, 'counter_custom_icon': False,
+    'counter_icon_size': 36,
 }
 VALID_FONTS = ('ttf', 'otf', 'woff', 'woff2')
 ALLOWED = set(DEFAULT)
@@ -53,6 +56,12 @@ def validated_settings(candidate):
         if name == 'order':
             if not isinstance(value, list) or sorted(value) != ['hp', 'names', 'sprites']:
                 raise ValueError('Las tres capas deben aparecer una vez')
+        elif name == 'counter_mode':
+            if value not in ('off', 'deaths', 'lives'):
+                raise ValueError('Modo de contador desconocido')
+        elif name == 'counter_lost':
+            if value not in ('hide', 'gray'):
+                raise ValueError('Aspecto de vidas perdidas desconocido')
         elif name == 'direction':
             if value not in ('row', 'column', 'grid'):
                 raise ValueError('Dirección desconocida')
@@ -65,7 +74,8 @@ def validated_settings(candidate):
         elif name == 'sprite_scaling':
             if value not in ('pixelated','smooth'):
                 raise ValueError('Interpolación de sprites desconocida')
-        elif name in ('hp_glow', 'hp_reverse', 'show_empty', 'hp_custom_fill', 'hp_custom_frame', 'sprite_shadow'):
+        elif name in ('hp_glow', 'hp_reverse', 'show_empty', 'hp_custom_fill', 'hp_custom_frame', 'sprite_shadow',
+                      'counter_in_composition', 'counter_custom_icon'):
             if type(value) is not bool:
                 raise ValueError('Opción incorrecta: ' + name)
         elif name == 'font':
@@ -86,6 +96,7 @@ def validated_settings(candidate):
                 'hp_mid_threshold': (50, 95), 'hp_text_size': (8, 48),
                 'render_scale': (1, 4), 'sprite_padding': (0, 64),
                 'hp_animation_ms': (0, 1500),
+                'counter_total': (1, 100), 'counter_icon_size': (12, 256),
             }
             if type(value) is not int or not ranges[name][0] <= value <= ranges[name][1]:
                 raise ValueError('Valor fuera de rango: ' + name)
@@ -227,10 +238,28 @@ class OverlayManager:
                 versions[kind] = '0'
         return versions
 
+    def counter_icon_bytes(self):
+        try:
+            return (self.hp_images / 'counter.png').read_bytes()
+        except OSError:
+            return None
+
+    def counter_icon_version(self):
+        try:
+            return str((self.hp_images / 'counter.png').stat().st_mtime_ns)
+        except OSError:
+            return '0'
+
+    def import_counter_icon(self, data):
+        return self._import_png('counter', data)
+
     def import_hp_image(self, kind, data):
-        """Importa PNG estático, valida dimensiones y elimina metadatos al reescribirlo."""
         if kind not in ('fill', 'frame'):
             raise ValueError('Tipo de imagen de barra inválido')
+        return self._import_png(kind, data)
+
+    def _import_png(self, kind, data):
+        """Importa PNG estático, valida dimensiones y elimina metadatos al reescribirlo."""
         if not isinstance(data, str) or len(data) > 10_800_000:
             raise ValueError('Imagen demasiado grande (máximo 8 MB)')
         try:
@@ -283,7 +312,10 @@ class OverlayManager:
                 original = self.service.state
                 state = {
                     'party': copy.deepcopy(original.get('party') or []),
-                    'progress': {'deaths': list(((original.get('progress') or {}).get('deaths') or {}))},
+                    'progress': {
+                        'deaths': list(((original.get('progress') or {}).get('deaths') or {})),
+                        'death_count': (original.get('progress') or {}).get('death_count'),
+                    },
                     'stale': original.get('stale', True),
                     'game': original.get('game'),
                     'revision': original.get('revision', 0),
@@ -291,6 +323,8 @@ class OverlayManager:
         else:
             state = self.service.snapshot()
         deaths = (state.get('progress') or {}).get('deaths') or {}
+        count = (state.get('progress') or {}).get('death_count')
+        count = count if type(count) is int and count >= 0 else len(deaths)
         result = []
         party = state.get('party') or []
         for i in range(6):
@@ -323,4 +357,5 @@ class OverlayManager:
                 'dead': pokemon_key(mon) in deaths, 'stale': bool(state.get('stale', True)),
             })
         return {'revision':state.get('revision',0), 'game':state.get('game'),
-                'stale':bool(state.get('stale', True)), 'party':result}
+                'stale':bool(state.get('stale', True)), 'party':result,
+                'death_count': count}

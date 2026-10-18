@@ -2,6 +2,9 @@
 import copy
 import json
 import re
+from tracker.profiles import PROFILES
+
+SUPPORTED_GAMES = frozenset(PROFILES)
 
 MAX_SNAPSHOT_BYTES = 650_000
 POKEMON_FIELDS = {
@@ -13,34 +16,36 @@ POKEMON_FIELDS = {
 }
 
 
-def pokemon(member):
+def pokemon(member, max_species=1025):
     if member is None:
         return None
     if not isinstance(member, dict):
         raise ValueError('Registro Pokémon no válido')
     species = member.get('species_id')
-    if type(species) is not int or not 1 <= species <= 1025:
+    if type(species) is not int or not 1 <= species <= max_species:
         raise ValueError('Especie Pokémon no válida')
     return {key: copy.deepcopy(value) for key, value in member.items() if key in POKEMON_FIELDS}
 
 
 def snapshot(state):
     """Allowlist only; excludes connection metadata, PID, diagnostics and runtime paths."""
-    if not isinstance(state, dict) or state.get('game') not in ('Ultra Sun 1.0', 'Ultra Moon 1.0'):
+    if not isinstance(state, dict) or not isinstance(state.get('game'), str) or state['game'] not in SUPPORTED_GAMES:
         raise ValueError('Juego no compatible con Soul Link')
     if state.get('stale') is not False or (state.get('connection') or {}).get('status') != 'connected':
         raise ValueError('El tracker no tiene una lectura actual para compartir')
+    generation = PROFILES[state['game']].generation
+    max_boxes, max_species = (31, 721) if generation == 6 else (32, 807)
     party = state.get('party')
     if not isinstance(party, list) or len(party) != 6:
         raise ValueError('El equipo debe tener seis espacios')
     boxes = state.get('boxes') or {}
-    if not isinstance(boxes, dict) or len(boxes) > 32:
+    if not isinstance(boxes, dict) or len(boxes) > max_boxes:
         raise ValueError('Cajas no válidas')
     result_boxes = {}
     for key, members in boxes.items():
-        if not isinstance(key, str) or not key.isdigit() or not 1 <= int(key) <= 32 or not isinstance(members, list) or len(members) != 30:
+        if not isinstance(key, str) or not key.isdigit() or not 1 <= int(key) <= max_boxes or not isinstance(members, list) or len(members) != 30:
             raise ValueError('Caja no válida')
-        result_boxes[key] = [pokemon(p) for p in members]
+        result_boxes[key] = [pokemon(p, max_species) for p in members]
     progress = state.get('progress') or {}
     deaths = progress.get('deaths') or {}
     if not isinstance(deaths, dict) or len(deaths) > 500:
@@ -49,7 +54,7 @@ def snapshot(state):
     for key, entry in deaths.items():
         if not isinstance(key, str) or len(key) > 70 or not isinstance(entry, dict):
             raise ValueError('Registro de debilitados incorrecto')
-        safe_deaths[key] = {'pokemon': pokemon(entry.get('pokemon')),
+        safe_deaths[key] = {'pokemon': pokemon(entry.get('pokemon'), max_species),
                             'recorded_at': str(entry.get('recorded_at', ''))[:40]}
         # Share ONLY this harmless flag: the partner must display the death
         # in Muertos, without creating a second Soul Link notification.
@@ -78,7 +83,7 @@ def snapshot(state):
             raise ValueError('Marca de ruta inválida')
         record = mark['pokemon']
         if (type(record.get('species_id')) is not int or
-            not 1 <= record['species_id'] <= 1025):
+            not 1 <= record['species_id'] <= max_species):
             raise ValueError('Pokémon de marca inválido')
         # Redacted fields: no trainer IDs or other private game data.
         allowed = ('species_id','species','nickname','origin_version',
@@ -99,7 +104,7 @@ def snapshot(state):
         raise ValueError('Rutas Miss incorrectas')
     data = {
         'schema_version': 1, 'game': state['game'],
-        'party': [pokemon(p) for p in party], 'boxes': result_boxes,
+        'party': [pokemon(p, max_species) for p in party], 'boxes': result_boxes,
         'progress': {'deaths': safe_deaths, 'missed_routes': missed,
                      'death_count': count, 'origins': safe_origins,
                      'route_marks': safe_marks, 'traded_routes': traded_routes},
@@ -113,7 +118,7 @@ def snapshot(state):
 
 def viewer_state(data):
     """Adapt a saved remote snapshot to existing read-only UI renderers."""
-    if not isinstance(data, dict) or data.get('schema_version') != 1 or data.get('game') not in ('Ultra Sun 1.0', 'Ultra Moon 1.0'):
+    if not isinstance(data, dict) or data.get('schema_version') != 1 or not isinstance(data.get('game'), str) or data['game'] not in SUPPORTED_GAMES:
         raise ValueError('Última sesión incompatible')
     state = copy.deepcopy(data)
     state.update(connection={'status': 'disconnected', 'message': 'Última sesión compartida'},

@@ -51,3 +51,32 @@ test('health, rejects unauthorized pair creation and malformed state',async()=>{
   r=await call('/v1/state','PUT',{state:{party:[null]}},bearer(owner.token));
   assert.equal(r.status,400);
 });
+
+
+test('all six games pair and retain generation bounds and member game binding', async()=>{
+  const games=['Pokémon X 1.0','Pokémon Y 1.0','Omega Ruby 1.0','Alpha Sapphire 1.0','Ultra Sun 1.0','Ultra Moon 1.0'];
+  for (const [index, game] of games.entries()) {
+    const gen6=index<4, maxBoxes=gen6?31:32, maxSpecies=gen6?721:807;
+    let res=await call('/v1/pairs','POST',{name:'Host',game},{'X-Setup-Key':env.CREATE_KEY});
+    assert.equal(res.status,201,game); const owner=await res.json();
+    const peerGame=games[(index+1)%games.length];
+    res=await call('/v1/pairs/join','POST',{name:'Peer',game:peerGame,invite_code:owner.invite_code});
+    assert.equal(res.status,201,peerGame); const guest=await res.json();
+    const obj={schema_version:1,game,party:[{species_id:maxSpecies,nickname:'Ultimo'},null,null,null,null,null],
+      boxes:Object.fromEntries(Array.from({length:maxBoxes},(_,n)=>[String(n+1),Array(30).fill(null)])),
+      progress:{deaths:{},missed_routes:[]},battle_hp:false};
+    res=await call('/v1/state','PUT',{state:obj},bearer(owner.token)); assert.equal(res.status,200,game);
+    res=await call('/v1/partner','GET',undefined,bearer(guest.token));
+    const received=(await res.json()).partner;
+    assert.equal(received.game,game); assert.equal(received.state.party[0].species_id,maxSpecies);
+    assert.equal(Object.keys(received.state.boxes).length,maxBoxes);
+    res=await call('/v1/state','PUT',{state:obj},bearer(guest.token)); assert.equal(res.status,400,'member binding');
+    obj.boxes[String(maxBoxes+1)]=Array(30).fill(null);
+    res=await call('/v1/state','PUT',{state:obj},bearer(owner.token)); assert.equal(res.status,400,'extra box');
+    delete obj.boxes[String(maxBoxes+1)]; obj.party[0].species_id=maxSpecies+1;
+    res=await call('/v1/state','PUT',{state:obj},bearer(owner.token)); assert.equal(res.status,400,'future species');
+    res=await call('/v1/leave','POST',{},bearer(owner.token)); assert.equal(res.status,200);
+  }
+  const invalid=await call('/v1/pairs','POST',{name:'Unknown',game:'unsupported'},{'X-Setup-Key':env.CREATE_KEY});
+  assert.equal(invalid.status,400);
+});

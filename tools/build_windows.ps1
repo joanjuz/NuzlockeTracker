@@ -1,9 +1,10 @@
 # Portable single-file Windows EXE; keep legacy .bat and private runtime OUT of ZIP.
+param([string]$Python = 'python')
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 Set-Location $root
 
-python -m pip install -r requirements-desktop.txt
+& $Python -m pip install -r requirements-desktop.txt
 if ($LASTEXITCODE -ne 0) { throw 'No se pudieron instalar dependencias de escritorio.' }
 
 # --onefile prevents downloaded/extracted pythonnet DLLs from retaining the
@@ -14,7 +15,7 @@ if ($LASTEXITCODE -ne 0) { throw 'No se pudieron instalar dependencias de escrit
 $iconSource = Join-Path $root 'assets\app_icon.png'
 $iconFile = Join-Path $root 'build\PokemonTracker.ico'
 New-Item -ItemType Directory -Force (Split-Path $iconFile) | Out-Null
-python -c "from PIL import Image; import sys; i=Image.open(sys.argv[1]).convert('RGBA'); i.save(sys.argv[2],format='ICO',sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])" $iconSource $iconFile
+& $Python -c "from PIL import Image; import sys; i=Image.open(sys.argv[1]).convert('RGBA'); i.save(sys.argv[2],format='ICO',sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])" $iconSource $iconFile
 if ($LASTEXITCODE -ne 0) { throw 'No se pudo convertir el icono del programa.' }
 $pyi = @('--noconfirm', '--clean', '--windowed', '--onefile', '--icon', $iconFile,
     '--name', 'PokemonTracker', '--collect-all', 'webview',
@@ -22,7 +23,7 @@ $pyi = @('--noconfirm', '--clean', '--windowed', '--onefile', '--icon', $iconFil
     '--exclude-module', 'PyQt6', '--exclude-module', 'PySide2',
     '--exclude-module', 'PySide6',
     '--add-data', 'web;web', '--add-data', 'data;data', 'desktop.py')
-python -m PyInstaller @pyi
+& $Python -m PyInstaller @pyi
 if ($LASTEXITCODE -ne 0) { throw 'PyInstaller no pudo compilar PokemonTracker.exe.' }
 
 $bundle = Join-Path $root 'dist'
@@ -39,7 +40,7 @@ try {
     New-Item -ItemType Directory -Path $env:LOCALAPPDATA -Force | Out-Null
     # Windowed EXEs are launched asynchronously by PowerShell; wait for the
     # real process (and PyInstaller onefile child) before touching the EXE.
-    $probe = Start-Process -FilePath $exe -ArgumentList @('--smoke-test', '--profile', 'principal') -Wait -PassThru
+    $probe = Start-Process -FilePath $exe -ArgumentList @('--smoke-test', '--profile', 'principal') -WindowStyle Hidden -Wait -PassThru
     if ($probe.ExitCode -ne 0) {
         $logFile = Join-Path $env:LOCALAPPDATA 'PokemonTracker\desktop-error.log'
         if (Test-Path $logFile) { Get-Content $logFile | Write-Host }

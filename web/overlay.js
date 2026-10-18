@@ -1,8 +1,8 @@
 'use strict';
-/* Browser source reads only six sanitized slots from the public overlay API. */
+/* Browser source reads six sanitized slots and a death total from the public API. */
 (() => {
   const args = new URLSearchParams(location.search);
-  const allowed = new Set(['all','sprites','names','hp']);
+  const allowed = new Set(['all','sprites','names','hp','counter']);
   const layer = allowed.has(args.get('layer')) ? args.get('layer') : 'all';
   const slotArg = Number(args.get('slot'));
   const slot = Number.isInteger(slotArg) && slotArg >= 1 && slotArg <= 6 ? slotArg : null;
@@ -15,13 +15,21 @@
     return el;
   };
   const css = (key, value) => document.documentElement.style.setProperty(key,value);
+  const visibleLayers = () => layer === 'all'
+    ? [...settings.order, ...(settings.counter_in_composition ? ['counter'] : [])] : [layer];
   function rebuild() {
     root.replaceChildren(); nodes = {};
-    const types = layer === 'all' ? settings.order : [layer];
+    const types = visibleLayers();
     for (const type of types) {
       const group = mk('section','overlay-layer',root);
       group.dataset.layer = type;
       group.dataset.direction = settings.direction;
+      if (type === 'counter') {
+        group.className = 'overlay-counter';
+        group.setAttribute('aria-live','polite');
+        nodes.counter = group;
+        continue;
+      }
       for (const n of (slot ? [slot] : [1,2,3,4,5,6])) {
         const node = mk('div','overlay-slot',group);
         nodes[type+':'+n] = node;
@@ -40,16 +48,26 @@
       }
     }
   }
+  function fitViewport() {
+    // Viewport units are not divided by CSS zoom: wrap within the source's
+    // actual visible width while preserving configured icon and font sizes.
+    const scale=settings?.render_scale||1;
+    css('--overlay-viewport',(document.documentElement.clientWidth/scale)+'px');
+  }
+  if(typeof window!=='undefined')window.addEventListener('resize',fitViewport);
   function appearance(value) {
     if (!value) return;
     const signature=JSON.stringify(value);
     if(signature===lastConfig)return;
     const structural = !settings || settings.direction !== value.direction ||
-        JSON.stringify(settings.order)!==JSON.stringify(value.order);
+        JSON.stringify(settings.order)!==JSON.stringify(value.order) ||
+        settings.counter_in_composition !== value.counter_in_composition;
     settings=value;lastConfig=signature;
     // CSS zoom reflows/rasterizes fonts and vector HP tracks at real scaled
     // dimensions; transform:scale only enlarges previously rasterized pixels.
     root.style.zoom=String(settings.render_scale||1);
+    fitViewport();
+    css('--counter-icon',(settings.counter_icon_size||36)+'px');
     css('--sprite-render',settings.sprite_scaling==='smooth'?'auto':'pixelated');
     css('--sprite-padding',(settings.sprite_padding||0)+'px');
     css('--sprite-shadow',settings.sprite_shadow?'drop-shadow(0 4px 7px #000a)':'none');
@@ -88,10 +106,42 @@
     if(settings.hp_label==='both')return p.hp+' / '+p.max_hp+' · '+Math.round(p.percent)+'%';
     return '';
   }
+  function drawCounter(state) {
+    const group=nodes.counter;
+    if(!group)return;
+    const signature=JSON.stringify([state.death_count,settings.counter_mode,
+      settings.counter_total,settings.counter_lost,settings.counter_custom_icon,
+      settings.counter_icon_version]);
+    if(group.dataset.signature===signature)return;
+    group.dataset.signature=signature;
+    group.replaceChildren();
+    group.removeAttribute('aria-label');
+    group.hidden=!settings.counter_mode || settings.counter_mode==='off';
+    if(group.hidden)return;
+    const deaths=Number.isInteger(state.death_count)&&state.death_count>=0?state.death_count:0;
+    if(settings.counter_mode==='deaths'){
+      mk('span','counter-number',group).textContent='Muertes: '+deaths;
+      return;
+    }
+    const remaining=Math.max(0,settings.counter_total-deaths);
+    group.setAttribute('aria-label','Vidas: '+remaining+' de '+settings.counter_total);
+    mk('span','counter-number',group).textContent='Vidas: '+remaining;
+    for(let i=0;i<settings.counter_total;i++){
+      const lost=i>=remaining;
+      if(lost && settings.counter_lost==='hide')continue;
+      const icon=mk(settings.counter_custom_icon?'img':'span','counter-icon'+(lost?' lost':''),group);
+      icon.setAttribute('aria-hidden','true');
+      if(settings.counter_custom_icon){
+        icon.alt='';
+        icon.src='/overlay/counter-icon.png?v='+encodeURIComponent(settings.counter_icon_version||'0');
+      }else icon.textContent='♥';
+    }
+  }
   function draw(state) {
     if(!settings||!state?.party)return;
+    drawCounter(state);
     for (const p of state.party) {
-      for(const type of (layer==='all'?settings.order:[layer])) {
+      for(const type of visibleLayers()) {
         const el=nodes[type+':'+p.slot]; if(!el)continue;
         el.classList.toggle('empty',!p.present&&!settings.show_empty);
         el.classList.toggle('stale',Boolean(p.stale));

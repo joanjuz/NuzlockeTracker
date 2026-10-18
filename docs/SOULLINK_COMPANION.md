@@ -83,3 +83,19 @@ La última prueba usa `node:sqlite` experimental de Node 22 y no realiza solicit
 - El texto «Lectura automática de 32 cajas» se retiró de la barra de Cajas; la lectura automática permanece activa en segundo plano.
 - Las últimas cajas leídas **se conservan al desconectar Lime3DS, ante un error de lectura o al cerrar/reabrir el tracker**. La interfaz las identifica como **Última lectura guardada (sin conexión)**, nunca como lectura en vivo. Cada perfil local conserva su propio archivo `runtime/state.json` (o `runtime/profiles/<perfil>/state.json`). Si eliges otro juego se vacía el conjunto anterior para evitar mezclar Ultra Sol y Ultra Luna.
 - Al desconectar no se envía al Worker un estado obsoleto: Cloudflare conserva la última sesión válida ya sincronizada para tu compañero, incluidos los Pokémon de sus cajas leídas.
+
+
+## Juegos compatibles
+
+La sincronización permite Pokémon X, Pokémon Y, Rubí Omega, Zafiro Alfa,
+Ultra Sol y Ultra Luna, con los perfiles 1.0 disponibles en el tracker.
+Cada jugador selecciona su propio juego; los dos pueden jugar títulos distintos.
+El juego de una sesión debe coincidir con el configurado para ese jugador.
+Se conservan los límites de cada generación: 31 cajas y 721 especies en Gen6;
+32 cajas y 807 especies en Gen7. La sincronización solo comparte la información
+permitida del tracker, sin escribir en las partidas.
+
+La conexión directa funciona entre dos aplicaciones actualizadas. Para Cloudflare,
+el código del Worker incluido también admite estos seis juegos. Un Worker
+instalado anteriormente que solo acepte Ultra Sol/Ultra Luna debe actualizarse
+por separado antes de usar Gen6; generar el ejecutable no despliega el Worker.

@@ -11,7 +11,7 @@ assert.match(css,/background:transparent/);
 assert.match(client,/\/api\/overlay\/public/);
 assert.match(client,/\/api\/overlay\/settings/);
 assert.match(client,/\/overlay\/media\/pokemon_/);
-assert.match(client,/layer==='all'/);
+assert.match(client,/layer\s*===\s*'all'/);
 assert.match(client,/layer===.all.|layer === .all./);
 assert.match(client,/args\.get\('slot'\)/);
 assert.match(client,/\.textContent=p\.present\?p\.nickname/);

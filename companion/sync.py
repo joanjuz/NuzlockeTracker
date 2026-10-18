@@ -12,7 +12,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
-from .snapshot import snapshot, viewer_state
+from .snapshot import SUPPORTED_GAMES, snapshot, viewer_state
+from .direct import DirectHost, SECRET_RE, identity, invitation, partner as direct_partner, request_json
 
 # Only the public endpoint is preconfigured, never the administrative CREATE_KEY.
 DEFAULT_WORKER_URL = 'https://pokemon-tracker-companion.pokemon-tracker.workers.dev'
@@ -75,6 +76,8 @@ class CompanionSync:
         self.wake = threading.Event()
         self.thread = None
         self.settings = {}
+        self.direct_host = None
+        self.direct_session = None
         self.partner = None
         self.error = ''
         self.last_uploaded_hash = None
@@ -123,7 +126,18 @@ class CompanionSync:
         with self.lock:
             worker_url = self.settings.get('worker_url') or self.default_worker_url()
             invite = self.settings.get('invite_code', '')
+            if self.settings.get('transport') == 'direct':
+                if self.direct_host:
+                    invite, self.partner = self.direct_host.status()
+                return {'configured': True, 'transport': 'direct',
+                        'direct_role': 'host' if self.direct_host else 'join',
+                        'host_address': self.direct_host.address if self.direct_host else '',
+                        'worker_url': '', 'default_worker_url': worker_url,
+                        'my_name': self.settings['name'], 'game': self.settings['game'],
+                        'invite_code': invite, 'invite_link': invite,
+                        'partner': self.partner, 'error': self.error}
             return {'configured': bool(self.settings),
+                    'transport': 'cloud',
                     'worker_url': self.settings.get('worker_url', ''),
                     'default_worker_url': worker_url,
                     'invite_link': worker_url + '/join#' + invite if invite else '',
@@ -151,8 +165,8 @@ class CompanionSync:
         if not 1 <= len(name) <= 32 or any(ord(c) < 32 or c in '<>' for c in name):
             raise ValueError('Escribe un nombre entre 1 y 32 caracteres')
         game = options.get('game')
-        if game not in ('Ultra Sun 1.0', 'Ultra Moon 1.0'):
-            raise ValueError('Selecciona Ultra Sol o Ultra Luna 1.0')
+        if not isinstance(game, str) or game not in SUPPORTED_GAMES:
+            raise ValueError('Selecciona un juego compatible con el tracker')
         if action == 'create':
             setup_key = options.get('setup_key', '')
             if not isinstance(setup_key, str) or len(setup_key) < 16:
@@ -183,6 +197,32 @@ class CompanionSync:
 
     def perform(self, action, options=None):
         options = options or {}
+        if action in ('direct_host', 'direct_join'):
+            with self.lock:
+                if self.settings:
+                    raise ValueError('Ya existe una pareja; desvincúlala primero')
+                name, game = identity(options.get('name'), options.get('game'))
+                if action == 'direct_host':
+                    try:
+                        host = DirectHost(options.get('host', '127.0.0.1'), options.get('port', 8770), name, game)
+                    except OSError:
+                        raise ValueError('No se pudo abrir el host: revisa la dirección local y el puerto') from None
+                    self.direct_host = host
+                    self.direct_session = None
+                    self.partner = None
+                else:
+                    base, secret = invitation(options.get('invite_code'))
+                    result = request_json(base, '/v1/join', secret, {'name': name, 'game': game})
+                    session = result.get('session')
+                    if not isinstance(session, str) or not SECRET_RE.fullmatch(session):
+                        raise ValueError('Respuesta directa inválida')
+                    self.partner = direct_partner(result.get('partner'))
+                    self.direct_session = (base, session)
+                self.settings = {'transport': 'direct', 'name': name, 'game': game}
+                self.error = ''
+                self.wake.set()
+            self.sync_once(force=True)
+            return self.status()
         if action in ('create', 'join'):
             with self.lock:
                 if self.settings:
@@ -192,6 +232,12 @@ class CompanionSync:
             with self.lock:
                 settings = dict(self.settings)
                 if not settings:
+                    return self.status()
+                if settings.get('transport') == 'direct':
+                    self._close_direct()
+                    self.settings = {}
+                    self.partner = None
+                    self.error = ''
                     return self.status()
             # Revoke cloud credential before losing local copy; fail closed on network errors.
             try:
@@ -219,6 +265,9 @@ class CompanionSync:
         with self.lock:
             settings = dict(self.settings)
         if not settings:
+            return
+        if settings.get('transport') == 'direct':
+            self._sync_direct(settings)
             return
         now = time.monotonic()
         try:
@@ -282,6 +331,44 @@ class CompanionSync:
         self.thread = threading.Thread(target=self._run, daemon=True, name='companion-sync')
         self.thread.start()
 
+    def _sync_direct(self, settings):
+        try:
+            local = snapshot(self.service.snapshot())
+            if local['game'] != settings['game']:
+                raise ValueError('Selecciona ' + settings['game'] + ' para sincronizar tu partida')
+            local_error = ''
+        except ValueError as error:
+            local, local_error = None, str(error)
+        with self.lock:
+            host, session = self.direct_host, self.direct_session
+        try:
+            if host:
+                remote = host.exchange(local)
+            elif session:
+                result = request_json(session[0], '/v1/exchange', session[1], {'state': local})
+                remote = direct_partner(result.get('partner'))
+            else:
+                return
+            with self.lock:
+                if host is self.direct_host and session == self.direct_session and self.settings == settings:
+                    self.partner = remote
+                    self.error = local_error
+        except (ValueError, OSError, KeyError, TypeError) as error:
+            with self.lock:
+                if host is self.direct_host and session == self.direct_session and self.settings == settings:
+                    self.error = str(error)
+
+    def _close_direct(self):
+        host, session = self.direct_host, self.direct_session
+        self.direct_host = self.direct_session = None
+        if host:
+            host.close()
+        elif session:
+            try:
+                request_json(session[0], '/v1/leave', session[1], {})
+            except ValueError:
+                pass  # Local disconnect must work when a peer is offline.
+
     def _run(self):
         # Observe local state revisions via TrackerService.condition; poll remote
         # every five seconds even without local changes.
@@ -309,3 +396,5 @@ class CompanionSync:
         self.wake.set()
         if self.thread:
             self.thread.join(timeout=10)
+        with self.lock:
+            self._close_direct()

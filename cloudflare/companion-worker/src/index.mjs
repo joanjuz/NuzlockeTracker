@@ -1,5 +1,6 @@
 /** Soul Link companion snapshots. Only HTTPS bearer-token requests; no public reads. */
-const GAMES = new Set(['Ultra Sun 1.0', 'Ultra Moon 1.0']);
+const GEN6_GAMES = new Set(['Pokémon X 1.0', 'Pokémon Y 1.0', 'Omega Ruby 1.0', 'Alpha Sapphire 1.0']);
+const GAMES = new Set([...GEN6_GAMES, 'Ultra Sun 1.0', 'Ultra Moon 1.0']);
 const MAX_SNAPSHOT = 700000;
 const safeHeaders = {
   'Content-Type': 'application/json; charset=utf-8',
@@ -28,26 +29,29 @@ async function input(req, max=2048) {
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) throw new Error('JSON inválido');
   return obj;
 }
-function pokemonOK(p) {
+function pokemonOK(p, maxSpecies=1025) {
   if (p === null) return true;
   if (!p || typeof p !== 'object' || Array.isArray(p)) return false;
-  if (!Number.isInteger(p.species_id) || p.species_id < 1 || p.species_id > 1025) return false;
+  if (!Number.isInteger(p.species_id) || p.species_id < 1 || p.species_id > maxSpecies) return false;
   for(const k of ['species', 'nickname', 'ability', 'item', 'nature', 'met_location'])
     if (k in p && !textOK(p[k], 180)) return false;
   if ('level' in p && p.level !== null && (!Number.isInteger(p.level) || p.level < 1 || p.level > 100)) return false;
   return true;
 }
 function snapshotOK(s, game) {
-  if (!s || typeof s !== 'object' || Array.isArray(s) || s.schema_version !== 1 || s.game !== game)
+  if (!s || typeof s !== 'object' || Array.isArray(s) || s.schema_version !== 1 || s.game !== game || !GAMES.has(game))
     return false;
-  if (!Array.isArray(s.party) || s.party.length !== 6 || !s.party.every(pokemonOK)) return false;
+  const maxBoxes = GEN6_GAMES.has(game) ? 31 : 32;
+  const maxSpecies = GEN6_GAMES.has(game) ? 721 : 807;
+  const validPokemon = p => pokemonOK(p, maxSpecies);
+  if (!Array.isArray(s.party) || s.party.length !== 6 || !s.party.every(validPokemon)) return false;
   if (!s.boxes || typeof s.boxes !== 'object' || Array.isArray(s.boxes)) return false;
   const keys = Object.keys(s.boxes);
-  if (keys.length > 32 || !keys.every(k => /^(?:[1-9]|[12]\d|3[012])$/.test(k) && Array.isArray(s.boxes[k]) && s.boxes[k].length === 30 && s.boxes[k].every(pokemonOK))) return false;
+  if (keys.length > maxBoxes || !keys.every(k => /^(?:[1-9]|[12]\d|3[012])$/.test(k) && Number(k) <= maxBoxes && Array.isArray(s.boxes[k]) && s.boxes[k].length === 30 && s.boxes[k].every(validPokemon))) return false;
   if (!s.progress || typeof s.progress !== 'object' || !s.progress.deaths || typeof s.progress.deaths !== 'object' || Array.isArray(s.progress.deaths)) return false;
   if (!Array.isArray(s.progress.missed_routes) || s.progress.missed_routes.length > 200) return false;
   const deaths = Object.values(s.progress.deaths);
-  if (deaths.length > 500 || !deaths.every(d => d && typeof d === 'object' && pokemonOK(d.pokemon))) return false;
+  if (deaths.length > 500 || !deaths.every(d => d && typeof d === 'object' && validPokemon(d.pokemon))) return false;
   return typeof s.battle_hp === 'boolean';
 }
 async function memberOf(req, db) {

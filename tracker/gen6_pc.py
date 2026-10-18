@@ -5,10 +5,12 @@ Probe the documented box base and exactly the same shift, independently.
 Never commit partial boxes or infer presence from unvalidated bytes.
 """
 from .boxes import read_box, decode_box
+from .process_memory import DiscoveryCancelled
 
 
 class Gen6BoxProbe:
-    def __init__(self, base_address, party_shift=0):
+    def __init__(self, base_address, party_shift=0, cancel=None):
+        self.cancel=cancel
         if not isinstance(base_address,int) or not 0x08000000<=base_address<=0x0fffffff:
             raise ValueError('Dirección base del PC Gen6 inválida')
         addresses=(base_address,base_address+party_shift)
@@ -17,23 +19,35 @@ class Gen6BoxProbe:
         self.errors={}
         self.last_index=0
 
+    def check_cancel(self):
+        if self.cancel and self.cancel():raise DiscoveryCancelled('Verificación de PC Gen6 cancelada.')
+
     def read(self, reader, number):
+        self.check_cancel()
         if number!=self.last_index+1 or number<1 or number>31:
             raise ValueError('La lectura de cajas Gen6 debe hacerse en orden')
-        self.last_index=number
         for addr in self.addresses:
             if addr in self.errors:continue
             try:
+                self.check_cancel()
                 raw=read_box(reader,number,addr,box_count=31)
-                if raw!=read_box(reader,number,addr,box_count=31):
+                self.check_cancel()
+                two=read_box(reader,number,addr,box_count=31)
+                self.check_cancel()
+                if raw!=two:
                     raise ValueError('Caja cambió entre lecturas')
                 slots=decode_box(raw,max_species=721)
+                self.check_cancel()
                 self.boxes[addr][str(number)]=slots
+            except DiscoveryCancelled:raise
             except (ValueError,ConnectionError,OSError) as exc:
                 # Only sanitized reason and box number, not captured PK6 data.
                 self.errors[addr]=(number,str(exc)[:130])
 
+        self.last_index=number
+
     def finish(self):
+        self.check_cancel()
         if self.last_index!=31:raise ValueError('Escaneo Gen6 incompleto')
         valid=[(addr,boxes) for addr,boxes in self.boxes.items()
                if addr not in self.errors and len(boxes)==31

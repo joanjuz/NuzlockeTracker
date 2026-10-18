@@ -82,3 +82,8 @@ y las claves siguen guardados por perfil, no en el repositorio.
 - Se conserva el lugar registrado en el juego y el historial aunque el Pokémon cambie de caja, mote o especie. No se marcan muertes ni se alteran ROM o guardados.
 - Solo las **huellas confirmadas** se envían como datos mínimos al compañero Soul Link; la lista de todos los Pokémon vistos permanece local.
 - En ROM randomizadas la especie no se utiliza como prueba de fósil/intercambio. Para reforzar la detección de intercambios, conviene hacer un escaneo completo de las 32 cajas antes y después de intercambiar, sin operaciones intermedias. Una sustitución ambigua mantiene el estado histórico y permite la marca manual por ruta.
+
+
+### Avisos por ruta entre juegos
+
+La sincronización, la vista del compañero y el historial funcionan entre los seis juegos compatibles. Los avisos por coincidencia de ruta solo comparan partidas de la misma familia: X/Y, Rubí Omega/Zafiro Alfa o Ultra Sol/Ultra Luna. Los identificadores de ubicación se repiten entre regiones; sin una correspondencia de rutas configurada no se proponen muertes entre familias distintas. Puedes consultar el historial del compañero y registrar las muertes manualmente. La región se determina por el juego de cada sesión, nunca por la versión de origen de un Pokémon intercambiado.

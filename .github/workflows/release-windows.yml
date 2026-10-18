@@ -1,16 +1,12 @@
 name: Publicar Progressive Tracker para Windows
 
 on:
-  push:
-    branches: [master]
-    paths:
-      - '.github/workflows/release-windows.yml'
   workflow_dispatch:
     inputs:
       tag:
         description: 'Etiqueta semantica (ejemplo v0.25.0); requiere docs/releases/<tag>.md'
         required: true
-        default: 'v0.24.0'
+        default: 'v0.25.0'
         type: string
 
 jobs:
@@ -21,11 +17,20 @@ jobs:
     permissions:
       contents: write
     env:
-      RELEASE_TAG: ${{ inputs.tag || 'v0.24.0' }}
+      RELEASE_TAG: ${{ inputs.tag }}
 
     steps:
-      - name: Obtener codigo
+      - name: Validar etiqueta solicitada
+        shell: pwsh
+        run: |
+          if ($env:RELEASE_TAG -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') {
+            throw 'Etiqueta de version invalida'
+          }
+
+      - name: Obtener codigo de la etiqueta
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
 
       - name: Preparar Python
         uses: actions/setup-python@v5
@@ -51,6 +56,9 @@ jobs:
             node $_.FullName
             if ($LASTEXITCODE -ne 0) { throw "Fallo test JavaScript: $($_.Name)" }
           }
+
+      - name: Pruebas del Worker Cloudflare
+        run: node --test cloudflare/companion-worker/tests.mjs
 
       - name: Compilar ejecutable Windows portable y smoke test
         shell: powershell
@@ -83,8 +91,11 @@ jobs:
           $notes = Join-Path 'docs/releases' "$tag.md"
           if (-not (Test-Path $notes)) { throw "Faltan notas para $tag en $notes" }
           Copy-Item $notes 'out/RELEASE_NOTES.md'
-          $sha = (Get-FileHash 'out/PokemonTracker-Windows-x64.zip' -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$sha  PokemonTracker-Windows-x64.zip" | Set-Content -Path 'out/SHA256SUMS.txt' -Encoding utf8
+          $sums = foreach ($file in @('out/PokemonTracker-Windows-x64.zip','dist/PokemonTracker.exe')) {
+            $sha = (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$sha  $(Split-Path $file -Leaf)"
+          }
+          $sums | Set-Content -Path 'out/SHA256SUMS.txt' -Encoding utf8
 
       - name: Guardar paquete como artefacto de respaldo
         uses: actions/upload-artifact@v4
@@ -105,6 +116,9 @@ jobs:
           body_path: out/RELEASE_NOTES.md
           files: |
             out/PokemonTracker-Windows-x64.zip
+            dist/PokemonTracker.exe
+            dist/LEEME.txt
+            dist/LICENSE.txt
             out/SHA256SUMS.txt
           fail_on_unmatched_files: true
           draft: false

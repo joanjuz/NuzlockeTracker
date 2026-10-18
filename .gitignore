@@ -39,3 +39,13 @@ build/
 dist/
 out/
 *.spec
+# Playwright CLI output (may contain credentials)
+.playwright-cli/
+.agents/skills/
+skills-lock.json
+playwright-report/
+test-results/
+.locks/
+/AGENTS.md
+/AGENTS.md.backup-*
+/Pokemon_Tracker_Contexto_Completo_*.md
