@@ -15,7 +15,8 @@ const random = (bytes=24) => {
   return Array.from(buf, b => b.toString(16).padStart(2, '0')).join('');
 };
 const digest = async token => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token)))).map(x => x.toString(16).padStart(2, '0')).join('');
-const nameOK = name => typeof name === 'string' && name.length >= 1 && name.length <= 32 && !/[<>\x00-\x1f]/.test(name);
+// Same rule as the Python client: at least one visible character.
+const nameOK = name => typeof name === 'string' && name.trim().length >= 1 && name.length <= 32 && !/[<>\x00-\x1f]/.test(name);
 const textOK = (s, n=100) => typeof s === 'string' && s.length <= n && !/[<>\x00-\x1f]/.test(s);
 
 async function input(req, max=2048) {
@@ -29,13 +30,73 @@ async function input(req, max=2048) {
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) throw new Error('JSON inválido');
   return obj;
 }
+// Same shapes and ranges as companion/snapshot.py (tracker/pokemon.py output).
+// Older clients (v0.24/v0.25) only send these keys, so the allowlist is compatible.
+const isObj = v => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
+const intOK = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+const intList = (lo, hi, max, exact) => v => Array.isArray(v) && v.length <= max &&
+  (exact === undefined || v.length === exact) && v.every(x => intOK(x, lo, hi));
+const textList = (n, max) => v => Array.isArray(v) && v.length <= max && v.every(x => textOK(x, n));
+const nullable = check => v => v === null || check(v);
+const statDict = hi => nullable(v => isObj(v) && Object.keys(v).length <= 8 &&
+  Object.entries(v).every(([k, x]) => /^[A-Za-z_]{1,8}$/.test(k) && intOK(x, 0, hi)));
+const EVO_INTS = { target: [1, 1025], target_form: [-1, 255], form: [-1, 255], sprite_id: [1, 65535], level: [0, 100] };
+const EVO_TEXT = new Set(['target_name', 'method', 'raw_method', 'source', 'item']);
+const evolutionOK = e => isObj(e) && Object.keys(e).length <= 24 && Object.entries(e).every(([k, v]) =>
+  v === null || (k in EVO_INTS ? intOK(v, ...EVO_INTS[k]) : EVO_TEXT.has(k) ? textOK(v, 200) :
+    // Unknown evolution keys are tolerated only as inert scalars.
+    typeof v === 'boolean' || Number.isFinite(v) || textOK(v, 200)));
+const FIELD_CHECKS = {
+  species: v => textOK(v, 100), nickname: v => textOK(v, 40), ability: v => textOK(v, 100),
+  item: v => textOK(v, 100), nature: v => textOK(v, 100), met_location: v => textOK(v, 180),
+  egg_location: v => textOK(v, 180), type_source: v => textOK(v, 60),
+  move_names: textList(100, 4), types: textList(30, 3),
+  slot: v => intOK(v, 0, 255), level: nullable(v => intOK(v, 1, 100)),
+  hp: nullable(v => intOK(v, 0, 999)), max_hp: nullable(v => intOK(v, 0, 999)),
+  met_level: v => intOK(v, 0, 127), form: v => intOK(v, 0, 255), origin_version: v => intOK(v, 0, 255),
+  encryption_constant: v => intOK(v, 0, 0xFFFFFFFF), ability_id: v => intOK(v, 0, 65535),
+  item_id: v => intOK(v, 0, 65535), met_location_id: v => intOK(v, 0, 65535), egg_location_id: v => intOK(v, 0, 65535),
+  moves: intList(0, 65535, 4), move_pp: intList(0, 255, 4), move_pp_ups: intList(0, 255, 4),
+  iv: intList(0, 31, 6, 6), ev: intList(0, 255, 6, 6),
+  stats: statDict(999), base_stats: statDict(255),
+  met_date: nullable(v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)),
+  egg: v => typeof v === 'boolean',
+  evolutions: v => Array.isArray(v) && v.length <= 64 && v.every(evolutionOK),
+};
 function pokemonOK(p, maxSpecies=1025) {
   if (p === null) return true;
-  if (!p || typeof p !== 'object' || Array.isArray(p)) return false;
-  if (!Number.isInteger(p.species_id) || p.species_id < 1 || p.species_id > maxSpecies) return false;
-  for(const k of ['species', 'nickname', 'ability', 'item', 'nature', 'met_location'])
-    if (k in p && !textOK(p[k], 180)) return false;
-  if ('level' in p && p.level !== null && (!Number.isInteger(p.level) || p.level < 1 || p.level > 100)) return false;
+  if (!isObj(p)) return false;
+  if (!intOK(p.species_id, 1, maxSpecies)) return false;
+  for (const [k, v] of Object.entries(p))
+    if (k !== 'species_id' && !(Object.hasOwn(FIELD_CHECKS, k) && FIELD_CHECKS[k](v))) return false;
+  return true;
+}
+const ROUTE_KEY = /^[0-9]{1,3}:[0-9]{1,10}$/;
+const ORIGINS = new Set(['route', 'fossil', 'gift', 'egg', 'trade']);
+function progressOK(progress, validPokemon) {
+  if (!isObj(progress) || !isObj(progress.deaths)) return false;
+  if (!Array.isArray(progress.missed_routes) || progress.missed_routes.length > 200 ||
+      !progress.missed_routes.every(r => textOK(r, 20))) return false;
+  const deaths = Object.entries(progress.deaths);
+  if (deaths.length > 500 || !deaths.every(([k, d]) => textOK(k, 70) && isObj(d) && validPokemon(d.pokemon) &&
+      (!('recorded_at' in d) || textOK(d.recorded_at, 40)) &&
+      (!('source' in d) || d.source === 'soullink-response'))) return false;
+  if ('death_count' in progress && !intOK(progress.death_count, 0, 100000)) return false;
+  if ('origins' in progress) {
+    const o = progress.origins;
+    if (!isObj(o) || Object.keys(o).length > 1200 ||
+        !Object.entries(o).every(([k, v]) => ROUTE_KEY.test(k) && ORIGINS.has(v))) return false;
+  }
+  if ('route_marks' in progress) {
+    const m = progress.route_marks;
+    if (!isObj(m) || Object.keys(m).length > 1200 || !Object.entries(m).every(([k, v]) =>
+        ROUTE_KEY.test(k) && isObj(v) && (v.kind === 'trade' || v.kind === 'fossil') &&
+        v.pokemon !== null && validPokemon(v.pokemon))) return false;
+  }
+  if ('traded_routes' in progress) {
+    const t = progress.traded_routes;
+    if (!Array.isArray(t) || t.length > 200 || !t.every(r => typeof r === 'string' && /^\d{1,10}$/.test(r))) return false;
+  }
   return true;
 }
 function snapshotOK(s, game) {
@@ -48,12 +109,26 @@ function snapshotOK(s, game) {
   if (!s.boxes || typeof s.boxes !== 'object' || Array.isArray(s.boxes)) return false;
   const keys = Object.keys(s.boxes);
   if (keys.length > maxBoxes || !keys.every(k => /^(?:[1-9]|[12]\d|3[012])$/.test(k) && Number(k) <= maxBoxes && Array.isArray(s.boxes[k]) && s.boxes[k].length === 30 && s.boxes[k].every(validPokemon))) return false;
-  if (!s.progress || typeof s.progress !== 'object' || !s.progress.deaths || typeof s.progress.deaths !== 'object' || Array.isArray(s.progress.deaths)) return false;
-  if (!Array.isArray(s.progress.missed_routes) || s.progress.missed_routes.length > 200) return false;
-  const deaths = Object.values(s.progress.deaths);
-  if (deaths.length > 500 || !deaths.every(d => d && typeof d === 'object' && validPokemon(d.pokemon))) return false;
+  if (!progressOK(s.progress, validPokemon)) return false;
   return typeof s.battle_hp === 'boolean';
 }
+// Constant-time comparison: hash both values so length and content never
+// leak through early exits, then compare the fixed-size digests bitwise.
+async function sameSecret(supplied, expected) {
+  if (typeof supplied !== 'string' || typeof expected !== 'string') return false;
+  const enc = new TextEncoder();
+  const [a, b] = await Promise.all([crypto.subtle.digest('SHA-256', enc.encode(supplied)),
+                                    crypto.subtle.digest('SHA-256', enc.encode(expected))]);
+  const x = new Uint8Array(a), y = new Uint8Array(b);
+  let diff = x.length ^ y.length;
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
+  return diff === 0;
+}
+const STALE_PAIR_MS = 7 * 86400000;
+// Deterministic order + LIMIT keeps each cleanup bounded and identical for both DELETEs.
+const STALE_PAIRS = `SELECT p.id FROM pairs p WHERE p.invite_expires < ? AND p.created_at < ?
+  AND NOT EXISTS (SELECT 1 FROM members m WHERE m.pair_id = p.id AND m.slot = 2)
+  ORDER BY p.created_at, p.id LIMIT 50`;
 async function memberOf(req, db) {
   const bearer = req.headers.get('Authorization') || '';
   if (!/^Bearer [a-f0-9]{48}$/.test(bearer)) return null;
@@ -70,12 +145,17 @@ export default {
     if (req.method === 'OPTIONS') return reply(405, { error: 'No se permite acceso directo entre sitios' });
     try {
       if (req.method === 'POST' && path === '/v1/pairs') {
-        if (req.headers.get('X-Setup-Key') !== env.CREATE_KEY) return reply(403, { error: 'Clave de creación incorrecta' });
+        if (!(await sameSecret(req.headers.get('X-Setup-Key'), env.CREATE_KEY))) return reply(403, { error: 'Clave de creación incorrecta' });
         const data = await input(req);
         if (!nameOK(data.name) || !GAMES.has(data.game)) return reply(400, { error: 'Jugador o juego incorrecto' });
         const pairId = crypto.randomUUID(), memberId = crypto.randomUUID();
         const token = random(), inviteCode = random(16), now = Date.now();
         await env.DB.batch([
+          // Opportunistic, bounded cleanup: pairs nobody joined whose invitation
+          // expired and that were created more than a week ago. Members are
+          // removed explicitly so it does not depend on FK cascade settings.
+          env.DB.prepare(`DELETE FROM members WHERE pair_id IN (${STALE_PAIRS})`).bind(now, now - STALE_PAIR_MS),
+          env.DB.prepare(`DELETE FROM pairs WHERE id IN (${STALE_PAIRS})`).bind(now, now - STALE_PAIR_MS),
           env.DB.prepare('INSERT INTO pairs (id,invite_hash,invite_expires,created_at) VALUES (?,?,?,?)').bind(pairId, await digest(inviteCode), now + 86400000, now),
           env.DB.prepare('INSERT INTO members (id,pair_id,slot,token_hash,name,game) VALUES (?,?,?,?,?,?)').bind(memberId, pairId, 1, await digest(token), data.name, data.game),
         ]);
@@ -122,8 +202,10 @@ export default {
         const member = await memberOf(req, env.DB);
         if (!member) return reply(401, { error: 'Credenciales inválidas' });
         // Revokes both accounts and deletes all shared snapshots. No dangling access.
-        await env.DB.prepare('DELETE FROM members WHERE pair_id = ?').bind(member.pair_id).run();
-        await env.DB.prepare('DELETE FROM pairs WHERE id = ?').bind(member.pair_id).run();
+        await env.DB.batch([
+          env.DB.prepare('DELETE FROM members WHERE pair_id = ?').bind(member.pair_id),
+          env.DB.prepare('DELETE FROM pairs WHERE id = ?').bind(member.pair_id),
+        ]);
         return reply(200, { ok: true });
       }
       return reply(404, { error: 'Ruta no encontrada' });

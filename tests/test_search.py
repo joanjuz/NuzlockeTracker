@@ -1,5 +1,5 @@
 import unittest
-from tracker.search import matches,normalized
+from tracker.search import matches
 class Catalog:
  def name(self,section,id):return {'species':'Volcarona','abilities':'Regeneración','items':'Pañuelo Elección','moves':'Voltiocambio'}[section]
 class SearchTests(unittest.TestCase):

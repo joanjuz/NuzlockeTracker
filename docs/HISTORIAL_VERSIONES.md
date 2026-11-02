@@ -1,3 +1,13 @@
+# 1.0.0 — Objetos en OBS, Soul Link más seguro y registro de diagnóstico
+
+- Capa OBS de objetos equipados con nombre, icono o ambos.
+- Sprite en blanco y negro de los Pokémon caídos corregido en OBS.
+- Validación de los datos del compañero, política de contenido y servidor local más estricto.
+- Progreso protegido frente a archivos dañados y bloqueos de disco; avisos visibles en la interfaz.
+- Registro de diagnóstico local sin secretos y demo con sprites.
+
+[Notas completas de v1.0.0](releases/v1.0.0.md).
+
 # 0.25.0 — Partidas independientes, Soul Link directo y vidas OBS
 
 - Perfiles con datos separados, cambio seguro entre ventanas y eliminación sin escribir el nombre.

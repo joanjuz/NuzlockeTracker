@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Etiqueta semantica (ejemplo v0.25.0); requiere docs/releases/<tag>.md'
+        description: 'Etiqueta semantica (ejemplo v1.0.0); requiere docs/releases/<tag>.md'
         required: true
-        default: 'v0.25.0'
+        default: 'v1.0.0'
         type: string
 
 jobs:
@@ -28,23 +28,23 @@ jobs:
           }
 
       - name: Obtener codigo de la etiqueta
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ inputs.tag }}
 
       - name: Preparar Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.13'
           architecture: x64
 
       - name: Preparar Node.js para pruebas
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
 
       - name: Instalar dependencias
-        run: python -m pip install -r requirements-desktop.txt
+        run: python -m pip install --require-hashes -r requirements-desktop.lock
 
       - name: Ejecutar pruebas Python
         run: python -m unittest discover -s tests -v
@@ -60,8 +60,14 @@ jobs:
       - name: Pruebas del Worker Cloudflare
         run: node --test cloudflare/companion-worker/tests.mjs
 
-      - name: Compilar ejecutable Windows portable y smoke test
+      # Firma Authenticode opcional (docs/FIRMA_CODIGO.md). Los secretos solo se
+      # exponen a este paso; si no existen llegan vacios y el script compila sin
+      # firmar. build_windows.ps1 nunca imprime sus valores.
+      - name: Compilar ejecutable Windows portable, firmar (opcional) y smoke test
         shell: powershell
+        env:
+          WINDOWS_SIGN_PFX_BASE64: ${{ secrets.WINDOWS_SIGN_PFX_BASE64 }}
+          WINDOWS_SIGN_PFX_PASSWORD: ${{ secrets.WINDOWS_SIGN_PFX_PASSWORD }}
         run: |
           Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
           .\tools\build_windows.ps1
@@ -73,6 +79,8 @@ jobs:
           if (-not (Test-Path 'dist/PokemonTracker.exe')) { throw 'EXE no encontrado' }
           if (-not (Test-Path 'dist/LEEME.txt')) { throw 'Guia no encontrada' }
           if (-not (Test-Path 'dist/LICENSE.txt')) { throw 'Licencia no encontrada' }
+          $signature = Get-AuthenticodeSignature 'dist/PokemonTracker.exe'
+          "Firma Authenticode del EXE: $($signature.Status)" | Tee-Object -FilePath $env:GITHUB_STEP_SUMMARY -Append
           $items = @((tar -tf 'out/PokemonTracker-Windows-x64.zip'))
           if ($LASTEXITCODE -ne 0) { throw 'ZIP no legible' }
           foreach ($required in @('PokemonTracker.exe','LEEME.txt','LICENSE.txt')) {
@@ -98,7 +106,7 @@ jobs:
           $sums | Set-Content -Path 'out/SHA256SUMS.txt' -Encoding utf8
 
       - name: Guardar paquete como artefacto de respaldo
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ProgressiveTracker-Windows-x64-${{ env.RELEASE_TAG }}
           path: |
@@ -108,7 +116,7 @@ jobs:
           retention-days: 30
 
       - name: Publicar GitHub Release con descarga
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           target_commitish: ${{ github.sha }}

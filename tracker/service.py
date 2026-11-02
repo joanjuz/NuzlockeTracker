@@ -18,6 +18,9 @@ from .gen6_pc import Gen6BoxProbe
 from .gen7_pc import Gen7BoxProbe
 from .gen6_memory_scan import search_pc_memory
 from .templates import TemplateManager
+from . import diaglog
+
+LOG=diaglog.get('service')
 
 class TrackerService:
     def __init__(self,output,connector_factory=None):
@@ -26,6 +29,14 @@ class TrackerService:
         self.reference.template_moves=self.templates.data['moves']
         self.session_path=self.output.with_name('session-profile.json')
         self.condition=threading.Condition();self.commands=queue.Queue();self.stop=threading.Event();self.connection_generation=0;self.connection_lock=threading.Lock()
+        # Disk problems are reported as a non-fatal warning and retried; they
+        # must never stop the memory worker or drop in-memory history.
+        self.state_save_error=None;self.session_save_error=None;self.persist_retry_at=0.0;self.last_internal_error=None
+        # state.json is a restart cache: coalesce rapid HP changes into at most
+        # one write per STATE_WRITE_INTERVAL. Deaths/progress are saved separately
+        # and immediately by RunProgress.
+        self.state_write_interval=1.0;self.last_state_write=0.0;self.state_dirty=False
+        self.last_logged_connection=None;self.connection_log_times={}
         self.state={'schema_version':1,'revision':0,'game':'Ultra Moon 1.0','connection':{'status':'disconnected','message':'Conecta con la partida cargada.'},'party':[None]*6,'boxes':{},'selected_box':1,'scan':{'active':False,'completed':0},'stale':True}
         # Restore the last known party AND boxes after a restart. They remain
         # stale and can never be mistaken for a live emulator reading.
@@ -65,6 +76,7 @@ class TrackerService:
         self.state['templates']=self.templates.status()
         self.state['party']=[self.refresh_template(p) for p in self.state['party']]
         self.state['boxes']={k:[self.refresh_template(p) for p in box] for k,box in self.state['boxes'].items()}
+        self.refresh_persist_warning()
     @staticmethod
     def progress_suffix(game):
         if game=='Ultra Moon 1.0':return ''
@@ -152,6 +164,7 @@ class TrackerService:
         return {'schema_version':1,
                 'created_at':datetime.now(timezone.utc).isoformat(),
                 'game':state['game'],'connection':state['connection'],
+                'log':diaglog.recent(200),
                 'diagnostic':copy.deepcopy(self.diagnostic) if self.diagnostic else
                               {'message':'No hay un diagnóstico de conexión disponible.'}}
 
@@ -180,6 +193,80 @@ class TrackerService:
             return self.connection_generation
     def snapshot(self):
         with self.condition:return copy.deepcopy(self.state)
+    def snapshot_fields(self,*keys):
+        """Isolated copies of selected state keys only (missing keys omitted).
+
+        Cheaper than snapshot(): it does not deep-copy all PC boxes.
+        """
+        with self.condition:
+            return {k:copy.deepcopy(self.state[k]) for k in keys if k in self.state}
+    def persist_warning_text(self):
+        parts=[]
+        recovered=getattr(self.progress,'recovered_from',None)
+        if recovered=='backup':
+            parts.append('El registro de la aventura estaba dañado; se restauró la copia .bak y el archivo dañado se conservó como .corrupt.')
+        elif recovered=='empty':
+            parts.append('El registro de la aventura estaba dañado y no había copia válida; se empezó un registro vacío. El archivo dañado se conservó como .corrupt.')
+        if getattr(self.progress,'dirty',False):
+            parts.append('No se pudo guardar el progreso de la aventura: '+str(self.progress.last_save_error)+'. Se reintentará automáticamente.')
+        if self.state_save_error:
+            parts.append('No se pudo guardar state.json: '+self.state_save_error+'. Se reintentará automáticamente.')
+        if self.session_save_error:
+            parts.append('No se pudo guardar la sesión: '+self.session_save_error)
+        return ' '.join(parts) or None
+    def refresh_persist_warning(self):
+        """Set/clear state['persist_warning']; True when it changed.
+
+        Kept outside update()'s equality check so it can never loop.
+        """
+        with self.condition:
+            warning=self.persist_warning_text()
+            if self.state.get('persist_warning')==warning:return False
+            if warning is None:
+                self.state.pop('persist_warning',None);LOG.info('Guardado recuperado')
+            else:
+                self.state['persist_warning']=warning;LOG.warning('Aviso de guardado: %s',warning)
+            return True
+    def write_state(self):
+        """Atomic state.json write with one quick retry; never raises OSError."""
+        with self.condition:
+            data=json.dumps({k:v for k,v in self.state.items() if k!='persist_warning'},ensure_ascii=False)
+            temporary=self.output.with_suffix('.tmp');error=None
+            for attempt in range(2):
+                try:
+                    self.output.parent.mkdir(parents=True,exist_ok=True)
+                    temporary.write_text(data,encoding='utf-8');os.replace(temporary,self.output)
+                    self.state_save_error=None
+                    self.last_state_write=time.monotonic();self.state_dirty=False
+                    return True
+                except OSError as exc:
+                    error=exc
+                    if attempt==0:time.sleep(.05)
+            try:temporary.unlink(missing_ok=True)
+            except OSError:pass
+            self.state_save_error=str(error)[:200]
+            self.persist_retry_at=time.monotonic()+2.0
+            return False
+    def schedule_state_write(self):
+        with self.condition:
+            if time.monotonic()-self.last_state_write>=self.state_write_interval:self.write_state()
+            else:self.state_dirty=True
+    def flush_state(self,force=False):
+        """Write a coalesced state.json when due (or now, when stopping)."""
+        with self.condition:
+            if not self.state_dirty:return False
+            if not force and time.monotonic()-self.last_state_write<self.state_write_interval:return False
+            return self.write_state()
+    def retry_persistence(self):
+        """Retry pending progress/state.json writes (throttled to every 2 s)."""
+        with self.condition:
+            if not (getattr(self.progress,'dirty',False) or self.state_save_error):return False
+            if time.monotonic()<self.persist_retry_at:return False
+            if not self.progress.flush():self.persist_retry_at=time.monotonic()+2.0
+            if self.state_save_error:self.write_state()
+            if self.refresh_persist_warning():
+                self.state['revision']+=1;self.condition.notify_all()
+            return True
     def update(self,**changes):
         with self.condition:
             if 'party' in changes and not changes.get('stale',self.state['stale']):
@@ -198,11 +285,49 @@ class TrackerService:
                                                 changes.get('boxes',self.state['boxes']),
                                                 box_count=box_count)
             changes['progress']=copy.deepcopy(self.progress.data)
-            if all(self.state.get(k)==v for k,v in changes.items()):return False
-            self.state.update(changes);self.state['revision']+=1
-            self.output.parent.mkdir(parents=True,exist_ok=True)
-            temporary=self.output.with_suffix('.tmp');temporary.write_text(json.dumps(self.state,ensure_ascii=False),encoding='utf-8');os.replace(temporary,self.output)
-            self.condition.notify_all();return True
+            changed=not all(self.state.get(k)==v for k,v in changes.items())
+            if changed:
+                self.log_transitions(changes)
+                self.state.update(changes)
+            warned=self.refresh_persist_warning()
+            if not changed and not warned:return False
+            # Publish to waiting readers first; a locked state.json (OneDrive,
+            # antivirus) must not hide the live in-memory state.
+            self.state['revision']+=1
+            self.condition.notify_all()
+            self.schedule_state_write()
+            if self.refresh_persist_warning():
+                self.state['revision']+=1;self.condition.notify_all()
+            return True
+    def log_transitions(self,changes):
+        """Record only meaningful transitions; never full Pokémon data or secrets."""
+        connection=changes.get('connection')
+        if isinstance(connection,dict) and connection!=self.state.get('connection'):
+            status=connection.get('status')
+            # RAM search reports progress every 4 MB and failed reconnects repeat
+            # every 3 s: log a transition once, then at most once a minute, so
+            # the exported tail keeps the useful history.
+            key=(status,'' if status=='connecting' else str(connection.get('message',''))[:200])
+            now=time.monotonic()
+            if key!=self.last_logged_connection and now-self.connection_log_times.get(key,-1e9)>=60:
+                self.connection_log_times[key]=now
+                if len(self.connection_log_times)>64:self.connection_log_times.clear()
+                level=LOG.warning if status in ('error','retrying') else LOG.info
+                level('Conexión: %s · %s',status,str(connection.get('message',''))[:200])
+            self.last_logged_connection=key
+        if 'game' in changes and changes['game']!=self.state.get('game'):
+            LOG.info('Juego: %s',changes['game'])
+        before=(self.state.get('progress') or {}).get('deaths') or {}
+        after=(changes.get('progress') or {}).get('deaths') or {}
+        for key in after.keys()-before.keys():
+            record=after[key].get('pokemon') or {}
+            LOG.info('Muerte registrada: %s (%s, origen %s)',record.get('species') or record.get('species_id'),
+                     key,after[key].get('source','auto'))
+        for key in before.keys()-after.keys():
+            LOG.info('Muerte retirada (revivir): %s',key)
+        failed=changes.get('last_command_error')
+        if isinstance(failed,dict):
+            LOG.warning('Comando %s rechazado: %s',failed.get('action'),failed.get('message'))
     def enrich(self,p):
         if p is None:return None
         p=dict(p);p['types']=self.catalog.metadata('species',p['species_id']).get('types',self.reference.pokemon_types(p['species_id'],p.get('form',0)))
@@ -294,7 +419,13 @@ class TrackerService:
             'Conectado · '+('Windows sin GDB' if mode=='memory' else 'GDB'))},
             box_verified=False,box_status='pending',
             scan={'active':True,'completed':0})
-        self.save_session()
+        # A locked session file must not tear down a healthy connection.
+        try:
+            self.save_session();self.session_save_error=None
+        except OSError as exc:
+            self.session_save_error=str(exc)[:200]
+        if self.refresh_persist_warning():
+            with self.condition:self.state['revision']+=1;self.condition.notify_all()
     def poll(self):
         # Gen6 overworld party may be temporarily unavailable or stale while
         # the game is in battle. The battle roster is independently verified.
@@ -305,7 +436,7 @@ class TrackerService:
             if self.profile.generation!=6:raise
             party=None
         if self.profile.generation==6:
-            saved=self.snapshot()
+            saved=self.snapshot_fields('party','stale','box_verified')
             if not party or not any(party):
                 previous=saved.get('party',[]) if not saved.get('stale',True) else []
                 if not previous or not any(previous):
@@ -383,12 +514,12 @@ class TrackerService:
                     'Gen6 experimental · equipo válido, cajas no verificadas')}
             self.update(**changes)
             if self.diagnostic is not None:
-                self.diagnostic.update(box_status=('verified' if self.snapshot().get('box_verified') else 'unverified_gen6'),
+                self.diagnostic.update(box_status=('verified' if self.snapshot_fields('box_verified').get('box_verified') else 'unverified_gen6'),
                     box_address=hex(self.profile.box_address),validated_team_slots=sum(p is not None for p in party),
                     battle_hp=gen6_battle)
             return
         party,in_battle=apply_battle_hp(self.reader,party,self.profile.name)
-        saved=self.snapshot()
+        saved=self.snapshot_fields('box_verified','selected_box','box_status')
         changes={'party':party,'stale':False,'battle_hp':in_battle}
         if self.scan_next is not None:
             number=self.scan_next
@@ -427,7 +558,10 @@ class TrackerService:
                 if raw!=read_box(self.reader,number,self.sun_box_base):
                     raise ValueError('La caja cambió entre lecturas')
                 members=decode_box(raw)
-                boxes=saved['boxes'];boxes[str(number)]=[self.enrich(p) for p in members]
+                # Shallow copy: only this box gets a fresh list; the other
+                # box lists are never mutated in place.
+                with self.condition:boxes=dict(self.state.get('boxes') or {})
+                boxes[str(number)]=[self.enrich(p) for p in members]
                 changes['boxes']=boxes
             except DiscoveryCancelled:raise
             except (ValueError,ConnectionError,OSError):
@@ -473,7 +607,7 @@ class TrackerService:
             self.scan_verified=set();self.gen6_pending_boxes={};self.gen6_box_failed=False;self.gen6_probe=None;self.gen6_research_done=False
             self.gen7_probe=None
             self.scan_next=1;self.update(box_verified=False,box_status='pending',scan={'active':True,'completed':0})
-        elif action=='cancel':self.scan_next=None;self.gen6_probe=None;self.gen7_probe=None;self.update(scan={'active':False,'completed':self.snapshot()['scan']['completed']})
+        elif action=='cancel':self.scan_next=None;self.gen6_probe=None;self.gen7_probe=None;self.update(scan={'active':False,'completed':self.snapshot_fields('scan')['scan']['completed']})
     def validate_mark_dead(self,cmd):
         key=cmd.get('key')
         if cmd.get('source','manual') not in ('manual','soullink-response'):
@@ -599,11 +733,43 @@ class TrackerService:
         self.validate_route_miss(cmd)
         self.progress.set_miss(cmd['route'],cmd['missed'])
         self.update()
+    def handle_command(self,cmd):
+        """User commands report their own errors; they are not connection errors."""
+        if isinstance(cmd,dict) and cmd.get('action')=='connect':
+            # Connection failures keep the connection status/retry handling.
+            self.handle(cmd);return
+        try:self.handle(cmd)
+        except (ValueError,KeyError,TypeError,OSError) as exc:
+            message=str(exc) if isinstance(exc,(ValueError,OSError)) and str(exc) else 'Comando inválido'
+            self.update(last_command_error={'message':message,'at':time.time(),
+                                            'action':cmd.get('action') if isinstance(cmd,dict) else None})
+    def guarded(self,handler,*args):
+        """Run an error handler without letting it escape the worker loop."""
+        try:handler(*args)
+        except Exception as exc:
+            self.last_internal_error=repr(exc)[:200]
+            LOG.exception('Fallo interno en %s',getattr(handler,'__name__','manejador'))
+    def on_cancelled(self):
+        self.close_reader();self.scan_next=None;self.retry_at=0
+    def on_value_error(self,exc):
+        # Without a reader this is a failed connection attempt: wait before
+        # enumerating processes again instead of retrying every second.
+        if not self.reader:self.retry_at=time.monotonic()+3
+        # A torn RAM snapshot must not tear down a healthy transport.
+        self.update(connection={'status':'connected' if self.reader else 'error','message':str(exc)},stale=True)
+    def on_failure(self,exc):
+        LOG.warning('Lectura interrumpida (%s): %s',type(exc).__name__,str(exc)[:200])
+        details=getattr(exc,'diagnostic',None) or {}
+        self.diagnostic={'game':self.profile.name,'mode':(self.config or {}).get('mode'),
+                         'error':str(exc),**details}
+        self.close_reader();self.scan_next=None;self.retry_at=time.monotonic()+3
+        self.update(connection={'status':'retrying' if self.config else 'error','message':str(exc)},stale=True,scan={'active':False,'completed':0})
     def run(self):
         while not self.stop.is_set():
             try:
-                try:cmd=self.commands.get(timeout=.15);self.handle(cmd)
-                except queue.Empty:pass
+                try:cmd=self.commands.get(timeout=.15)
+                except queue.Empty:cmd=None
+                if cmd is not None:self.handle_command(cmd)
                 if self.config and not self.reader and time.monotonic()>=self.retry_at:self.connect()
                 if self.reader:
                     if self.scan_next is None and time.monotonic()>=self.next_box_refresh_at:
@@ -612,15 +778,13 @@ class TrackerService:
                         self.update(scan={'active':True,'completed':0})
                     self.poll()
             except DiscoveryCancelled:
-                self.close_reader();self.scan_next=None;self.retry_at=0
+                self.guarded(self.on_cancelled)
             except ValueError as exc:
-                # A torn RAM snapshot must not tear down a healthy transport.
-                self.update(connection={'status':'connected' if self.reader else 'error','message':str(exc)},stale=True)
+                self.guarded(self.on_value_error,exc)
             except Exception as exc:
-                details=getattr(exc,'diagnostic',None) or {}
-                self.diagnostic={'game':self.profile.name,'mode':(self.config or {}).get('mode'),
-                                 'error':str(exc),**details}
-                self.close_reader();self.scan_next=None;self.retry_at=time.monotonic()+3
-                self.update(connection={'status':'retrying' if self.config else 'error','message':str(exc)},stale=True,scan={'active':False,'completed':0})
+                self.guarded(self.on_failure,exc)
+            self.guarded(self.retry_persistence)
+            self.guarded(self.flush_state)
             self.stop.wait(.35 if self.scan_next else .85)
         self.close_reader()
+        self.guarded(self.flush_state,True)

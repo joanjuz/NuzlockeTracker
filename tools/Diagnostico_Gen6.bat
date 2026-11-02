@@ -1,10 +1,13 @@
 @echo off
 setlocal
 chcp 65001 >nul
-cd /d "%~dp0"
+rem En el paquete de diagnostico el .bat esta junto a Diagnostico_Gen6.exe;
+rem en el repositorio vive en tools\ y ejecuta el script desde la raiz.
 if exist "%~dp0Diagnostico_Gen6.exe" (
+  cd /d "%~dp0"
   "%~dp0Diagnostico_Gen6.exe"
 ) else (
+  cd /d "%~dp0.."
   where py >nul 2>nul
   if errorlevel 1 (
     echo No se encontro Diagnostico_Gen6.exe ni Python 3.

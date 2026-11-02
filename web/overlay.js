@@ -2,7 +2,7 @@
 /* Browser source reads six sanitized slots and a death total from the public API. */
 (() => {
   const args = new URLSearchParams(location.search);
-  const allowed = new Set(['all','sprites','names','hp','counter']);
+  const allowed = new Set(['all','sprites','names','hp','items','counter']);
   const layer = allowed.has(args.get('layer')) ? args.get('layer') : 'all';
   const slotArg = Number(args.get('slot'));
   const slot = Number.isInteger(slotArg) && slotArg >= 1 && slotArg <= 6 ? slotArg : null;
@@ -15,8 +15,15 @@
     return el;
   };
   const css = (key, value) => document.documentElement.style.setProperty(key,value);
-  const visibleLayers = () => layer === 'all'
-    ? [...settings.order, ...(settings.counter_in_composition ? ['counter'] : [])] : [layer];
+  // Objects are optional in the composition: placed right after the nicknames
+  // so the layer order saved before this option existed keeps working.
+  const compositionLayers = () => {
+    const order = [...settings.order];
+    if (settings.items_in_composition) order.splice(order.indexOf('names') + 1, 0, 'items');
+    if (settings.counter_in_composition) order.push('counter');
+    return order;
+  };
+  const visibleLayers = () => layer === 'all' ? compositionLayers() : [layer];
   function rebuild() {
     root.replaceChildren(); nodes = {};
     const types = visibleLayers();
@@ -38,6 +45,14 @@
           image.alt = ''; image.draggable = false;
         } else if (type === 'names') {
           mk('span','overlay-name',node);
+        } else if (type === 'items') {
+          const icon = mk('img','overlay-item-icon',node);
+          icon.alt = ''; icon.draggable = false; icon.hidden = true;
+          // Unknown or offline icon: hide it (the name is shown instead in icon mode).
+          icon.addEventListener('error', () => {
+            icon.hidden = true; icon.dataset.failed = icon.dataset.src || ''; icon.dataset.failedAt = String(Date.now());
+          });
+          mk('span','overlay-item',node);
         } else {
           const hp = mk('div','overlay-health',node);
           const track = mk('div','hp-outline',hp);
@@ -61,7 +76,8 @@
     if(signature===lastConfig)return;
     const structural = !settings || settings.direction !== value.direction ||
         JSON.stringify(settings.order)!==JSON.stringify(value.order) ||
-        settings.counter_in_composition !== value.counter_in_composition;
+        settings.counter_in_composition !== value.counter_in_composition ||
+        settings.items_in_composition !== value.items_in_composition;
     settings=value;lastConfig=signature;
     // CSS zoom reflows/rasterizes fonts and vector HP tracks at real scaled
     // dimensions; transform:scale only enlarges previously rasterized pixels.
@@ -70,7 +86,11 @@
     css('--counter-icon',(settings.counter_icon_size||36)+'px');
     css('--sprite-render',settings.sprite_scaling==='smooth'?'auto':'pixelated');
     css('--sprite-padding',(settings.sprite_padding||0)+'px');
-    css('--sprite-shadow',settings.sprite_shadow?'drop-shadow(0 4px 7px #000a)':'none');
+    // Empty (not 'none') when disabled: the dead rule composes
+    // "grayscale(1) var(--sprite-shadow,)" and "grayscale(1) none" is invalid.
+    css('--sprite-shadow',settings.sprite_shadow?'drop-shadow(0 4px 7px #000a)':'');
+    css('--item-size',(settings.item_size||14)+'px');
+    css('--item-icon',(settings.item_icon_size||32)+'px');css('--item-color',settings.item_color||'#f2c15c');
     css('--hp-speed',(settings.hp_animation_ms??250)+'ms');
     css('--slot',settings.slot_width+'px');css('--gap',settings.gap+'px');
     css('--sprite',settings.sprite_size+'px');
@@ -153,9 +173,27 @@
           const src='/overlay/media/pokemon_'+p.slot+'.'+format+'?v='+encodeURIComponent(ver);
           if(img.dataset.src!==src){img.dataset.src=src;img.src=src;}
           img.style.visibility=p.present?'visible':'hidden';
+          // Gray here too: the exported file may still be the colored one
+          // (slow animated conversion, HD sprite limits or an older cache).
+          el.classList.toggle('dead',Boolean(p.present&&p.dead));
         } else if(type==='names'){
           const label=el.firstElementChild;
           label.textContent=p.present?p.nickname:(settings.show_empty?'—':'');
+        } else if(type==='items'){
+          const icon=el.firstElementChild,label=el.lastElementChild;
+          const mode=['name','icon','both'].includes(settings.item_display)?settings.item_display:'name';
+          const id=Number.isInteger(p.item_id)&&p.item_id>0&&p.present&&p.item?p.item_id:0;
+          const src=id?'/overlay/item/'+id+'.png':'';
+          const wantIcon=mode!=='name'&&Boolean(src);
+          if(wantIcon&&icon.dataset.src!==src){icon.dataset.src=src;icon.src=src;}
+          // Offline when OBS started: retry a failed icon once a minute.
+          if(wantIcon&&icon.dataset.failed===src&&Date.now()-Number(icon.dataset.failedAt||0)>ICON_RETRY_MS){
+            delete icon.dataset.failed;icon.src=src+'?retry='+Date.now();
+          }
+          const failed=wantIcon&&icon.dataset.failed===src;
+          icon.hidden=!wantIcon||failed;
+          const showName=p.present&&p.item&&(mode!=='icon'||failed);
+          label.textContent=showName?p.item:'';
         } else {
           const line=el.firstElementChild, track=line.firstElementChild, fill=track.firstElementChild, caption=line.lastElementChild;
           const pct=p.percent??0;
@@ -173,16 +211,22 @@
       }
     }
   }
+  // One request chain at a time: a slow backend never stacks requests, and an
+  // older response can no longer repaint over a newer one. Appearance changes
+  // are rarer than HP changes, so settings are refreshed every third tick.
+  const POLL_MS=500, SETTINGS_EVERY=3, ICON_RETRY_MS=60000;
+  let tick=0;
   async function poll() {
     try {
+      const wantSettings=!settings||tick%SETTINGS_EVERY===0;
       const [a,b]=await Promise.all([
         fetch('/api/overlay/public',{cache:'no-store'}),
-        fetch('/api/overlay/settings',{cache:'no-store'})]);
-      if(!a.ok||!b.ok)throw new Error('overlay unavailable');
-      appearance(await b.json());
+        wantSettings?fetch('/api/overlay/settings',{cache:'no-store'}):null]);
+      if(!a.ok||(b&&!b.ok))throw new Error('overlay unavailable');
+      if(b)appearance(await b.json());
       draw(await a.json());
     }catch(error){ /* disconnected backend: preserve the last rendered values */ }
+    finally{tick++;setTimeout(poll,POLL_MS);}
   }
   poll();
-  setInterval(poll,500);
 })();

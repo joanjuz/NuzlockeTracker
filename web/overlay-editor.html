@@ -1,23 +1,6 @@
 <!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Editor OBS · Pokémon Tracker</title>
-<script>
-/* Mismo tema que la aplicación principal, incluso al cambiarlo con OBS abierto. */
-(() => {
-  const syncTheme = () => {
-    try {
-      const saved = localStorage.getItem('progressive-theme');
-      document.documentElement.dataset.theme = saved === 'light' || saved === 'dark'
-        ? saved : (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
-    } catch (_) {
-      document.documentElement.dataset.theme = 'dark';
-    }
-  };
-  syncTheme();
-  window.addEventListener('storage', event => {
-    if (event.key === 'progressive-theme' || event.key === null) syncTheme();
-  });
-})();
-</script>
+<script src="/theme.js"></script>
 <link rel="stylesheet" href="/overlay-editor.css"></head>
 <body><header><div><strong>OBS · Overlay del equipo</strong><p>Organiza las capas como quieras. Cada enlace funciona como Fuente de navegador en OBS.</p></div><span id="status" role="status" aria-live="polite">Cargando…</span></header>
 <main>
@@ -28,7 +11,7 @@
 <label>Mi dirección IPv4 de Radmin VPN<input id="share-ip" type="text" inputmode="decimal" placeholder="Ejemplo: 26.10.20.30" autocomplete="off"></label>
 <div class="share-buttons"><button id="share-enable" type="button">Activar / actualizar IP</button><button id="share-disable" type="button" class="secondary">Desactivar</button></div>
 <p id="share-status" role="status">El acceso remoto está apagado.</p>
-<p>Usa la IP de <strong>tu propia computadora</strong> en Radmin VPN, no la del compañero. Se comparten sprites, motes, PS y el contador de muertes o vidas. No abre los controles del tracker.</p>
+<p>Usa la IP de <strong>tu propia computadora</strong> en Radmin VPN, no la del compañero. Se comparten sprites, motes, objetos, PS y el contador de muertes o vidas. No abre los controles del tracker.</p>
 </div>
 <div id="links" class="links"></div><p id="source-size" class="source-size" role="status" aria-live="polite"></p>
 <label>Slot independiente (1 a 6)<select id="slot"><option value="">Todos los Pokémon</option><option value="1">Pokémon 1</option><option value="2">Pokémon 2</option><option value="3">Pokémon 3</option><option value="4">Pokémon 4</option><option value="5">Pokémon 5</option><option value="6">Pokémon 6</option></select></label>
@@ -64,6 +47,12 @@
 <label>Grosor del texto<input id="name_weight" type="range" min="400" max="900" step="100"><output data-for="name_weight"></output></label>
 <label>Color de mote<input id="name_color" type="color"></label>
 <label>Contorno del mote<input id="name_outline" type="color"></label></div></section>
+<section class="panel"><h2>Objetos equipados</h2><p>Muestra el objeto que lleva cada Pokémon en este momento, con su nombre, su icono o ambos. Usa el enlace «Objetos» como fuente aparte o inclúyelo en la composición, debajo de los motes. Los iconos se descargan una vez y quedan guardados en tu equipo; si un icono no está disponible se muestra el nombre.</p><div class="controls">
+<label class="check">Incluir objetos en composición<input id="items_in_composition" type="checkbox"></label>
+<label class="wide-control">Mostrar objeto como<select id="item_display"><option value="name">Nombre</option><option value="icon">Icono</option><option value="both">Icono y nombre</option></select></label>
+<label>Tamaño del icono (px)<input id="item_icon_size" type="number" min="12" max="128"></label>
+<label>Tamaño del texto (px)<input id="item_size" type="number" min="8" max="60"></label>
+<label>Color del objeto<input id="item_color" type="color"></label></div></section>
 <section class="panel"><h2>Barras de vida</h2><div class="controls">
 <label>Estilo de barra<select id="hp_style"><option value="solid">Color sólido</option><option value="gradient">Degradado</option><option value="striped">Franjas</option></select></label>
 <label>Altura (px)<input id="hp_height" type="number" min="3" max="100"></label>

@@ -3,7 +3,6 @@ import unittest
 from unittest.mock import patch
 from tracker import process_memory as memory
 from tracker.gen7_pc import Gen7BoxProbe
-from tracker.pokemon import crypt
 from tracker.boxes import BOX_BASE,BOX_SIZE
 from test_process_memory import party_data
 

@@ -11,6 +11,7 @@ const nodes={},calls=[],$=id=>nodes[id]??=new Element('div');
 const pokemon={origin_version:33,encryption_constant:12,species_id:1,species:'Bulbasaur',nickname:'Brote'};
 const ctx={$,confirm:()=>false,document:{createElement:tag=>new Element(tag)},state:{progress:{deaths:{'33:12':{pokemon}}}},deadSignature:'',esc:s=>String(s??''),openDetail:()=>calls.push('detail'),command:async cmd=>calls.push(cmd)};
 vm.createContext(ctx);
+require('./ui_shared.js').loadShared(ctx,['num','spriteId']);
 for(const name of ['pokemonKey','isDead','renderDead','sprite']){
  const start=source.indexOf('function '+name+'('),end=source.indexOf('\nfunction ',start+1);
  vm.runInContext(source.slice(start,end),ctx);

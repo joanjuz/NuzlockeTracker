@@ -27,6 +27,7 @@ const ctx={
  document:{createElement:()=>new Node()}
 };
 vm.createContext(ctx);
+require('./ui_shared.js').loadShared(ctx,['list','GAME_FAMILIES','gameFamily']);
 const start=script.indexOf('const ORIGIN_TYPES=');
 const end=script.indexOf("\n$('route-search').oninput",start);
 assert.ok(start>=0&&end>start);

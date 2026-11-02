@@ -1,6 +1,7 @@
 """Real loopback peers: no third-party service, no tracker administration."""
 import http.client
 import json
+from companion.snapshot import FIELD_CHECKS
 import socket
 import tempfile
 import threading
@@ -189,6 +190,47 @@ class DirectCompanionTests(unittest.TestCase):
             self.assertEqual(self.host.status()['partner']['state'], valid)
         self.peer.sync_once()
         self.assertEqual(self.peer.status()['error'], '')
+
+    def test_hostile_field_values_from_peer_are_neutralised_on_receive(self):
+        self.join()
+        base, session = self.peer.direct_session
+        valid = self.host.status()['partner']['state']
+        hostile = '<img src=x onerror=alert(1)>'
+        for field, value in (('hp', hostile), ('stats', {'ATQ': 'x'}), ('move_names', 'abc'),
+                             ('species', hostile), ('iv', [hostile] * 6), ('level', 500)):
+            state = json.loads(json.dumps(valid))
+            state['party'][0][field] = value
+            with self.subTest(field=field):
+                request_json(base, '/v1/exchange', session, {'state': state})
+                received = self.host.status()['partner']['state']
+                self.assertNotIn('<', json.dumps(received, ensure_ascii=False))
+                if field in received['party'][0]:
+                    FIELD_CHECKS[field](field, received['party'][0][field])
+                # Everything else of that Pokémon is still shown.
+                self.assertEqual(received['party'][0]['species_id'], valid['party'][0]['species_id'])
+        # Unknown keys are silently dropped, never forwarded to the UI.
+        state = json.loads(json.dumps(valid))
+        state['party'][0]['injected'] = hostile
+        request_json(base, '/v1/exchange', session, {'state': state})
+        self.assertNotIn(hostile, json.dumps(self.host.status()['partner']))
+
+    def test_hostile_host_reply_never_reaches_joining_peer(self):
+        self.start_host()
+        hostile = '<img src=x onerror=alert(1)>'
+        self.own.current['party'][0]['hp'] = hostile  # Local tracker drops it...
+        self.host.sync_once()
+        self.assertEqual(self.host.status()['error'], '')
+        # ...and a forged host reply carrying it never reaches the peer UI.
+        forged = {'session': 'S' * 43, 'partner': {'name': 'Sol', 'game': 'Ultra Sun 1.0', 'updated_at': 1,
+                  'state': {'schema_version': 1, 'game': 'Ultra Sun 1.0', 'party': [{'species_id': 1, 'hp': hostile}] + [None] * 5,
+                            'boxes': {}, 'progress': {'deaths': {}, 'missed_routes': []}, 'battle_hp': False}}}
+        with patch('companion.sync.request_json', return_value=forged):
+            try:
+                self.peer.perform('direct_join', {'invite_code': 'nuzlocke://127.0.0.1:8770/join#' + 'A' * 43,
+                                                  'name': 'Luna', 'game': 'Ultra Moon 1.0'})
+            except ValueError:
+                pass  # Rejecting the forged reply outright is also acceptable.
+        self.assertNotIn(hostile, json.dumps(self.peer.status()['partner']))
 
     def test_redirects_never_forward_credentials_or_snapshot(self):
         destination_calls = []

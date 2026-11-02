@@ -1,5 +1,13 @@
 # Progressive Tracker
 
+## v1.0.0: objetos en OBS, Soul Link más seguro y registro de diagnóstico
+
+OBS puede mostrar el objeto que lleva cada Pokémon (nombre, icono o ambos) y el
+sprite de un Pokémon caído vuelve a verse en blanco y negro. Los datos del
+compañero de Soul Link se validan antes de mostrarse, el progreso se protege
+frente a archivos dañados y la aplicación guarda un registro de diagnóstico local
+sin secretos. Consulta las [notas de la versión](docs/releases/v1.0.0.md).
+
 ## v0.25.0: partidas, Soul Link directo y vidas OBS
 
 La barra superior permite crear, seleccionar y eliminar partidas con datos independientes.
@@ -20,7 +28,7 @@ la distribución publicada se encuentra en GitHub Releases.
 
 **Progressive Tracker** (antes *Pokémon Tracker*) es una aplicación local para Windows que lee los datos de Pokémon desde la memoria del emulador, organiza aventuras Nuzlocke y Soul Link y genera fuentes visuales para OBS.
 
-> **Versión de descarga:** **v0.25.0**, con perfiles independientes, Soul Link directo, seis juegos y contadores OBS. La versión descargable es una aplicación **portable**: no hace falta instalar Python ni Node.js.
+> **Versión de descarga:** **v1.0.0**, con objetos en OBS, perfiles independientes, Soul Link directo, seis juegos y contadores OBS. La versión descargable es una aplicación **portable**: no hace falta instalar Python ni Node.js.
 
 ## Descargar para Windows
 
@@ -72,15 +80,19 @@ Para ejecutar en modo desarrollo, utiliza Python 3.13 y las dependencias pertine
 powershell -ExecutionPolicy Bypass -File tools/build_windows.ps1
 ```
 
+Los lanzadores de desarrollo están en `tools/`: `tools\Iniciar.bat` (lectura real), `tools\Iniciar_Demo.bat` (o `bash tools/Iniciar_Demo.sh` en Linux), `tools\Iniciar_Segundo_Jugador.bat` y los diagnósticos `tools\Diagnostico_Gen6.bat` y `tools\Diagnostico_Combate.bat`. Cada uno cambia a la raíz del repositorio antes de ejecutar Python, así que pueden abrirse con doble clic.
+
 Las compilaciones y pruebas se ejecutan en GitHub Actions. El flujo de release genera el ZIP desde Windows, ejecuta pruebas, verifica que el EXE se inicia y publica la descarga junto a su hash SHA-256.
 
 ## Documentación
 
 - [Instalación de la versión portable](docs/INSTALACION_PORTABLE_WINDOWS.txt)
+- [Notas de la versión v1.0.0](docs/releases/v1.0.0.md)
 - [Notas de la versión v0.25.0](docs/releases/v0.25.0.md)
 - [Notas de la versión v0.24.0](docs/releases/v0.24.0.md)
 - [Instrucciones de escritorio y resolución de problemas](docs/DESKTOP_WINDOWS.md) (incluye documentación histórica)
 - [Compatibilidad Gen6](docs/COMPATIBILIDAD_GEN6.md)
+- [Firma de código del ejecutable](docs/FIRMA_CODIGO.md)
 - [Gráficos OBS HD](docs/OBS_HD_CUSTOM_SPRITES.md)
 - [Soul Link Companion](docs/SOULLINK_COMPANION.md)
 - [Historial de versiones](docs/HISTORIAL_VERSIONES.md)

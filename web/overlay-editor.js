@@ -8,11 +8,12 @@
     'hp_style','hp_reverse','hp_glow','show_empty','hp_custom_fill','hp_custom_frame',
     'counter_mode','counter_total','counter_lost','counter_icon_size','counter_in_composition','counter_custom_icon',
     'render_scale','sprite_scaling','sprite_shadow','sprite_padding','hp_animation_ms',
+    'items_in_composition','item_size','item_color','item_display','item_icon_size',
   ];
   const numberFields=new Set(['gap','slot_width','sprite_size','name_size','name_weight','hp_height',
     'hp_radius','hp_border_width','hp_low_threshold','hp_mid_threshold','hp_text_size',
-    'render_scale','sprite_padding','hp_animation_ms','counter_total','counter_icon_size']);
-  const checkFields=new Set(['hp_reverse','hp_glow','show_empty','hp_custom_fill','hp_custom_frame','sprite_shadow','counter_in_composition','counter_custom_icon']);
+    'render_scale','sprite_padding','hp_animation_ms','counter_total','counter_icon_size','item_size','item_icon_size']);
+  const checkFields=new Set(['hp_reverse','hp_glow','show_empty','hp_custom_fill','hp_custom_frame','sprite_shadow','counter_in_composition','counter_custom_icon','items_in_composition']);
   const status=$('status');
   let token='',pending=null,defaultConfig=null,loading=true;
   let shared={enabled:false,ip:'',port:null,base_url:''},lastEdited=null,publicParty=[];
@@ -63,10 +64,12 @@
     const lines=Math.max(1,...names.map(p=>Math.ceil(ctx.measureText(p.nickname||'').width/c.slot_width)));
     const heights={sprites:rows*c.sprite_size+(rows-1)*c.gap,
       names:rows*(Math.ceil(c.name_size*1.3)*lines+4)+(rows-1)*c.gap,
-      hp:rows*(c.hp_height+(c.hp_label==='none'?0:4+Math.ceil(c.hp_text_size*1.3)))+(rows-1)*c.gap};
+      hp:rows*(c.hp_height+(c.hp_label==='none'?0:4+Math.ceil(c.hp_text_size*1.3)))+(rows-1)*c.gap,
+      items:rows*((c.item_display==='name'?0:c.item_icon_size+2)+(c.item_display==='icon'?0:Math.ceil(c.item_size*1.3)*2)+4)+(rows-1)*c.gap};
     const counterWidth=Math.max(c.counter_icon_size,Math.min(width,120+c.counter_total*(c.counter_icon_size+8)));
     heights.counter=c.counter_mode==='lives'?Math.ceil((120+c.counter_total*(c.counter_icon_size+8))/counterWidth)*(Math.max(c.counter_icon_size,c.name_size*1.3)+8):Math.ceil(c.name_size*1.3)+4;
     heights.all=heights.sprites+heights.names+heights.hp+2*c.gap;
+    if(c.items_in_composition)heights.all+=heights.items+c.gap;
     if(c.counter_in_composition&&c.counter_mode!=='off')heights.all+=heights.counter+c.gap;
     for(const el of document.querySelectorAll('[data-source-size]')){
       const layer=el.dataset.sourceSize,w=layer==='counter'?counterWidth:width;
@@ -78,7 +81,7 @@
     const slot=$('slot').value,container=$('links');container.replaceChildren();
     const remote=$('link-target').value==='vpn'&&shared.enabled;
     const base=remote?shared.base_url:location.origin;
-    for(const [label,layer] of [['Composición','all'],['Sprites','sprites'],['Motes','names'],['Vida','hp'],['Muertes / vidas','counter']]){
+    for(const [label,layer] of [['Composición','all'],['Sprites','sprites'],['Motes','names'],['Vida','hp'],['Objetos','items'],['Muertes / vidas','counter']]){
       const url=base+'/overlay?layer='+layer+(slot&&layer!=='counter'?'&slot='+slot:'');
       const row=document.createElement('div');row.className='link-line';
       const title=document.createElement('label');title.textContent=label;title.htmlFor='source-url-'+layer;
@@ -118,8 +121,29 @@
     if(!response.ok)throw new Error(data.error||'No se pudo guardar');
     return data;
   }
-  async function save(control=lastEdited||$('save')){
-    if(loading)return;
+  // Serialize saves: two overlapping POSTs could land out of order and leave
+  // the older configuration stored. A request made while one is in flight is
+  // coalesced and sent with the latest values once the previous one finishes.
+  // `queue` resolves only after the values current at call time are stored,
+  // and a coalesced save reports on the control edited last.
+  let queue=null,queuedControl=null;
+  function save(control=lastEdited||$('save')){
+    if(loading)return Promise.resolve();
+    queuedControl=control;
+    if(queue)return queue;
+    queue=(async()=>{
+      let result=null;
+      while(queuedControl){
+        const target=queuedControl;queuedControl=null;
+        result=await saveNow(target);
+      }
+      // Same synchronous step as the loop check: no call can slip in between.
+      queue=null;
+      return result;
+    })();
+    return queue;
+  }
+  async function saveNow(control){
     try{
       const saved=await post('/api/overlay/settings',read());
       say('Personalización guardada');

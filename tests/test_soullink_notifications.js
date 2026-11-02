@@ -57,6 +57,7 @@ const ctx={
 async function settle(){await new Promise(resolve=>setImmediate(resolve));}
 (async()=>{
  vm.createContext(ctx);
+ require('./ui_shared.js').loadShared(ctx);
  vm.runInContext(source,ctx,{filename:'companion.js'});
  await settle();
  const notice=node('soullink-notification');

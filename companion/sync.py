@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import ipaddress
 import json
 import os
@@ -12,7 +13,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
-from .snapshot import SUPPORTED_GAMES, snapshot, viewer_state
+from .snapshot import SUPPORTED_GAMES, shared_state, snapshot
 from .direct import DirectHost, SECRET_RE, identity, invitation, partner as direct_partner, request_json
 
 # Only the public endpoint is preconfigured, never the administrative CREATE_KEY.
@@ -53,15 +54,49 @@ def fetch_json(url, method='GET', payload=None, token=None, setup_key=None):
             raw = response.read(850_000)
             if response.status not in (200, 201):
                 raise ValueError('Error HTTP del servicio: ' + str(response.status))
-            return json.loads(raw)
+            result = json.loads(raw)
     except HTTPError as error:
         try:
             details = json.loads(error.read(1024)).get('error', 'Error de la nube')
-        except (ValueError, UnicodeError):
+            if not safe_message(details):
+                details = 'Error de la nube'
+        except (ValueError, UnicodeError, AttributeError, RecursionError):
             details = 'Error de la nube'
+        finally:
+            error.close()
         raise ValueError(f'{details} (HTTP {error.code})') from None
     except (URLError, TimeoutError, OSError) as error:
         raise ValueError('No se pudo contactar Cloudflare; revisa Internet y la URL') from error
+    except RecursionError:
+        raise ValueError('Respuesta inesperada del servidor') from None
+    if not isinstance(result, dict):
+        raise ValueError('Respuesta inesperada del servidor')
+    return result
+
+
+def safe_message(value):
+    return isinstance(value, str) and len(value) <= 200 and not any(ord(c) < 32 or c in '<>' for c in value)
+
+
+def cloud_partner(data):
+    """Validate the partner record returned by the Worker before showing or caching it."""
+    if data is None:
+        return None
+    if not isinstance(data, dict):
+        raise ValueError('Compañero inválido')
+    name = data.get('name')
+    # Older Workers accepted whitespace-only names; show a neutral label
+    # instead of discarding the partner on every poll.
+    if isinstance(name, str) and not name.strip():
+        name = 'Compañero'
+    name, game = identity(name, data.get('game'))
+    state = shared_state(data.get('state'))
+    if state is not None and state['game'] != game:
+        raise ValueError('La sesión no coincide con el juego del compañero')
+    updated_at = data.get('updated_at')
+    if type(updated_at) is not int or not 0 <= updated_at <= 2 ** 53:
+        updated_at = None
+    return {'name': name, 'game': game, 'state': state, 'updated_at': updated_at}
 
 
 class CompanionSync:
@@ -83,6 +118,9 @@ class CompanionSync:
         self.last_uploaded_hash = None
         self.last_core_hash = None
         self.last_upload_at = 0.0
+        # Backoff (seconds) after an unexpected failure in the sync thread.
+        self.retry_base = 1.0
+        self.retry_max = 30.0
         if self.settings_path.is_file():
             try:
                 settings = json.loads(self.settings_path.read_text(encoding='utf-8'))
@@ -93,11 +131,10 @@ class CompanionSync:
         if self.cache_path.is_file():
             try:
                 data = json.loads(self.cache_path.read_text(encoding='utf-8'))
-                if data.get('partner') and data['partner'].get('state'):
-                    viewer_state(data['partner']['state'])
-                self.partner = data.get('partner')
-            except (ValueError, OSError, KeyError):
-                pass
+                # Caches written by older versions were stored unsanitised.
+                self.partner = cloud_partner(data.get('partner'))
+            except (ValueError, OSError, KeyError, AttributeError, RecursionError):
+                self.partner = None
 
     def _store(self, path, data):
         self.directory.mkdir(parents=True, exist_ok=True)
@@ -201,26 +238,38 @@ class CompanionSync:
             with self.lock:
                 if self.settings:
                     raise ValueError('Ya existe una pareja; desvincúlala primero')
-                name, game = identity(options.get('name'), options.get('game'))
-                if action == 'direct_host':
-                    try:
-                        host = DirectHost(options.get('host', '127.0.0.1'), options.get('port', 8770), name, game)
-                    except OSError:
-                        raise ValueError('No se pudo abrir el host: revisa la dirección local y el puerto') from None
-                    self.direct_host = host
-                    self.direct_session = None
-                    self.partner = None
-                else:
-                    base, secret = invitation(options.get('invite_code'))
-                    result = request_json(base, '/v1/join', secret, {'name': name, 'game': game})
-                    session = result.get('session')
-                    if not isinstance(session, str) or not SECRET_RE.fullmatch(session):
-                        raise ValueError('Respuesta directa inválida')
-                    self.partner = direct_partner(result.get('partner'))
-                    self.direct_session = (base, session)
-                self.settings = {'transport': 'direct', 'name': name, 'game': game}
-                self.error = ''
-                self.wake.set()
+            name, game = identity(options.get('name'), options.get('game'))
+            # Open the listener / contact the host WITHOUT holding self.lock:
+            # status() and the sync thread must not block on the network.
+            host = session = partner = None
+            if action == 'direct_host':
+                try:
+                    host = DirectHost(options.get('host', '127.0.0.1'), options.get('port', 8770), name, game)
+                except OSError:
+                    raise ValueError('No se pudo abrir el host: revisa la dirección local y el puerto') from None
+            else:
+                base, secret = invitation(options.get('invite_code'))
+                result = request_json(base, '/v1/join', secret, {'name': name, 'game': game})
+                token = result.get('session')
+                if not isinstance(token, str) or not SECRET_RE.fullmatch(token):
+                    raise ValueError('Respuesta directa inválida')
+                session = (base, token)
+                try:
+                    partner = direct_partner(result.get('partner'))
+                except ValueError:
+                    self._shutdown_direct(None, session)
+                    raise
+            with self.lock:
+                conflict = bool(self.settings)
+                if not conflict:
+                    self.direct_host, self.direct_session, self.partner = host, session, partner
+                    self.settings = {'transport': 'direct', 'name': name, 'game': game}
+                    self.error = ''
+                    self.wake.set()
+            if conflict:
+                # Another request paired first while we were on the network.
+                self._shutdown_direct(host, session)
+                raise ValueError('Ya existe una pareja; desvincúlala primero')
             self.sync_once(force=True)
             return self.status()
         if action in ('create', 'join'):
@@ -234,11 +283,13 @@ class CompanionSync:
                 if not settings:
                     return self.status()
                 if settings.get('transport') == 'direct':
-                    self._close_direct()
+                    host, session = self._detach_direct()
                     self.settings = {}
                     self.partner = None
                     self.error = ''
-                    return self.status()
+            if settings.get('transport') == 'direct':
+                self._shutdown_direct(host, session)  # Network/IO outside the lock.
+                return self.status()
             # Revoke cloud credential before losing local copy; fail closed on network errors.
             try:
                 self.transport(settings['worker_url'] + '/v1/leave', 'POST', {}, token=settings['token'])
@@ -302,9 +353,12 @@ class CompanionSync:
             if not fetch_partner:
                 return  # Keep Cloudflare reads bounded during rapid RAM changes.
             remote = self.transport(settings['worker_url'] + '/v1/partner', 'GET', token=settings['token'])
-            partner = remote.get('partner')
+            if not isinstance(remote, dict):
+                raise ValueError('Respuesta inesperada del servidor')
+            # Rebuild from the allowlist: a compromised Worker or partner must
+            # not inject markup or unexpected fields into the local UI.
+            partner = cloud_partner(remote.get('partner'))
             if partner is not None and partner.get('state') is not None:
-                viewer_state(partner['state'])
                 with self.lock:
                     self._store(self.cache_path, {'partner': partner})
                     self.partner = partner
@@ -358,9 +412,15 @@ class CompanionSync:
                 if host is self.direct_host and session == self.direct_session and self.settings == settings:
                     self.error = str(error)
 
-    def _close_direct(self):
+    def _detach_direct(self):
+        """Call with self.lock held: forget the direct transport and return it."""
         host, session = self.direct_host, self.direct_session
         self.direct_host = self.direct_session = None
+        return host, session
+
+    @staticmethod
+    def _shutdown_direct(host, session):
+        """Call WITHOUT self.lock: closes the listener or notifies the host."""
         if host:
             host.close()
         elif session:
@@ -374,22 +434,35 @@ class CompanionSync:
         # every five seconds even without local changes.
         last_revision = None
         next_poll = 0.0
+        failures = 0
         while not self.stop.is_set():
-            with self.service.condition:
-                revision = self.service.state['revision']
-                changed = revision != last_revision
-                if not changed and not self.wake.is_set() and time.monotonic() < next_poll:
-                    self.service.condition.wait(timeout=min(0.5, max(0.0, next_poll - time.monotonic())))
-                    continue
-                last_revision = revision
-            self.wake.clear()
-            # Short debounce avoids excessive writes from consecutive RAM reads.
-            if changed and self.stop.wait(0.35):
-                break
-            poll_remote = time.monotonic() >= next_poll
-            self.sync_once(fetch_partner=poll_remote)
-            if poll_remote:
-                next_poll = time.monotonic() + 5.0
+            try:
+                with self.service.condition:
+                    revision = self.service.state['revision']
+                    changed = revision != last_revision
+                    if not changed and not self.wake.is_set() and time.monotonic() < next_poll:
+                        self.service.condition.wait(timeout=min(0.5, max(0.0, next_poll - time.monotonic())))
+                        continue
+                    last_revision = revision
+                self.wake.clear()
+                # Short debounce avoids excessive writes from consecutive RAM reads.
+                if changed and self.stop.wait(0.35):
+                    break
+                poll_remote = time.monotonic() >= next_poll
+                self.sync_once(fetch_partner=poll_remote)
+                if poll_remote:
+                    next_poll = time.monotonic() + 5.0
+                failures = 0
+            except Exception as error:  # noqa: BLE001 - the sync thread must never die silently.
+                failures += 1
+                logging.getLogger('tracker.soullink').warning(
+                    'Sincronización interrumpida (%s), intento %d', type(error).__name__, failures)
+                with self.lock:
+                    # Only the exception type: messages could echo remote data.
+                    self.error = ('Error inesperado de sincronización (' + type(error).__name__ +
+                                  '); se reintentará automáticamente')
+                if self.stop.wait(min(self.retry_max, self.retry_base * 2 ** min(failures - 1, 10))):
+                    break
 
     def close(self):
         self.stop.set()
@@ -397,4 +470,5 @@ class CompanionSync:
         if self.thread:
             self.thread.join(timeout=10)
         with self.lock:
-            self._close_direct()
+            host, session = self._detach_direct()
+        self._shutdown_direct(host, session)

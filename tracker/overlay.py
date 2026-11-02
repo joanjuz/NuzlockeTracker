@@ -1,7 +1,7 @@
 """Safe OBS browser overlays backed by the already-running localhost tracker.
 
 Read-only public payload contains a death total and six party slots: nickname,
-health, species, live/stale/dead flags and image revisions. No saved Pokémon,
+held item name, health, species, live/stale/dead flags and image revisions. No saved Pokémon,
 PID, partner data, session token, templates, or credentials are sent to OBS.
 """
 from __future__ import annotations
@@ -12,13 +12,12 @@ import io
 import json
 import os
 import re
-import tempfile
 import threading
 from pathlib import Path
 from PIL import Image, UnidentifiedImageError
 
 from .progress import pokemon_key
-from .layout_export import BLANK_PNG, png_to_gif, normalize_custom_sprite, CUSTOM_EXTENSIONS
+from .layout_export import BLANK_PNG, png_to_gif, normalize_custom_sprite
 
 PALETTE = {
     'high': '#5de09a', 'medium': '#f2c15c', 'low': '#ef5967',
@@ -43,6 +42,8 @@ DEFAULT = {
     'counter_mode': 'off', 'counter_total': 10, 'counter_lost': 'gray',
     'counter_in_composition': False, 'counter_custom_icon': False,
     'counter_icon_size': 36,
+    'items_in_composition': False, 'item_size': 14, 'item_color': '#f2c15c',
+    'item_display': 'name', 'item_icon_size': 32,
 }
 VALID_FONTS = ('ttf', 'otf', 'woff', 'woff2')
 ALLOWED = set(DEFAULT)
@@ -59,6 +60,9 @@ def validated_settings(candidate):
         elif name == 'counter_mode':
             if value not in ('off', 'deaths', 'lives'):
                 raise ValueError('Modo de contador desconocido')
+        elif name == 'item_display':
+            if value not in ('name', 'icon', 'both'):
+                raise ValueError('Forma de mostrar el objeto desconocida')
         elif name == 'counter_lost':
             if value not in ('hide', 'gray'):
                 raise ValueError('Aspecto de vidas perdidas desconocido')
@@ -75,7 +79,7 @@ def validated_settings(candidate):
             if value not in ('pixelated','smooth'):
                 raise ValueError('Interpolación de sprites desconocida')
         elif name in ('hp_glow', 'hp_reverse', 'show_empty', 'hp_custom_fill', 'hp_custom_frame', 'sprite_shadow',
-                      'counter_in_composition', 'counter_custom_icon'):
+                      'counter_in_composition', 'counter_custom_icon', 'items_in_composition'):
             if type(value) is not bool:
                 raise ValueError('Opción incorrecta: ' + name)
         elif name == 'font':
@@ -97,6 +101,7 @@ def validated_settings(candidate):
                 'render_scale': (1, 4), 'sprite_padding': (0, 64),
                 'hp_animation_ms': (0, 1500),
                 'counter_total': (1, 100), 'counter_icon_size': (12, 256),
+                'item_size': (8, 60), 'item_icon_size': (12, 128),
             }
             if type(value) is not int or not ranges[name][0] <= value <= ranges[name][1]:
                 raise ValueError('Valor fuera de rango: ' + name)
@@ -348,8 +353,11 @@ class OverlayManager:
                 image_rev=str(sprite.stat().st_mtime_ns)
             except OSError:
                 image_rev='0'
+            item = mon.get('item') if type(mon.get('item_id')) is int and mon['item_id'] > 0 else ''
             result.append({
                 'slot':i+1, 'present': True, 'species_id': mon['species_id'],
+                'item': str(item or '')[:40],
+                'item_id': mon['item_id'] if item else 0,
                 'image_rev': image_rev, 'image_format':image_format,
                 'nickname': str(mon.get('nickname') or mon.get('species') or '')[:40],
                 'hp': hp, 'max_hp': maximum if valid else None,

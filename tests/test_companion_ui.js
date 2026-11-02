@@ -25,6 +25,7 @@ const context={
   navigator:{clipboard:{writeText:async()=>{}}},
 };
 vm.createContext(context);
+require('./ui_shared.js').loadShared(context);
 vm.runInContext(code,context);
 setImmediate(async()=>{
   try {
@@ -43,7 +44,7 @@ setImmediate(async()=>{
       const isolatedEvents=[],copy=structuredClone(status);
       copy.partner.game=game;copy.partner.state.game=game;
       const local={...context,window:{setCompanionView:(...args)=>isolatedEvents.push(args)},fetch:async()=>({ok:true,json:async()=>copy})};
-      vm.createContext(local);vm.runInContext(code,local);
+      vm.createContext(local);require('./ui_shared.js').loadShared(local);vm.runInContext(code,local);
       // Feed the known snapshot directly through the configured refresh action.
       await get('companion-refresh').onclick();
       get('companion-toggle').onclick();

@@ -1,8 +1,15 @@
 """Interactive battle-memory capture for Ultra Sun/Moon 1.0 on Windows."""
 import json
+import sys
 from dataclasses import replace
 from pathlib import Path
 from datetime import datetime,timezone
+
+# El script vive en tools/; la raiz del repositorio contiene el paquete tracker
+# y la carpeta runtime/ donde se guarda el informe.
+ROOT=Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:sys.path.insert(0,str(ROOT))
+
 from tracker.process_memory import LimeProcessMemory
 from tracker.profiles import PROFILES
 from tracker.battle_probe import initial_search,narrow,sample
@@ -28,7 +35,7 @@ def main():
     input('Carga la partida, fuera de combate. Pulsa Enter para localizar la RAM. ')
     report={'schema_version':1,'game':profile.name,'pokemon':label,'max_hp':maximum,'samples':[],
             'note':'Candidatos experimentales; no son direcciones verificadas.'}
-    output=Path(__file__).resolve().parent/'runtime'/('combate-'+datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')+'.json')
+    output=ROOT/'runtime'/('combate-'+datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')+'.json')
     reader=None
     try:
         reader=LimeProcessMemory(progress=print,dynamic=profile.name=='Ultra Sun 1.0')

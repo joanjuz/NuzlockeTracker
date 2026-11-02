@@ -15,12 +15,14 @@ assert.match(app, /www\.wikidex\.net\/wiki\//);
 assert.match(app, /evolution-pokemon-title/);
 assert.doesNotMatch(app, /TU AVENTURA EN ALOLA/);
 assert.doesNotMatch(html, /TU AVENTURA EN ALOLA/);
-assert.match(app, /p\.evolutions\?\.length/);
+assert.match(app, /list\(p\.evolutions\)/);
 assert.doesNotMatch(app, /No tiene evoluciones registradas para esta especie/);
 // Broken local sprite files must retry PokeAPI and then reveal the number.
 assert.match(app, /class=\"evolution-option\"/);
-assert.match(app, /this\.dataset\.remote='1'/);
-assert.match(app, /this\.nextElementSibling\.hidden=false/);
+assert.match(app, /img\.dataset\.remote='1'/);
+assert.match(app, /next\.hidden=false/);
+assert.match(app, /document\.addEventListener\('error',spriteFallback,true\)/);
+assert.doesNotMatch(app, /onerror="/, 'Sin manejadores inline en los sprites');
 assert.match(app, /class=\"sprite-fallback\" hidden>#/);
 assert.match(app, /Método modificado por pk3DS Progressive/);
 assert.match(app, /Estadísticas base · pk3DS Progressive/);

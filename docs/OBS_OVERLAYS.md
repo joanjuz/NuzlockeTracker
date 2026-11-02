@@ -14,6 +14,8 @@ En Pokémon Tracker abre **OBS**, utiliza los botones **Copiar** y pega cada URL
 | Seis barras | http://127.0.0.1:8765/overlay?layer=hp |
 | Solo mote del Pokémon 1 | http://127.0.0.1:8765/overlay?layer=names&slot=1 |
 | Solo barra del Pokémon 1 | http://127.0.0.1:8765/overlay?layer=hp&slot=1 |
+| Objetos equipados | http://127.0.0.1:8765/overlay?layer=items |
+| Solo objeto del Pokémon 1 | http://127.0.0.1:8765/overlay?layer=items&slot=1 |
 
 Cambia el valor slot=1 por cualquier posición entre 1 y 6 para crear **18 elementos independientes** y moverlos donde quieras en OBS. También puedes utilizar solo las tres filas, o la composición completa. El fondo de las fuentes es transparente. Recomendación inicial: 960 × 180 px por fila.
 
@@ -21,15 +23,17 @@ Cambia el valor slot=1 por cualquier posición entre 1 y 6 para crear **18 eleme
 
 La pestaña **OBS** tiene guardado automático, sin la antigua vista previa interna. Permite ordenar las capas, elegir distribución en fila, columna o cuadrícula, tamaño y espacio entre Pokémon.
 
-**Sprites:** reutiliza los GIF y PNG de la carpeta layout, junto con los sprites personalizados existentes. Respeta la escala de grises por muerte.
+**Sprites:** reutiliza los GIF y PNG de la carpeta layout, junto con los sprites personalizados existentes. Cuando un Pokémon está registrado en Muertos, su sprite se muestra en escala de grises. El overlay aplica el gris directamente aunque el archivo exportado tarde en regenerarse (por ejemplo, con sprites HD animados), y lo quita al revivirlo.
 
 **Motes:** Oxanium, Arial, Segoe UI, Verdana, Georgia, monospace, o cualquier fuente que importe el usuario en formato TTF, OTF, WOFF o WOFF2 (hasta 3 MB). Se personalizan tamaño, color, contorno, grosor y ancho de posición.
+
+**Objetos:** muestra el objeto que lleva cada Pokémon en ese momento (Restos, Cinta Elección…); se vacía cuando lo consume o se lo quitas. Se usa como fuente aparte con `layer=items` o dentro de la composición, debajo de los motes, activando «Incluir objetos en composición». Tamaño y color configurables. «Mostrar objeto como» permite elegir **nombre, icono o icono y nombre**; el icono va encima del nombre y su tamaño es ajustable. Los iconos son los sprites de objetos de PokeAPI: se descargan una vez y quedan en la caché local de sprites; si un icono no existe o no hay conexión, se muestra el nombre. Las configuraciones guardadas antes de estas opciones siguen igual (solo nombre).
 
 **PS:** barra configurable con tres colores por umbral, estilos sólido/degradado/franjas, alto, borde y redondeo, relleno invertido, brillo, etiquetas (valor, porcentaje, ambos o ninguno), color y tamaño del texto. Se actualiza desde la lectura del juego, incluidos PS de combate. Puedes **importar dos PNG transparentes** (marco y relleno, hasta 2 MB cada uno) y activar cada uno por separado. El relleno PNG se recorta sin deformar la imagen a medida que cambia el porcentaje. Los PNG importados se guardan en `runtime/obs-hp-images/`. Usa imágenes con centro transparente para el marco.
 
 ## Privacidad, persistencia y compatibilidad
 
-El editor y toda la API privada del tracker **solo escuchan en localhost**. El acceso remoto opcional abre un segundo servidor de **solo lectura** en la IPv4 exacta que indiques. Publica exclusivamente especie, mote, vida actual/máxima, porcentaje, estado de muerte y si la lectura está desactualizada. No expone cajas, ROM, PID ni tokens Soul Link.
+El editor y toda la API privada del tracker **solo escuchan en localhost**. El acceso remoto opcional abre un segundo servidor de **solo lectura** en la IPv4 exacta que indiques. Publica exclusivamente especie, mote, objeto equipado, vida actual/máxima, porcentaje, estado de muerte y si la lectura está desactualizada. No expone cajas, ROM, PID ni tokens Soul Link.
 
 Las opciones del editor se guardan por perfil bajo AppData/PokemonTracker/runtime/obs-overlay.json, y las tipografías bajo runtime/obs-fonts. Estos archivos no se distribuyen en el ejecutable.
 

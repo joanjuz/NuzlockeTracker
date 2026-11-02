@@ -9,38 +9,28 @@ import argparse
 import json
 import os
 import shutil
-import socket
 import sys
 import threading
 import traceback
-from http.server import ThreadingHTTPServer
 from pathlib import Path
 from urllib.request import urlopen
 import secrets
 
 from companion.sync import CompanionSync
-from server import make_handler, runtime_directory, RemoteOverlayShare
+from server import make_handler, runtime_directory, RemoteOverlayShare, TrackerHTTPServer
 from tracker.service import TrackerService
 from tracker.layout_export import PartyLayoutExporter, layout_directory
 from tracker.overlay import OverlayManager
 from tracker.desktop_export import DesktopExportApi
 from tracker.run_profiles import RunProfileStore, acquire_run_lock
+from tracker import __version__, diaglog
 
 APP_NAME = 'PokemonTracker'
 PROFILE_CHOICES = ('principal', 'segundo-jugador')  # Internal only; never shown in the UI.
 
 
-class LocalHTTPServer(ThreadingHTTPServer):
-    # Windows SO_REUSEADDR can bind two listeners to the same live port, sending
-    # requests to another app instance instead of triggering the safe fallback.
-    allow_reuse_address = False
-    request_queue_size = 128
-    daemon_threads = True
-
-    def server_bind(self):
-        if sys.platform == 'win32':
-            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
-        super().server_bind()
+# Same exclusive-bind server as server.py (no SO_REUSEADDR on Windows).
+LocalHTTPServer = TrackerHTTPServer
 
 
 def app_home(env=None):
@@ -206,7 +196,8 @@ class LocalBackend:
         self.companion = CompanionSync(self.service, self.runtime)
         self.overlay = OverlayManager(self.service, self.runtime, self.layout_path,custom_dir=self.custom_dir)
         self.remote_share = RemoteOverlayShare(
-            self.service, self.overlay, preferred_port=8767 if self.slot_profile == 'principal' else 8768)
+            self.service, self.overlay, preferred_port=8767 if self.slot_profile == 'principal' else 8768,
+            sprite_cache=self.sprite_cache)
         self.worker = threading.Thread(target=self.service.run,
                                         name='tracker-memory', daemon=True)
         self.worker.start()
@@ -251,6 +242,8 @@ class LocalBackend:
                 raise
             previous_runtime, previous_profile = self.runtime, self.profile
             previous_lock = self.profile_lock
+            # OBS sources over the VPN must keep working after a run switch.
+            shared = self.remote_share.status() if self.remote_share else {}
             try:
                 self._stop_services()
             except Exception:
@@ -275,7 +268,19 @@ class LocalBackend:
             self.profile_lock = lock
             if previous_lock:
                 previous_lock.close()
+            self._restore_share(shared.get('ip') or '', shared.get('port'))
             return self.profiles_status()
+
+    def _restore_share(self, ip, port=None):
+        if not ip or not self.remote_share:
+            return
+        # Same port first, so existing OBS VPN sources keep their address.
+        if type(port) is int and 0 < port < 65536:
+            self.remote_share.preferred_port = port
+        try:
+            self.remote_share.configure(True, ip)
+        except (OSError, ValueError):
+            pass  # The switch succeeded; the editor shows the share as off.
 
     def _stop_services(self):
         if self.service:
@@ -294,6 +299,10 @@ class LocalBackend:
                        getattr(self.companion, 'thread', None)):
             if worker and worker.is_alive():
                 raise RuntimeError('La conexión no pudo cerrarse. Cierra y vuelve a abrir la aplicación antes de cambiar de partida.')
+        if self.service:
+            # A request served after the worker stopped (e.g. template import)
+            # may leave a coalesced state.json write pending.
+            self.service.flush_state(force=True)
 
     def close(self):
         self._stop_services()
@@ -401,6 +410,10 @@ def main(argv=None):
             locked = acquire_profile_lock(home, profile)
         else:
             profile, locked, slot, slot_lock = automatic_session(home)
+        # One log per window slot: two simultaneous windows never share a file.
+        diaglog.setup(home / 'logs', slot)
+        diaglog.get('app').info('Inicio Pokémon Tracker %s · Python %s · ventana %s',
+                                __version__, sys.version.split()[0], slot)
         backend = LocalBackend(
             runtime_directory(home, None if profile == 'principal' else profile),
             profile, layout_path=layout_directory(home, slot),
@@ -419,6 +432,7 @@ def main(argv=None):
         return 0
     except Exception as error:
         # Error logs are local, never sent to GitHub or the cloud.
+        diaglog.get('app').exception('La aplicación se cerró por un error')
         (home / 'desktop-error.log').write_text(traceback.format_exc(),
                                                  encoding='utf-8')
         message_error(str(error) + '\n\nDetalles en ' + str(home / 'desktop-error.log'))
@@ -430,6 +444,7 @@ def main(argv=None):
             locked.close()
         if slot_lock:
             slot_lock.close()
+        diaglog.close()
 
 
 if __name__ == '__main__':

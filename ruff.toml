@@ -1,0 +1,13 @@
+# Lint de CI: solo reglas que detectan errores reales (nombres indefinidos,
+# imports sin usar, errores de sintaxis). El estilo no se impone.
+target-version = "py313"
+extend-exclude = [
+    ".agents",
+    "build",
+    "dist",
+    "out",
+    "runtime",
+]
+
+[lint]
+select = ["F", "E9"]

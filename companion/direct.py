@@ -20,7 +20,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
-from .snapshot import SUPPORTED_GAMES, MAX_SNAPSHOT_BYTES, snapshot
+from .snapshot import SUPPORTED_GAMES, MAX_SNAPSHOT_BYTES, shared_state
 
 MAX_MESSAGE_BYTES = MAX_SNAPSHOT_BYTES + 4096
 NETWORKS = tuple(ipaddress.ip_network(n) for n in
@@ -64,15 +64,9 @@ def invitation(value):
 
 
 def safe_state(data):
-    if data is None:
-        return None
-    if not isinstance(data, dict) or data.get('schema_version') != 1:
-        raise ValueError('Sesión directa incompatible')
-    # Rebuild from the shared allowlist, including nested death records.
-    try:
-        return snapshot(dict(data, stale=False, connection={'status': 'connected'}))
-    except (TypeError, AttributeError, KeyError, RecursionError):
-        raise ValueError('Sesión directa inválida') from None
+    # Rebuild from the shared allowlist with per-field type/range validation,
+    # including nested death records and route marks.
+    return shared_state(data)
 
 
 def partner(data):
@@ -114,6 +108,7 @@ def request_json(base, path, secret, data):
                 raise ValueError('Respuesta directa inválida')
             return result
     except HTTPError as error:
+        error.close()  # Release the socket; avoids leaked responses on retries.
         raise ValueError('Conexión directa rechazada (HTTP ' + str(error.code) + ')') from None
     except (URLError, OSError, TimeoutError):
         raise ValueError('No se pudo contactar al host; revisa la red o VPN y el firewall') from None

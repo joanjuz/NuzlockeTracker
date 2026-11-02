@@ -38,6 +38,12 @@ body{font-family:var(--font);color:var(--fg);padding:0}
 .hp-outline.reverse .hp-fill{position:absolute;right:0;top:0}
 .hp-label{font-size:var(--hp-size);line-height:1.1;color:var(--hp-text);text-align:center;
   font-weight:700;text-shadow:0 1px 3px #000c}
+.overlay-item{font-size:var(--item-size,14px);color:var(--item-color,#f2c15c);font-weight:var(--weight);line-height:1.15;
+  overflow-wrap:anywhere;text-shadow:-1px -1px 0 var(--outline),1px -1px 0 var(--outline),-1px 1px 0 var(--outline),1px 1px 0 var(--outline)}
+.overlay-layer[data-layer=items] .overlay-slot{flex-direction:column;gap:2px}
+.overlay-item-icon{width:var(--item-icon,32px);height:var(--item-icon,32px);object-fit:contain;image-rendering:var(--sprite-render,pixelated);display:block}
+.overlay-item-icon[hidden]{display:none}
+.overlay-slot.dead .overlay-image{filter:grayscale(1) var(--sprite-shadow,)}
 .overlay-slot.empty{visibility:hidden}
 .overlay-slot.stale{opacity:.82}
 

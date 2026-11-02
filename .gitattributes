@@ -1,0 +1,2 @@
+# Los scripts de shell deben conservar LF incluso con core.autocrlf=true.
+*.sh text eol=lf
