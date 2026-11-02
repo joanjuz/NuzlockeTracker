@@ -50,7 +50,8 @@ SOLUCIONAR PROBLEMAS
   por lo que detecta el error Python.Runtime.Loader.Initialize antes de publicar.
 - Windows SmartScreen puede avisar porque la compilación experimental no está
   firmada digitalmente. Comprueba la procedencia del artefacto y no desactives
-  protecciones del sistema sin verificarlo.
+  protecciones del sistema sin verificarlo. La firma opcional del EXE está
+  preparada en `tools/build_windows.ps1`; ver `docs/FIRMA_CODIGO.md`.
 - No borres el runtime antiguo hasta confirmar que el nuevo inicia y sincroniza.
 
 Esta version experimental todavía necesita validarse en Windows con Lime3DS,
@@ -132,8 +133,15 @@ GUARDAR SESIÓN Y DIAGNÓSTICO (VENTANA NATIVA)
   Incluye equipo, cajas, progreso, contador de muertes y juego.
   No incluye tokens de Soul Link, claves ni datos privados del Worker.
 - Pestaña Conexión → Guardar diagnóstico… abre el mismo selector de Windows.
-  Exporta juego, estado de conexión y detalles de detección de RAM.
+  Exporta juego, estado de conexión, detalles de detección de RAM y las
+  últimas 200 líneas del registro de diagnóstico de esta sesión.
   No exporta los datos del equipo ni las cajas.
+- Registro de diagnóstico: `%LOCALAPPDATA%\PokemonTracker\logs\principal.log`
+  (o `segundo-jugador.log` en la segunda ventana). Anota conexiones,
+  desconexiones, muertes registradas o retiradas, avisos de guardado, errores
+  de sprites OBS y fallos de Soul Link (solo el tipo de error). Rota a 512 KB
+  y guarda como máximo 4 archivos. Los tokens, invitaciones y claves se
+  sustituyen por «[oculto]» antes de escribirse; nunca se envía a Internet.
 - Cancelar el diálogo no genera archivos ni cambia la sesión.
 - La sincronización, la configuración y los datos del tracker continúan
   guardándose automáticamente en AppData. Exportar es una copia opcional,

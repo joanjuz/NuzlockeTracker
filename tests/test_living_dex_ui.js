@@ -21,6 +21,7 @@ const ctx={$,
   document:{createElement:tag=>new Node(tag)}
 };
 vm.createContext(ctx);
+require('./ui_shared.js').loadShared(ctx,['list','GAME_FAMILIES','GEN6_GAMES','gameFamily','spriteId']);
 vm.runInContext(src.slice(begin,end),ctx);
 const mon=(id,name)=>({species_id:id,species:name,nickname:name,
  ability:'Estática',item:'—',met_location:'Ruta',move_names:[]});
@@ -84,7 +85,8 @@ ctx.renderBoxes();
 const silhouette=$('boxes').children[0];
 assert.match(silhouette.innerHTML,/living-dex-missing-sprite/);
 assert.match(silhouette.innerHTML,/src="\/sprites\/1.png"/);
-assert.match(silhouette.innerHTML,/sprites\/pokemon\/1.png/);
+assert.match(silhouette.innerHTML,/data-fallback="1" data-fallback-final="ball"/,'Fallback delegado: PokeAPI y después Poké Ball');
+assert.doesNotMatch(silhouette.innerHTML,/onerror=/);
 assert.match(silhouette.innerHTML,/#001/);
 assert.doesNotMatch(silhouette.innerHTML,/app-icon.png" alt="" loading="lazy"/);
 assert.match($('boxes').children[24].innerHTML,/Pikachu/);
@@ -116,6 +118,19 @@ assert.match($('living-dex-status').textContent,/1 \/ 807 especies/);
 assert.match($('boxes').children[806].innerHTML,/#807/);
 assert.doesNotMatch($('boxes').children[806].innerHTML,/Caja 32/);
 assert.doesNotMatch($('boxes').children[0].innerHTML,/No disponible/);
+// A new websocket frame with the same Living Dex content keeps all 807 nodes.
+const firstNode=$('boxes').children[0],zeraoraNode=$('boxes').children[806];
+ctx.state={...ctx.state,boxes:JSON.parse(JSON.stringify(gen7)),revision:2};
+ctx.state.boxes['32'][0].hp=12;ctx.state.boxes['32'][0].iv=[31,31,31,31,31,31];
+ctx.renderBoxes();
+assert.equal($('boxes').children[0],firstNode,'Sin cambios visibles no se reconstruye Living Dex');
+assert.equal($('boxes').children.length,807);
+ctx.state.boxes['32'][0].nickname='Rayo';ctx.renderBoxes();
+assert.notEqual($('boxes').children[806],zeraoraNode,'Un mote nuevo sí actualiza la vista');
+assert.match($('boxes').children[806].innerHTML,/Rayo/);
+// Opening an entry uses the current snapshot, not the object from the first render.
+$('boxes').children[806].onclick();
+assert.deepEqual(opened.pop(),[807,'box:32:0']);
 assert.match(html,/id="living-dex"/);
 assert.match(html,/id="living-dex-sprites"/);
 assert.match(src,/\$\('living-dex-sprites'\)\.onchange/);

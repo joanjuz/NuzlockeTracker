@@ -30,7 +30,8 @@
   function asView(p) {
     if (!p?.state || p.state.schema_version !== 1) return null;
     const source = p.state;
-    if (!['Pokémon X 1.0', 'Pokémon Y 1.0', 'Omega Ruby 1.0', 'Alpha Sapphire 1.0', 'Ultra Sun 1.0', 'Ultra Moon 1.0'].includes(source.game) || !Array.isArray(source.party) || !source.boxes || !source.progress)
+    if (!gameFamily(source.game) || !Array.isArray(source.party) ||
+        !source.boxes || typeof source.boxes !== 'object' || !source.progress || typeof source.progress !== 'object')
       return null;
     return {
       ...source, stale: true, demo: false, selected_box: 1, battle_hp: false,
@@ -47,26 +48,28 @@
   const soulImage = el('soullink-pokemon-icon');
   const soulFallback = el('soullink-sprite-fallback');
   const soulError = el('soullink-notice-error');
-  soulToggle.checked = localStorage.getItem('soullink-manual-enabled') === 'true';
+  // Storage may be unavailable (privacy mode, locked WebView2 profile): the toggle still works this session.
+  try { soulToggle.checked = localStorage.getItem('soullink-manual-enabled') === 'true'; }
+  catch (error) { soulToggle.checked = false; }
   soulToggle.onchange = () => {
-    localStorage.setItem('soullink-manual-enabled',String(soulToggle.checked));
+    try { localStorage.setItem('soullink-manual-enabled',String(soulToggle.checked)); } catch (error) {}
     soulNotice.hidden = true; souls.pending = null; souls.queue = [];
     souls.initialized = false;
   };
   function deathIdentity(entry,key){return key+'|'+String(entry?.recorded_at||'')}
-  function sameRoute(a,b){
+  // Location IDs are resolved with the partner game's catalog, not whatever view is on screen.
+  function catalogFor(game){
+    const cached = typeof routeCatalogFor === 'function' ? routeCatalogFor(game) : [];
+    return Array.isArray(cached) && cached.length ? cached : (Array.isArray(routeCatalog) ? routeCatalog : []);
+  }
+  function sameRoute(a,b,game){
     if(!a||!b||!Number.isInteger(a.met_location_id)||!Number.isInteger(b.met_location_id))return false;
-    const ids = routeCatalog.find(r=>(r.ids||[r.id]).includes(a.met_location_id))?.ids;
+    const ids = catalogFor(game).find(r=>Array.isArray(r?.ids)?r.ids.includes(a.met_location_id):r?.id===a.met_location_id)?.ids;
     return ids ? ids.includes(b.met_location_id) : a.met_location_id===b.met_location_id;
   }
   // Equipo primero, después cajas: una misma captura se muestra UNA sola vez.
   // La clave coincide con la que valida el servidor al marcar una muerte.
-  function routeFamily(game){
-    if(['Pokémon X 1.0','Pokémon Y 1.0'].includes(game))return 'xy';
-    if(['Omega Ruby 1.0','Alpha Sapphire 1.0'].includes(game))return 'oras';
-    if(['Ultra Sun 1.0','Ultra Moon 1.0'].includes(game))return 'usum';
-    return null;
-  }
+  const routeFamily = game => gameFamily(game);
   function routeCandidates(remoteMon,remoteGame){
     const own=localState, family=routeFamily(own?.game);
     // Location IDs are local to each game's region. A traded Pokémon's origin
@@ -81,7 +84,7 @@
     const unique=new Set(),deaths=own.progress?.deaths||{},eligible=[];
     for(const {mon,where} of members){
       if(!mon || mon.egg || mon.checksum_valid!==true ||
-          !Number.isInteger(mon.encryption_constant) || !sameRoute(mon,remoteMon))continue;
+          !Number.isInteger(mon.encryption_constant) || !sameRoute(mon,remoteMon,remoteGame))continue;
       const key=String(mon.origin_version??33)+':'+mon.encryption_constant;
       if(unique.has(key)||deaths[key])continue;
       unique.add(key);
@@ -158,6 +161,8 @@
     }
     const deaths=info.partner.state.progress.deaths;
     const remoteGame=info.partner.state.game||info.partner.game;
+    // Warm the partner game's route catalog before the first death needs it.
+    if(gameFamily(remoteGame))catalogFor(remoteGame);
     if(!souls.initialized || !soulToggle.checked){
       for(const [key,entry] of Object.entries(deaths))souls.seen.add(deathIdentity(entry,key));
       souls.initialized=true;return;

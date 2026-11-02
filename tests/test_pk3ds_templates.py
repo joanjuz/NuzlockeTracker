@@ -111,7 +111,6 @@ class TemplateTests(unittest.TestCase):
             self.assertEqual(len(manager._distinct_visible_evolutions(specials)),2)
 
     def test_pk3ds_item_names_and_form_target(self):
-        from tracker.templates import evolutions_csv
         csv = ("Source,Target,Method,Level,Argument,Form,ItemName,AltItemName\n"
                "356,477,19,,325,-1,,\n"
                "356,477,20,,325,-1,,\n"

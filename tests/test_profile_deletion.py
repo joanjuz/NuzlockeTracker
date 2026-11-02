@@ -1,5 +1,4 @@
 """Deletion preserves active runs, unrelated files and window reservations."""
-import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -126,6 +125,9 @@ class ProfileDeletionHTTPTests(unittest.TestCase):
             with self.assertRaises(HTTPError) as error:
                 self.post({'action': 'delete', 'id': created})
             self.assertEqual(error.exception.code, 400)
+        # A rejected delete never restarts or replaces the active run.
+        self.assertIs(self.backend.service, service)
+        self.assertFalse(service.stop.is_set())
         for ident in ('principal',):
             with self.assertRaises(HTTPError):
                 self.post({'action': 'delete', 'id': ident})

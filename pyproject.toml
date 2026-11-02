@@ -1,0 +1,23 @@
+# Solo configuracion de herramientas de desarrollo; el proyecto no se publica
+# como paquete (la distribucion es el EXE de tools/build_windows.ps1).
+# El lint (ruff) se configura en ruff.toml.
+
+[tool.mypy]
+python_version = "3.13"
+# El lector de memoria usa APIs ctypes exclusivas de Windows (WinDLL,
+# WinError); CI ejecuta mypy en Linux, asi que se fija la plataforma.
+platform = "win32"
+files = ["tracker/process_memory.py"]
+# Los modulos importados (pokemon, boxes, profiles) aun no tienen tipos:
+# se siguen para resolver nombres, pero sus errores no se informan.
+follow_imports = "silent"
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_return_any = true
+
+[[tool.mypy.overrides]]
+module = ["tracker.process_memory"]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true

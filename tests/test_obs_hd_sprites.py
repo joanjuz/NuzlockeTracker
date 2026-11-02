@@ -6,8 +6,7 @@ import unittest
 from pathlib import Path
 from PIL import Image, features
 from tracker.layout_export import (
-    PartyLayoutExporter, custom_media_names, normalize_custom_sprite,
-    png_to_gif, validate_png, gif_to_outputs)
+    PartyLayoutExporter, custom_media_names, normalize_custom_sprite)
 from tracker.overlay import OverlayManager, DEFAULT, validated_settings
 
 

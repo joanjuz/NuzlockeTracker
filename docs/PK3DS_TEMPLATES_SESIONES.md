@@ -8,7 +8,7 @@ Esta rama no modifica ROM, saves ni memoria del emulador. Actualiza los datos **
 - Al iniciar el servidor de nuevo, intenta restaurar la selección y conectarse automáticamente. Las credenciales y la última copia del compañero se conservan por separado en `companion-credentials.json` y `companion-cache.json`: **no se requiere crear una pareja nueva**.
 - En **Conexión** aparece **Guardar sesión** para volver a grabar manualmente la configuración.
 - Si dos Lime3DS están abiertos, y al cerrarlos cambia el PID de Windows, es posible que debas seleccionar el nuevo PID. No se cambia de emulador automáticamente para evitar leer una partida distinta.
-- El perfil principal usa `Iniciar.bat`. El otro usa `Iniciar_Segundo_Jugador.bat`, con directorios aislados `runtime/profiles/segundo-jugador/`.
+- El perfil principal usa `tools\Iniciar.bat`. El otro usa `tools\Iniciar_Segundo_Jugador.bat`, con directorios aislados `runtime/profiles/segundo-jugador/`.
 
 ## Importar plantillas
 

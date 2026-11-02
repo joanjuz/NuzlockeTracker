@@ -92,7 +92,7 @@ def apply_gen6_battle_hp(reader, party, game, party_address, report=None):
                                       battle_party_shift=offset)
                     return [dict(mon,hp=values[i],hp_source='battle_gen6_candidate')
                             if mon else None for i,mon in enumerate(party)],True
-            except (ValueError,ConnectionError,OSError,struct.error) as exc:
+            except (ValueError,ConnectionError,OSError,struct.error):
                 rejection='battle_roster_unavailable'
             attempted.append(hex(candidate))
     if report is not None:

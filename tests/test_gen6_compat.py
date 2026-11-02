@@ -2,7 +2,7 @@
 import struct,tempfile,unittest
 from pathlib import Path
 from tracker.pokemon import decode_party,crypt
-from tracker.profiles import PROFILES,GEN6_GAMES,capture_party
+from tracker.profiles import PROFILES,GEN6_GAMES
 from tracker.process_memory import discover_dynamic_ram,LimeProcessMemory
 from tracker.service import TrackerService
 

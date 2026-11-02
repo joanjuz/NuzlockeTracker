@@ -1,9 +1,13 @@
 """Windows read-only 3DS emulator connector (experimental on Azahar/Citra)."""
+from __future__ import annotations
+
 import ctypes as C
 from ctypes import wintypes as W
 import os,struct,time
 from collections import OrderedDict
+from collections.abc import Callable,Iterable,Iterator
 from threading import Lock
+from typing import Any,NoReturn,Protocol,cast
 from .pokemon import decode_party
 from .boxes import decode_box,BOX_BASE,BOX_SIZE
 PARTY=0x33F7FA44
@@ -11,8 +15,28 @@ LINEAR=0x30000000
 SIGNATURE_OFFSET=68
 NEEDLE=struct.pack('<III',PARTY+128,PARTY+472,PARTY+408)
 
+Region=tuple[int,int]
+"""(host base address, size in bytes) of a readable emulator mapping."""
+Discovery=tuple[int,int]
+"""(host base of the guest RAM window, guest party address)."""
+Report=dict[str,Any]
+Progress=Callable[[str],object]|None
+Cancel=Callable[[],object]|None
+
+
+class MemoryReader(Protocol):
+    """Anything that can read raw bytes at a host address (process, budget, fake)."""
+    def read(self,address:int,length:int,/)->bytes:...
+
+
+class RegionReader(MemoryReader,Protocol):
+    """A reader that also enumerates its readable regions."""
+    discovery_report:Report
+    def regions(self)->Iterable[Region]:...
+
+
 class DiscoveryError(ConnectionError):
-    def __init__(self,message,diagnostic=None):
+    def __init__(self,message:str,diagnostic:Report|None=None)->None:
         super().__init__(message);self.diagnostic=diagnostic
 
 class DiscoveryCancelled(ConnectionError):
@@ -23,10 +47,10 @@ class ProcessEntry(C.Structure):
 class MemoryInfo(C.Structure):
     _fields_=[('BaseAddress',C.c_void_p),('AllocationBase',C.c_void_p),('AllocationProtect',W.DWORD),('PartitionId',W.WORD),('RegionSize',C.c_size_t),('State',W.DWORD),('Protect',W.DWORD),('Type',W.DWORD)]
 
-def windows_api():
+def windows_api()->C.WinDLL:
     if os.name!='nt' or C.sizeof(C.c_void_p)!=8:raise DiscoveryError('Este conector requiere Windows y Python de 64 bits.')
     api=C.WinDLL('kernel32',use_last_error=True)
-    for name,args,result in [
+    signatures:list[tuple[str,list[Any],Any]]=[
         ('CreateToolhelp32Snapshot',[W.DWORD,W.DWORD],W.HANDLE),
         ('Process32FirstW',[W.HANDLE,C.POINTER(ProcessEntry)],W.BOOL),
         ('Process32NextW',[W.HANDLE,C.POINTER(ProcessEntry)],W.BOOL),
@@ -35,11 +59,12 @@ def windows_api():
         ('ReadProcessMemory',[W.HANDLE,C.c_void_p,C.c_void_p,C.c_size_t,C.POINTER(C.c_size_t)],W.BOOL),
         ('VirtualQueryEx',[W.HANDLE,C.c_void_p,C.POINTER(MemoryInfo),C.c_size_t],C.c_size_t),
         ('GetExitCodeProcess',[W.HANDLE,C.POINTER(W.DWORD)],W.BOOL),
-        ('GetProcessTimes',[W.HANDLE,C.POINTER(W.FILETIME),C.POINTER(W.FILETIME),C.POINTER(W.FILETIME),C.POINTER(W.FILETIME)],W.BOOL)]:
+        ('GetProcessTimes',[W.HANDLE,C.POINTER(W.FILETIME),C.POINTER(W.FILETIME),C.POINTER(W.FILETIME),C.POINTER(W.FILETIME)],W.BOOL)]
+    for name,args,result in signatures:
         fn=getattr(api,name);fn.argtypes=args;fn.restype=result
     return api
 
-def supported_emulator(name):
+def supported_emulator(name:object)->bool:
     """Process-name discovery only; RAM layout must still validate per emulator."""
     if not isinstance(name, str):
         return False
@@ -47,10 +72,10 @@ def supported_emulator(name):
     return value.endswith('.exe') and value.startswith(('lime3ds', 'azahar', 'citra'))
 
 
-def list_lime_processes(api):
+def list_lime_processes(api:Any)->list[tuple[int,str]]:
     handle=api.CreateToolhelp32Snapshot(2,0)
     if handle in (None,C.c_void_p(-1).value):raise C.WinError(C.get_last_error())
-    entries=[]
+    entries:list[tuple[int,str]]=[]
     try:
         entry=ProcessEntry();entry.dwSize=C.sizeof(entry)
         success=api.Process32FirstW(handle,C.byref(entry))
@@ -62,8 +87,10 @@ def list_lime_processes(api):
     return entries
 
 class WindowsProcess:
-    def __init__(self,pid=None):
-        self.api=windows_api();processes=list_lime_processes(self.api)
+    # Annotation only: set by the discovery functions after a successful scan.
+    discovery_report:Report
+    def __init__(self,pid:int|None=None)->None:
+        self.api:Any=windows_api();processes=list_lime_processes(self.api)
         if pid is not None:
             processes=[p for p in processes if p[0]==pid]
         if not processes:raise DiscoveryError('No se encontró Lime3DS, Azahar ni Citra. Abre un emulador y carga la partida.')
@@ -72,7 +99,7 @@ class WindowsProcess:
         # VirtualQueryEx requires PROCESS_QUERY_INFORMATION (0x0400), while
         # ReadProcessMemory requires PROCESS_VM_READ (0x0010). Do not request
         # PROCESS_ALL_ACCESS or attempt to bypass Windows security.
-        self.handle=self.api.OpenProcess(0x0400|0x0010,False,self.pid)
+        self.handle:int|None=self.api.OpenProcess(0x0400|0x0010,False,self.pid)
         if not self.handle:
             error=C.get_last_error()
             if error==5:
@@ -90,13 +117,17 @@ class WindowsProcess:
                 f'No se pudo abrir {self.name} (PID {self.pid}, error Windows {error}).',
                 {'process':self.name,'pid':self.pid,'winerror':error,
                  'stage':'OpenProcess'})
-        self.metadata=process_metadata(self)
-    def read(self,address,length):
+        # GetProcessTimes/EnumWindows may fail after OpenProcess: never
+        # leak the read-only handle in that case.
+        try:self.metadata:Report=process_metadata(self)
+        except BaseException:
+            self.close();raise
+    def read(self,address:int,length:int)->bytes:
         buffer=C.create_string_buffer(length);received=C.c_size_t()
         ok=self.api.ReadProcessMemory(self.handle,C.c_void_p(address),buffer,length,C.byref(received))
         if not ok or received.value!=length:raise DiscoveryError(f'No se pudo leer memoria del proceso (error {C.get_last_error()}).')
         return buffer.raw
-    def regions(self):
+    def regions(self)->Iterator[Region]:
         address=0
         while address<0x7fffffffffff:
             info=MemoryInfo()
@@ -106,13 +137,13 @@ class WindowsProcess:
             # Committed, readable, no guard; exclude code/image mappings.
             if info.State==0x1000 and not info.Protect&0x100 and info.Protect&0xff in (2,4,8,32,64,128) and info.Type in (0x20000,0x40000):yield base,size
             address=base+size
-    def alive(self):
+    def alive(self)->bool:
         code=W.DWORD()
         return bool(self.handle and self.api.GetExitCodeProcess(self.handle,C.byref(code)) and code.value==259)
-    def close(self):
+    def close(self)->None:
         if self.handle:self.api.CloseHandle(self.handle);self.handle=None
 
-def validate_anchor(process,anchor):
+def validate_anchor(process:MemoryReader,anchor:int)->int:
     data=process.read(anchor,2914)
     if data[SIGNATURE_OFFSET:SIGNATURE_OFFSET+4]!=NEEDLE[:4]:raise DiscoveryError('Firma de equipo inválida.')
     party=decode_party(data)
@@ -122,14 +153,15 @@ def validate_anchor(process,anchor):
     decode_box(process.read(base+(BOX_BASE-LINEAR),BOX_SIZE))
     return base
 
-def discover_ram(process,progress=None,timeout=60,budget=4*1024**3,cancel=None):
-    started=time.monotonic();scanned=0;matches=[]
+def discover_ram(process:RegionReader,progress:Progress=None,timeout:float=60,
+                 budget:int=4*1024**3,cancel:Cancel=None)->int:
+    started=time.monotonic();scanned=0;matches:list[int]=[]
     regions=sorted(process.regions(),key=lambda r:r[1],reverse=True)
-    report={'schema_version':1,'pid':getattr(process,'pid',None),'process':getattr(process,'name',None),
+    report:Report={'schema_version':1,'pid':getattr(process,'pid',None),'process':getattr(process,'name',None),
             'readable_regions':len(regions),'readable_bytes':sum(size for _,size in regions),
             'regions_scanned':0,'bytes_scanned':0,'read_errors':0,'signatures_found':0,
             'rejections':[],'elapsed_seconds':0,'candidates':[]}
-    def fail(message):
+    def fail(message:str)->NoReturn:
         report['bytes_scanned']=scanned;report['elapsed_seconds']=round(time.monotonic()-started,2)
         raise DiscoveryError(message,report)
     for start,size in regions:
@@ -165,12 +197,13 @@ def discover_ram(process,progress=None,timeout=60,budget=4*1024**3,cancel=None):
     fail('No se encontró una RAM válida. Guarda diagnóstico; comprueba que la partida esté cargada.')
 
 class LimeProcessMemory:
-    def __init__(self,pid=None,progress=None,dynamic=False,cancel=None,generation=7):
+    def __init__(self,pid:int|None=None,progress:Progress=None,dynamic:bool=False,
+                 cancel:Cancel=None,generation:int=7)->None:
         if generation not in (6,7):raise ValueError('Generación inválida')
         self.generation=generation
         self.guest_start=0x08000000 if generation==6 else LINEAR
         self.guest_end=0x10000000 if generation==6 else LINEAR+256*1024**2
-        self.process=WindowsProcess(pid);self.base=None;self.party_address=PARTY
+        self.process=WindowsProcess(pid);self.base:int|None=None;self.party_address=PARTY
         try:
             # Central policy also protects the legacy interface. The boolean
             # remains accepted for compatibility; validation decides the layout.
@@ -178,20 +211,23 @@ class LimeProcessMemory:
             self.base,self.party_address=discover_dynamic_ram(
                 self.process,progress,cancel=cancel,generation=generation)
         except Exception:self.process.close();raise
-    def identify(self):return f'Windows · PID {self.process.pid} · RAM localizada'
-    def resume(self):pass # No debugger: does not pause or resume the emulator.
-    def read(self,address,length):
+    def identify(self)->str:return f'Windows · PID {self.process.pid} · RAM localizada'
+    def resume(self)->None:pass # No debugger: does not pause or resume the emulator.
+    def read(self,address:int,length:int)->bytes:
         if not getattr(self,'guest_start',LINEAR)<=address or address+length>getattr(self,'guest_end',LINEAR+256*1024**2) or not 1<=length<=65536:raise ValueError('Lectura fuera del rango de RAM del perfil.')
         if not self.process.alive():raise DiscoveryError('El emulador se cerró.')
+        # base is always set once __init__ (discovery) succeeded; cast is static only.
+        base=cast(int,self.base)
         # Signature catches a cleared/moved RAM allocation after an internal restart.
-        if self.process.read(self.base+getattr(self,'party_address',PARTY)-getattr(self,'guest_start',LINEAR)+SIGNATURE_OFFSET,4)!=struct.pack('<I',getattr(self,'party_address',PARTY)+128):
+        if self.process.read(base+getattr(self,'party_address',PARTY)-getattr(self,'guest_start',LINEAR)+SIGNATURE_OFFSET,4)!=struct.pack('<I',getattr(self,'party_address',PARTY)+128):
             invalidate_discovery_cache(self.process,self.generation if hasattr(self,'generation') else 7)
             raise DiscoveryError('Partida reiniciada o RAM trasladada. Esperando para localizarla nuevamente.')
-        return self.process.read(self.base+address-getattr(self,'guest_start',LINEAR),length)
-    def close(self):self.process.close()
+        return self.process.read(base+address-getattr(self,'guest_start',LINEAR),length)
+    def close(self)->None:self.process.close()
 
 
-def probe_gen6_region_ram(process, progress=None, cancel=None):
+def probe_gen6_region_ram(process:RegionReader,progress:Progress=None,
+                          cancel:Cancel=None)->tuple[Discovery|None,Report]:
     """Fast read-only Gen6 probe using known party locations inside large RAM maps.
 
     Citra/Lime3DS can keep the same guest RAM map without a currently valid
@@ -205,12 +241,12 @@ def probe_gen6_region_ram(process, progress=None, cancel=None):
     party_addresses=tuple(dict.fromkeys(
         address+delta for address in known for delta in (0,-128,128)
     ))
-    report={'schema_version':2,'mode':'gen6_direct_region','generation':6,
+    report:Report={'schema_version':2,'mode':'gen6_direct_region','generation':6,
             'pid':getattr(process,'pid',None),
             'process':getattr(process,'name',None),
             'regions_tested':0,'anchors_tested':0,
             'valid_candidates':0}
-    accepted={}
+    accepted:dict[Discovery,int]={}
     regions=sorted(process.regions(),key=lambda item:item[1],reverse=True)
     for start,size in regions:
         if cancel and cancel():raise DiscoveryCancelled('Búsqueda cancelada.')
@@ -243,7 +279,8 @@ def probe_gen6_region_ram(process, progress=None, cancel=None):
     return next(iter(accepted)),report
 
 
-def _scan_dynamic_ram(process,progress=None,timeout=90,budget=4*1024**3,cancel=None,generation=7):
+def _scan_dynamic_ram(process:RegionReader,progress:Progress=None,timeout:float=90,
+                      budget:int=4*1024**3,cancel:Cancel=None,generation:int=7)->Discovery:
     """Find self-referencing party wrappers without assuming the guest party address."""
     import re
     # Two nearby guest pointers; secondary wrapper offsets may differ.
@@ -253,12 +290,12 @@ def _scan_dynamic_ram(process,progress=None,timeout=90,budget=4*1024**3,cancel=N
     start_addr,end_addr=(0x08000000,0x10000000) if generation==6 else (LINEAR,LINEAR+256*1024**2)
     high_bytes=br'[\x08-\x0f]' if generation==6 else br'[\x30-\x3f]'
     pattern=re.compile(b'(?=(.{3}'+high_bytes+b'.{3}'+high_bytes+b'))',re.DOTALL)
-    report={'schema_version':2,'mode':'dynamic','generation':generation,'pid':getattr(process,'pid',None),
+    report:Report={'schema_version':2,'mode':'dynamic','generation':generation,'pid':getattr(process,'pid',None),
             'process':getattr(process,'name',None),'bytes_scanned':0,'read_errors':0,
             'wrappers':0,'rejections':[],'candidates':[],'regions_scanned':0,
             'elapsed_seconds':0}
-    start_time=time.monotonic();matches={}
-    def failed(message):
+    start_time=time.monotonic();matches:dict[Discovery,int]={}
+    def failed(message:str)->NoReturn:
         report['elapsed_seconds']=round(time.monotonic()-start_time,2)
         raise DiscoveryError(message,dict(report))
     for start,size in sorted(process.regions(),key=lambda r:r[1],reverse=True):
@@ -306,7 +343,7 @@ def _scan_dynamic_ram(process,progress=None,timeout=90,budget=4*1024**3,cancel=N
     failed('No se encontró un equipo válido. Guarda diagnóstico.')
 
 
-def game_hint_from_title(title):
+def game_hint_from_title(title:str|None)->str|None:
     """A UI hint only: never infer the current game from Pokémon origin data."""
     import unicodedata
     normalized=''.join(c for c in unicodedata.normalize('NFKD',title or '')
@@ -321,16 +358,16 @@ def game_hint_from_title(title):
     return None
 
 
-def window_titles():
+def window_titles()->dict[int,str]:
     if os.name!='nt':return {}
-    titles={}
+    titles:dict[int,str]={}
     user=C.WinDLL('user32',use_last_error=True)
     callback_type=C.WINFUNCTYPE(W.BOOL,W.HWND,W.LPARAM)
     user.GetWindowThreadProcessId.argtypes=[W.HWND,C.POINTER(W.DWORD)]
     user.GetWindowTextLengthW.argtypes=[W.HWND]
     user.GetWindowTextW.argtypes=[W.HWND,W.LPWSTR,C.c_int]
     user.EnumWindows.argtypes=[callback_type,W.LPARAM]
-    def visit(hwnd,param):
+    def visit(hwnd:int,param:int)->bool:
         length=user.GetWindowTextLengthW(hwnd)
         if length:
             pid=W.DWORD();user.GetWindowThreadProcessId(hwnd,C.byref(pid))
@@ -344,7 +381,7 @@ def window_titles():
     return titles
 
 
-def process_metadata(process,titles=None):
+def process_metadata(process:WindowsProcess,titles:dict[int,str]|None=None)->Report:
     creation,exit_time,kernel,user=(W.FILETIME() for _ in range(4))
     creation_id=None
     if process.api.GetProcessTimes(process.handle,C.byref(creation),C.byref(exit_time),C.byref(kernel),C.byref(user)):
@@ -354,14 +391,14 @@ def process_metadata(process,titles=None):
             'creation_id':creation_id,'game_hint':game_hint_from_title(title)}
 
 
-def list_emulator_instances():
+def list_emulator_instances()->list[Report]:
     """Read-only enumeration; access-denied entries remain selectable by PID."""
-    api=windows_api();titles=window_titles();result=[]
+    api=windows_api();titles=window_titles();result:list[Report]=[]
     for pid,name in list_lime_processes(api):
         title=titles.get(pid,'')
-        metadata={'pid':pid,'name':name,'title':title,'creation_id':None,
+        metadata:Report={'pid':pid,'name':name,'title':title,'creation_id':None,
                   'game_hint':game_hint_from_title(title)}
-        process=None
+        process:WindowsProcess|None=None
         try:
             process=WindowsProcess(pid)
             metadata=process_metadata(process,titles)
@@ -377,17 +414,19 @@ class DiscoveryLimit(DiscoveryError):pass
 
 class _ReadBudget:
     """One deadline and byte quota shared by cache, probes and slow fallback."""
-    def __init__(self,process,timeout,budget,cancel):
+    # Annotation only: set by _scan_dynamic_ram when the slow scan succeeds.
+    discovery_report:Report
+    def __init__(self,process:RegionReader,timeout:float,budget:int,cancel:Cancel)->None:
         self.process=process;self.started=time.monotonic();self.timeout=timeout
         self.budget=budget;self.cancel=cancel;self.bytes=0;self.reads=0
         self.pid=getattr(process,'pid',None);self.name=getattr(process,'name',None)
-    def check(self):
+    def check(self)->None:
         if self.cancel and self.cancel():raise DiscoveryCancelled('Búsqueda cancelada por una nueva solicitud.')
         if time.monotonic()-self.started>=self.timeout:
             raise DiscoveryLimit('Búsqueda dinámica alcanzó su límite de tiempo. Guarda diagnóstico.')
-    def regions(self):
+    def regions(self)->Iterator[Region]:
         for region in self.process.regions():self.check();yield region
-    def read(self,address,length):
+    def read(self,address:int,length:int)->bytes:
         self.check()
         if self.bytes+length>self.budget:
             raise DiscoveryLimit('Búsqueda dinámica alcanzó su límite de lectura. Guarda diagnóstico.')
@@ -397,11 +436,13 @@ class _ReadBudget:
         return data
 
 
-_DISCOVERY_CACHE=OrderedDict()
+CacheKey=tuple[int,str,int]
+"""(PID, process creation identity, generation)."""
+_DISCOVERY_CACHE:OrderedDict[CacheKey,Discovery]=OrderedDict()
 _CACHE_LOCK=Lock()
 
 
-def _cache_key(process,generation):
+def _cache_key(process:object,generation:int)->CacheKey|None:
     metadata=getattr(process,'metadata',None)
     if not isinstance(metadata,dict):return None
     identity=metadata.get('creation_id');pid=metadata.get('pid')
@@ -410,13 +451,13 @@ def _cache_key(process,generation):
     return (pid,str(identity),generation)
 
 
-def invalidate_discovery_cache(process,generation):
+def invalidate_discovery_cache(process:object,generation:int)->None:
     key=_cache_key(process,generation)
     if key is not None:
         with _CACHE_LOCK:_DISCOVERY_CACHE.pop(key,None)
 
 
-def _validate_pair(process,base,guest,generation):
+def _validate_pair(process:MemoryReader,base:int,guest:int,generation:int)->bool:
     start,end=(0x08000000,0x10000000) if generation==6 else (LINEAR,LINEAR+256*1024**2)
     if base<=0 or not start<=guest<=end-2914:return False
     anchor=base+guest-start
@@ -426,13 +467,13 @@ def _validate_pair(process,base,guest,generation):
     return bool(party[0] and process.read(anchor,2914)==raw)
 
 
-def probe_region_ram(process,generation=7):
+def probe_region_ram(process:RegionReader,generation:int=7)->tuple[Discovery|None,Report]:
     """Try a bounded set of known layouts, requiring unique coherent data."""
     from .profiles import POKEMON_X_10,OMEGA_RUBY_10
     guest_start=0x08000000 if generation==6 else LINEAR
     known=(POKEMON_X_10.party_address,OMEGA_RUBY_10.party_address) if generation==6 else (PARTY,)
     guests=tuple(dict.fromkeys(a+d for a in known for d in (0,-128,128)))
-    accepted=set();tested=0
+    accepted:set[Discovery]=set();tested=0
     for start,size in sorted(process.regions(),key=lambda item:item[1],reverse=True):
         if not 16*1024**2<=size<=8*1024**3:continue
         for skew in (0,32,64,96,128,256,512,1024,2048,4096):
@@ -444,21 +485,22 @@ def probe_region_ram(process,generation=7):
                     if _validate_pair(process,start+skew,guest,generation):accepted.add((start+skew,guest))
                 except (DiscoveryCancelled,DiscoveryLimit):raise
                 except (ValueError,OSError,DiscoveryError):continue
-    report={'mode':'region_probe','generation':generation,'anchors_tested':tested,
+    report:Report={'mode':'region_probe','generation':generation,'anchors_tested':tested,
             'valid_candidates':len(accepted),'ambiguous':len(accepted)>1}
     if len(accepted)>1:raise DiscoveryError('Varias copias de equipo válidas. Guarda diagnóstico.',report)
     return (next(iter(accepted)) if accepted else None),report
 
 
-def discover_dynamic_ram(process,progress=None,timeout=90,budget=4*1024**3,cancel=None,generation=7):
+def discover_dynamic_ram(process:RegionReader,progress:Progress=None,timeout:float=90,
+                         budget:int=4*1024**3,cancel:Cancel=None,generation:int=7)->Discovery:
     if generation not in (6,7):raise ValueError('Generación inválida')
     if timeout<=0 or budget<=0:raise ValueError('Límites de búsqueda inválidos')
     bounded=_ReadBudget(process,timeout,budget,cancel);key=_cache_key(process,generation)
-    source='region_probe';report={}
+    source='region_probe';report:Report={}
     try:
         bounded.check()
         with _CACHE_LOCK:cached=_DISCOVERY_CACHE.get(key) if key else None
-        found=None
+        found:Discovery|None=None
         if cached:
             try:
                 if _validate_pair(bounded,*cached,generation):found=cached;source='cache'

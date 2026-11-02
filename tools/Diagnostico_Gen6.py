@@ -4,6 +4,12 @@ import sys
 from dataclasses import replace
 from datetime import datetime,timezone
 from pathlib import Path
+
+# Fuera de PyInstaller el script vive en tools/; la raiz del repositorio
+# contiene el paquete tracker y la carpeta runtime/ del informe.
+ROOT=Path(sys.executable).resolve().parent if getattr(sys,'frozen',False) else Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:sys.path.insert(0,str(ROOT))
+
 from tracker.process_memory import LimeProcessMemory
 from tracker.profiles import PROFILES,capture_party
 from tracker.pokemon import decode_party
@@ -51,8 +57,7 @@ def main():
             'created_at':datetime.now(timezone.utc).isoformat(),
             'pc':{},'battle':{},'status':'incomplete',
             'privacy':'No contiene bytes crudos, nombres de entrenador, guardados ni credenciales.'}
-    base=Path(sys.executable).resolve().parent if getattr(sys,'frozen',False) else Path(__file__).resolve().parent
-    out=base/'runtime'/(
+    out=ROOT/'runtime'/(
         'diagnostico_gen6_'+datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')+'.json')
     reader=None
     try:

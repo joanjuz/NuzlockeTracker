@@ -67,7 +67,6 @@ class ServerTests(unittest.TestCase):
   self.assertEqual(self.request('POST','/api/command',body,{'X-Tracker-Token':'test-token','Origin':'https://example.com'})[0],403)
   self.assertEqual(self.request('POST','/api/command',body,{'X-Tracker-Token':'test-token'})[0],202);self.assertEqual(self.service.commands.get_nowait(),{'action':'scan'})
  def test_origin_change_requires_token_and_known_capture(self):
-  from tracker.demo import DemoService
   # Endpoint checks authorization before allowing a classification change.
   payload=json.dumps({'action':'set_origin','key':'33:1234','category':'fossil'})
   self.assertEqual(self.request('POST','/api/command',payload)[0],403)

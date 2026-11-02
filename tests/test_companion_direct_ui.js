@@ -32,7 +32,7 @@ const context = {
 };
 const settle = () => new Promise(resolve=>setImmediate(resolve));
 (async()=>{
-  vm.createContext(context);vm.runInContext(source,context);await settle();
+  vm.createContext(context);require('./ui_shared.js').loadShared(context);vm.runInContext(source,context);await settle();
   assert.equal(get('companion-create').hidden,true);
   assert.equal(get('companion-setup-key').closest().hidden,true);
   assert.equal(get('companion-url').closest().hidden,true);

@@ -13,9 +13,11 @@ console.log('Gen7: estados de validación y cajas guardadas identificados OK');
 const nodes={};const $=id=>nodes[id]??={hidden:true,disabled:false};const scripts=[];
 const loader={window:{},$,document:{createElement:()=>({}),body:{append:s=>scripts.push(s)}}};
 vm.createContext(loader);vm.runInContext(source.slice(source.indexOf('// Optional Companion dependency')),loader);
-loader.window.companionScriptFailed();assert.equal($('companion-load-error').hidden,false);
-$('companion-load-retry').onclick();$('companion-load-retry').onclick();assert.equal(scripts.length,1);
-assert.equal($('companion-load-retry').disabled,true);scripts[0].onerror();
-assert.equal($('companion-load-retry').disabled,false);$('companion-load-retry').onclick();assert.equal(scripts.length,2);
-scripts[1].onload();assert.equal($('companion-load-error').hidden,true);
+// Initial load is done by app.js (no inline onerror, CSP-friendly).
+assert.equal(scripts.length,1);assert.equal(scripts[0].src,'/companion.js');
+scripts[0].onerror();assert.equal($('companion-load-error').hidden,false);
+$('companion-load-retry').onclick();$('companion-load-retry').onclick();assert.equal(scripts.length,2);
+assert.equal($('companion-load-retry').disabled,true);scripts[1].onerror();
+assert.equal($('companion-load-retry').disabled,false);$('companion-load-retry').onclick();assert.equal(scripts.length,3);
+scripts[2].onload();assert.equal($('companion-load-error').hidden,true);
 console.log('Companion: error visible, reintento exclusivo y recuperación OK');

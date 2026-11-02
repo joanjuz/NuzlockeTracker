@@ -31,6 +31,7 @@ const ctx={
  confirm:()=>{throw Error('Nunca pedir confirmación por Muerte')}
 };
 vm.createContext(ctx);
+require('./ui_shared.js').loadShared(ctx,['list','GAME_FAMILIES','gameFamily']);
 vm.runInContext(src.slice(start,end),ctx);
 const clickStart=src.indexOf("$('places').addEventListener('click'");
 const clickEnd=src.indexOf("\n$('detail-content')",clickStart);
@@ -112,6 +113,17 @@ ctx.companionView=true;ctx.placeSignature='';ctx.renderPlaces();
 routes=get('places').children[0].innerHTML;
 assert.doesNotMatch(routes,/data-route-mark|data-route-undo|<select/);
 assert.match(routes,/data-route-trade="9" disabled/);
+// A websocket frame that only changes HP/IV keeps the drawn routes; a new nickname redraws.
+ctx.companionView=false;ctx.placeSignature='';ctx.renderPlaces();
+const drawn=get('places').children[0];
+ctx.state={...ctx.state,party:ctx.state.party.map(p=>p&&{...p,hp:1,iv:[1,2,3,4,5,6]})};
+ctx.renderPlaces();
+assert.equal(get('places').children[0],drawn,'Sin cambios visibles no se reconstruyen las rutas');
+ctx.state={...ctx.state,party:ctx.state.party.map(p=>p&&{...p,nickname:'Nuevo'})};
+ctx.renderPlaces();
+assert.notEqual(get('places').children[0],drawn,'Un mote nuevo sí redibuja las rutas');
+ctx.routeCatalog=[...ctx.routeCatalog];ctx.renderPlaces();
+assert.ok(get('places').children.length,'Un catálogo nuevo se acepta por identidad');
 const css=fs.readFileSync(path.join(__dirname,'../web/style.css'),'utf8');
 assert.match(css,/\.route-tile \.route-sprites\{[\s\S]*?flex-wrap:wrap/,
  'Los sprites comparten fila y solo saltan cuando falta ancho');

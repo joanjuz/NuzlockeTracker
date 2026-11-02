@@ -1,7 +1,5 @@
 import unittest
 from tracker.gen6_diagnostic import find_deposited_box
-from tracker.profiles import PROFILES
-from tracker.boxes import BOX_SIZE
 from test_gen6_compat import party_fixture
 
 class Memory:

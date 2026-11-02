@@ -36,7 +36,7 @@ No necesitas GitHub Pages. Cloudflare Worker atiende la autenticación HTTPS y D
 
 ## Primer jugador (ejemplo Ultra Sol)
 
-1. Ejecuta `Iniciar.bat` desde **la nueva carpeta Git** `D:\Progra\NuzlockeTracker`, abre Lime3DS con Ultra Sol 1.0 y conecta el tracker. Tu instalación anterior permanece intacta.
+1. Ejecuta `tools\Iniciar.bat` desde **la nueva carpeta Git** `D:\Progra\NuzlockeTracker`, abre Lime3DS con Ultra Sol 1.0 y conecta el tracker. Tu instalación anterior permanece intacta.
 2. Abre `··· → Sincronizar compañero`.
 3. La URL pública del Worker se muestra automáticamente. Introduce tu nombre y selecciona **Ultra Sol 1.0**. Para usar otro Worker, cambia la dirección en **Configuración avanzada del servidor**.
 4. Introduce la clave `CREATE_KEY` únicamente en el formulario local y pulsa **Crear pareja**. El formulario borra el campo de clave al finalizar.
@@ -45,7 +45,7 @@ No necesitas GitHub Pages. Cloudflare Worker atiende la autenticación HTTPS y D
 ## Segundo jugador (Ultra Luna)
 
 1. Recibe el enlace de invitación completo (URL del Worker y código) de su compañero.
-2. Ejecuta su propio `Iniciar.bat` con Ultra Luna 1.0, abre `··· → Sincronizar compañero`.
+2. Ejecuta su propio `tools\Iniciar.bat` con Ultra Luna 1.0, abre `··· → Sincronizar compañero`.
 3. Introduce su nombre y juego **Ultra Luna 1.0**, pega el enlace completo en **Invitación** y pulsa **Unirme a mi compañero**. **No necesita la clave CREATE_KEY**.
 
 El cliente observa los cambios locales y sube los nuevos datos tras un breve debounce de **350 ms** más la latencia de red; la copia remota se consulta al menos cada **5 segundos**. No es latencia cero ni reemplaza la conexión a Internet. Al conectar se leen automáticamente las **32 cajas**, que también se revisan aproximadamente cada **3 minutos**. Las escrituras por cambios exclusivamente de cajas se agrupan durante el barrido y se publican al finalizar. Cuando se desconecta el emulador se conserva la última sesión válida en D1; `runtime/companion-cache.json` permite verla si falla Internet.

@@ -8,7 +8,7 @@ import unittest
 from PIL import Image
 
 from tracker.layout_export import (
-    BLANK_PNG, PartyLayoutExporter, blank_sprite, custom_media_names,
+    BLANK_PNG, PartyLayoutExporter, custom_media_names,
     gif_to_outputs, validate_gif
 )
 

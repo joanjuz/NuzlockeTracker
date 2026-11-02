@@ -260,3 +260,6 @@ h1,h2,h3,.brand{font-weight:700;letter-spacing:.01em}.topbar nav button{font-wei
 @media(max-width:360px){.coverage-grid{grid-template-columns:1fr}.box-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 #delete-run-profile-dialog{width:min(480px,calc(100vw - 32px));max-height:85vh;overflow:auto}#delete-run-profile-dialog label{display:flex;flex-direction:column;gap:8px;margin:14px 0}#delete-run-profile-dialog input,#delete-run-profile-dialog select{width:100%}.dependency-error{position:fixed;bottom:16px;left:16px;right:16px;z-index:100;background:var(--surface);border:1px solid var(--accent);border-radius:12px;padding:16px;box-shadow:0 4px 18px #0005}.dependency-error button{margin-left:10px}
+/* Field borders reach 3:1 against their backgrounds (WCAG 1.4.11); other lines stay subtle. */
+:root,[data-theme="dark"]{--control-border:#6b6b6b}[data-theme="light"]{--control-border:#8a8a8a}
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),select{border-color:var(--control-border)}

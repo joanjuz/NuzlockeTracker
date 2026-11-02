@@ -3,12 +3,15 @@ import argparse,base64,hashlib,ipaddress,json,re,secrets,socket,struct,sys,threa
 from contextlib import nullcontext
 from http.server import ThreadingHTTPServer,BaseHTTPRequestHandler
 from pathlib import Path
-from urllib.parse import urlsplit
-from tracker.service import TrackerService
+from urllib.parse import urlsplit,parse_qs
 from tracker.process_memory import list_emulator_instances
 from companion.sync import CompanionSync
 from tracker.overlay import OverlayManager, DEFAULT
 from tracker.layout_export import fetch_sprite, validate_png
+from tracker.run_profiles import valid_profile_id
+from tracker import __version__, diaglog
+from tracker.item_sprites import ItemSprites
+from tracker.profiles import GEN6_GAMES
 ROOT=Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent))
 
 class TrackerHTTPServer(ThreadingHTTPServer):
@@ -27,9 +30,24 @@ def runtime_directory(root, profile=None):
     base=Path(root)/'runtime'
     if profile is None or profile == 'principal':
         return base  # Keep existing accounts/credentials in the original location.
-    if not isinstance(profile,str) or not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,31}',profile):
+    if not valid_profile_id(profile):
         raise ValueError('Perfil invalido: usa entre 1 y 32 letras minusculas, numeros, _ o -')
     return base/'profiles'/profile
+
+def content_security_policy(host):
+    """Defense in depth against injected markup: no inline scripts or on…=
+    handlers, no third-party scripts. 'unsafe-eval' stays because the
+    pywebview bridge builds its API functions with new Function()."""
+    ws=f' ws://{host}' if re.fullmatch(r'[0-9a-zA-Z.:\[\]-]{1,80}',host or '') else ''
+    return ("default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: blob: https://raw.githubusercontent.com; font-src 'self' data:; "
+            f"connect-src 'self'{ws}; frame-src 'self'; object-src 'none'; base-uri 'none'; "
+            "form-action 'self'; frame-ancestors 'self'")
+
+def companion_directory(runtime,demo=False):
+    """Demo data must never reach a real Soul Link pair: give it an empty,
+    separate credential folder instead of the profile's companion files."""
+    return Path(runtime)/'demo-companion' if demo else Path(runtime)
 
 def frame(payload,opcode=1):
     raw=payload.encode() if isinstance(payload,str) else payload
@@ -41,9 +59,10 @@ class RemoteOverlayShare:
     Las rutas remotas permiten leer el overlay, nunca acceder a /api/session,
     /api/state, /api/command, /ws ni publicar cambios.
     """
-    def __init__(self, service, overlay, preferred_port=8767):
+    def __init__(self, service, overlay, preferred_port=8767, sprite_cache=None):
         self.service = service
         self.overlay = overlay
+        self.sprite_cache = sprite_cache  # Item icons for OBS over the VPN.
         self.preferred_port = preferred_port
         self.lock = threading.RLock()
         self.server = None
@@ -76,7 +95,8 @@ class RemoteOverlayShare:
             if self.server and self.server.server_address[0] == ip:
                 return self.status()
             handler = make_handler(self.service, secrets.token_urlsafe(32),
-                                   overlay=self.overlay, remote_only=True)
+                                   overlay=self.overlay, remote_only=True,
+                                   sprite_cache=self.sprite_cache)
             try:
                 server = TrackerHTTPServer((ip, self.preferred_port), handler)
             except OSError as exc:
@@ -110,6 +130,7 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None,
     # Resolver sprites en el servidor evita depender del acceso GitHub/WebView2
     # de cada cliente y guarda lo descargado para uso sin conexión posterior.
     sprite_dir=Path(sprite_cache) if sprite_cache is not None else None
+    item_icons=ItemSprites(sprite_dir,allow_download=not remote_only) if sprite_dir is not None else None
     sprite_retry={}
     sprite_lock=threading.Lock()
     def sprite_bytes(ident):
@@ -140,14 +161,30 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None,
                 pass  # Mostrarlo aunque el cache no sea escribible.
         return raw
 
+    def fields(*keys):
+        # Narrow copy when the service offers it; never deep-copy 32 boxes
+        # just to read the revision or the connection status.
+        narrow=getattr(service,'snapshot_fields',None)
+        if callable(narrow):return narrow(*keys)
+        state=service.snapshot();return {k:state.get(k) for k in keys}
+    def current_revision():
+        with service.condition:return service.state['revision']
+
     class Handler(BaseHTTPRequestHandler):
+        # Idle or half-open sockets (also from the VPN share) must not keep a
+        # handler thread alive forever. The WebSocket sets its own timeout.
+        timeout=10
         def log_message(self,*args):pass
         def allowed(self):
             host=f'{self.server.server_address[0]}:{self.server.server_port}'
             return self.headers.get('Host')==host and self.headers.get('Origin',f'http://{host}')==f'http://{host}'
         def reply(self,code,data,kind='application/json'):
             raw=json.dumps(data,ensure_ascii=False).encode() if kind=='application/json' else data
-            self.send_response(code);self.send_header('Content-Type',kind);self.send_header('Content-Length',str(len(raw)));self.send_header('Cache-Control','no-store');self.end_headers();self.wfile.write(raw)
+            self.send_response(code);self.send_header('Content-Type',kind);self.send_header('Content-Length',str(len(raw)));self.send_header('Cache-Control','no-store')
+            if kind.startswith('text/html'):
+                self.send_header('Content-Security-Policy',content_security_policy(self.headers.get('Host','')))
+                self.send_header('X-Content-Type-Options','nosniff')
+            self.end_headers();self.wfile.write(raw)
         def do_GET(self):
             if not self.allowed():self.reply(403,{'error':'Origen inválido'});return
             path=urlsplit(self.path).path
@@ -156,6 +193,7 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None,
                                 '/api/overlay/public', '/api/overlay/settings',
                                 '/fonts/Oxanium.ttf', '/overlay/counter-icon.png')
                 media = (path.startswith('/overlay/media/pokemon_') or
+                         path.startswith('/overlay/item/') or
                          path.startswith('/overlay/font/') or
                          path.startswith('/overlay/hp-image/'))
                 if path not in remote_files and not media:
@@ -194,10 +232,19 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None,
                     raw=overlay.hp_image_bytes(match[1])
                     if raw is None:self.reply(404,{});return
                     self.reply(200,raw,'image/png');return
+                if path.startswith('/overlay/item/'):
+                    match=re.fullmatch(r'/overlay/item/([1-9][0-9]{0,3})\.png',path)
+                    raw=None
+                    if match and item_icons is not None:
+                        game=fields('game').get('game')
+                        raw=item_icons.png(int(match[1]),6 if game in GEN6_GAMES else 7)
+                    if raw is None:self.reply(404,{});return
+                    self.reply(200,raw,'image/png');return
                 if path.startswith('/overlay/media/pokemon_'):
                     match=re.fullmatch(r'/overlay/media/pokemon_([1-6])\.(gif|png|webp)',path)
                     if not match:self.reply(404,{});return
                     raw=overlay.image_bytes(int(match[1]),match[2])
+                    if raw is None:self.reply(404,{});return
                     self.reply(200,raw,'image/'+match[2]);return
                 overlay_files={
                     '/overlay':('web/overlay.html','text/html; charset=utf-8'),
@@ -212,7 +259,7 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None,
                     self.reply(200,(ROOT/name).read_bytes(),kind)
                     return
                 self.reply(404,{});return
-            if path=='/api/session':self.reply(200,{'token':token,'profile':profile,'saved_connection':service.config if service.snapshot().get('session_saved') else None});return
+            if path=='/api/session':self.reply(200,{'token':token,'version':__version__,'profile':profile,'saved_connection':service.config if service.snapshot().get('session_saved') else None});return
             if path=='/api/processes':
                 try:
                     processes = [{'pid': p['pid'], 'name': p.get('name', ''),
@@ -233,7 +280,11 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None,
                 self.reply(200,companion.status());return
             if path=='/api/analysis':
                 self.reply(200,{k:v for k,v in service.reference.analysis.items() if k!='pokemon'});return
-            if path=='/api/routes':self.reply(200,service.reference.routes(service.snapshot()['game']));return
+            if path=='/api/routes':
+                # ?game= lets the Companion view load the PARTNER's catalog.
+                requested=parse_qs(urlsplit(self.path).query).get('game',[None])[0]
+                game=requested if isinstance(requested,str) and 0<len(requested)<=40 else fields('game')['game']
+                self.reply(200,service.reference.routes(game));return
             if path.startswith('/api/move/'):
                 try:
                     suffix=path[len('/api/move/'): ]
@@ -241,7 +292,11 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None,
                     self.reply(200,service.reference.move(int(suffix),service.catalog))
                 except ValueError as exc:self.reply(404,{'error':str(exc)})
                 return
-            if path=='/api/diagnostic':self.reply(200,{'connection':service.snapshot()['connection'],'game':service.snapshot()['game'],'details':service.diagnostic or {}});return
+            if path=='/api/diagnostic':
+                current=fields('connection','game')
+                layout_error=getattr(getattr(profiles,'layout',None),'last_error',None)
+                self.reply(200,{'connection':current['connection'],'game':current['game'],'details':service.diagnostic or {},
+                                'layout_error':layout_error});return
             if path=='/ws':
                 if self.headers.get('Upgrade','').lower()!='websocket' or self.headers.get('Sec-WebSocket-Version')!='13':self.reply(400,{});return
                 key=self.headers.get('Sec-WebSocket-Key','')
@@ -257,13 +312,17 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None,
                         if state['revision']!=revision:
                             self.connection.sendall(frame(json.dumps(state,ensure_ascii=False)));revision=state['revision']
                         with service.condition:service.condition.wait_for(lambda:service.state['revision']!=revision or service.stop.is_set(),timeout=10)
-                        if service.snapshot()['revision']==revision:self.connection.sendall(frame(b'',9))
+                        if current_revision()==revision:self.connection.sendall(frame(b'',9))
                 except OSError:pass
                 self.close_connection=True;return
-            files={'/fonts/Oxanium.ttf':('web/fonts/Oxanium.ttf','font/ttf'),'/':('web/index.html','text/html; charset=utf-8'),'/app.js':('web/app.js','text/javascript; charset=utf-8'),'/analysis.js':('web/analysis.js','text/javascript; charset=utf-8'),'/companion.js':('web/companion.js','text/javascript; charset=utf-8'),'/companion.css':('web/companion.css','text/css; charset=utf-8'),'/style.css':('web/style.css','text/css; charset=utf-8'),'/empty-pokemon.svg':('web/empty-pokemon.svg','image/svg+xml'),'/app-icon.png':('web/app-icon.png','image/png')}
+            files={'/fonts/Oxanium.ttf':('web/fonts/Oxanium.ttf','font/ttf'),'/':('web/index.html','text/html; charset=utf-8'),'/app.js':('web/app.js','text/javascript; charset=utf-8'),'/analysis.js':('web/analysis.js','text/javascript; charset=utf-8'),'/companion.js':('web/companion.js','text/javascript; charset=utf-8'),'/companion.css':('web/companion.css','text/css; charset=utf-8'),'/theme.js':('web/theme.js','text/javascript; charset=utf-8'),'/style.css':('web/style.css','text/css; charset=utf-8'),'/empty-pokemon.svg':('web/empty-pokemon.svg','image/svg+xml'),'/app-icon.png':('web/app-icon.png','image/png')}
             if path in files:
                 name,kind=files[path];self.reply(200,(ROOT/name).read_bytes(),kind);return
             match=re.fullmatch(r'/soullink/sprite/([1-9][0-9]{0,4})\.png',path)
+            # An <img> on any external website could otherwise make the tracker
+            # download thousands of sprites. Browsers mark those cross-site.
+            if match and self.headers.get('Sec-Fetch-Site','same-origin') not in ('same-origin','none'):
+                self.reply(403,{'error':'Origen inválido'});return
             if match and 1<=int(match[1])<=10115:
                 raw=sprite_bytes(int(match[1]))
                 if raw is not None:
@@ -296,7 +355,7 @@ def make_handler(service,token,companion=None,profile='principal',overlay=None,
                     elif obj.get('action')=='select':result=profiles.switch_profile(obj.get('id'))
                     elif obj.get('action')=='delete':
                         ident=obj.get('id')
-                        if not isinstance(ident,str) or not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,31}',ident):
+                        if not valid_profile_id(ident):
                             raise ValueError('Perfil inválido.')
                         result=profiles.delete_profile(ident)
                     else:raise ValueError('Acción de perfil inválida')
@@ -395,6 +454,8 @@ def main():
     parser=argparse.ArgumentParser();parser.add_argument('--no-browser',action='store_true');parser.add_argument('--demo',action='store_true',help='Interfaz con datos simulados, sin emulador');parser.add_argument('--profile',help='Perfil local independiente (ej. segundo-jugador)');args=parser.parse_args()
     try:runtime=runtime_directory(ROOT,args.profile)
     except ValueError as error:parser.error(str(error))
+    diaglog.setup(runtime/'logs','demo' if args.demo else (args.profile or 'principal'))
+    diaglog.get('app').info('Inicio server.py %s%s',__version__,' (demo)' if args.demo else '')
     if not args.demo:
         # Reuse the desktop lifecycle so named runs behave the same in the
         # browser launcher, including locking and safe profile switches.
@@ -408,24 +469,34 @@ def main():
             if not args.no_browser:webbrowser.open(backend.url)
             while backend.http_thread.is_alive():backend.http_thread.join(timeout=.5)
         except KeyboardInterrupt:pass
-        finally:backend.close()
+        finally:backend.close();diaglog.close()
         return
-    if args.demo:
-        from tracker.demo import DemoService
-        service=DemoService(runtime/'demo-state.json')
-    else:service=TrackerService(runtime/'state.json')
-    companion=CompanionSync(service,runtime)
+    # Only the demo reaches this point (the normal launcher returned above).
+    from tracker.demo import DemoService
+    from tracker.layout_export import PartyLayoutExporter
+    service=DemoService(runtime/'demo-state.json')
+    companion=CompanionSync(service,companion_directory(runtime,True))
     companion.start()
-    overlay=OverlayManager(service,runtime,runtime/'layout')
-    share=RemoteOverlayShare(service,overlay)
+    # Own folder: demo sprites never overwrite a real run's OBS layout files.
+    demo_layout=runtime/'demo-layout'
+    overlay=OverlayManager(service,runtime/'demo-overlay',demo_layout,custom_dir=demo_layout/'sprites_personalizados')
+    layout=PartyLayoutExporter(service,demo_layout,cache_dir=ROOT/'sprite-cache',
+                               custom_dir=demo_layout/'sprites_personalizados')
+    layout.start()
+    share=RemoteOverlayShare(service,overlay,sprite_cache=ROOT/'sprite-cache')
     server=TrackerHTTPServer(('127.0.0.1',0),
         make_handler(service,secrets.token_urlsafe(32),companion,
                      profile=args.profile or 'principal',overlay=overlay,share=share,
-                     sprite_cache=runtime.parent/'sprite-cache'))
+                     sprite_cache=ROOT/'sprite-cache'))
     worker=threading.Thread(target=service.run,daemon=True);worker.start()
     url=f'http://127.0.0.1:{server.server_port}/';print('Tracker local: '+url+'\nPerfil: '+(args.profile or 'principal')+'\nMantén esta ventana abierta. Ctrl+C para cerrar.')
     if not args.no_browser:webbrowser.open(url)
     try:server.serve_forever()
     except KeyboardInterrupt:pass
-    finally:service.stop.set();share.close();companion.close();server.server_close()
+    finally:
+        service.stop.set()
+        with service.condition:service.condition.notify_all()
+        worker.join(timeout=5)
+        service.flush_state(force=True)  # last coalesced state.json write
+        share.close();layout.close();companion.close();server.server_close();diaglog.close()
 if __name__=='__main__':main()

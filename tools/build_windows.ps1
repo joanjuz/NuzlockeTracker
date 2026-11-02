@@ -4,7 +4,90 @@ $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 Set-Location $root
 
-& $Python -m pip install -r requirements-desktop.txt
+# --- Firma Authenticode opcional (docs/FIRMA_CODIGO.md) ----------------------
+# Solo se firma si existen WINDOWS_SIGN_PFX_BASE64 y WINDOWS_SIGN_PFX_PASSWORD.
+# Sin ellas la compilacion sigue igual y el EXE queda sin firmar. Los valores
+# nunca se imprimen; el PFX se decodifica a un archivo temporal que se borra
+# siempre. WINDOWS_SIGNTOOL permite indicar una ruta concreta a signtool.exe.
+function Find-SignTool {
+    if ($env:WINDOWS_SIGNTOOL) {
+        if (-not (Test-Path -LiteralPath $env:WINDOWS_SIGNTOOL)) { throw 'WINDOWS_SIGNTOOL no apunta a un archivo existente.' }
+        return $env:WINDOWS_SIGNTOOL
+    }
+    $onPath = Get-Command 'signtool.exe' -ErrorAction SilentlyContinue
+    if ($onPath) { return $onPath.Source }
+    $kits = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
+    if (Test-Path -LiteralPath $kits) {
+        $found = Get-ChildItem -LiteralPath $kits -Directory |
+            Where-Object { $_.Name -match '^\d+(\.\d+)+$' } |
+            Sort-Object { [version]$_.Name } -Descending |
+            ForEach-Object { Join-Path $_.FullName 'x64\signtool.exe' } |
+            Where-Object { Test-Path -LiteralPath $_ } |
+            Select-Object -First 1
+        if ($found) { return $found }
+    }
+    throw 'No se encontro signtool.exe (Windows SDK). Instala el SDK o define WINDOWS_SIGNTOOL.'
+}
+
+function Invoke-OptionalSigning([string]$File) {
+    $hasPfx = -not [string]::IsNullOrWhiteSpace($env:WINDOWS_SIGN_PFX_BASE64)
+    $hasPassword = -not [string]::IsNullOrEmpty($env:WINDOWS_SIGN_PFX_PASSWORD)
+    if (-not $hasPfx -and -not $hasPassword) {
+        Write-Host 'Firma de codigo omitida: no hay certificado configurado (EXE sin firmar).'
+        return $false
+    }
+    if (-not ($hasPfx -and $hasPassword)) {
+        throw 'Firma de codigo mal configurada: se necesitan WINDOWS_SIGN_PFX_BASE64 y WINDOWS_SIGN_PFX_PASSWORD.'
+    }
+    $signtool = Find-SignTool
+    $pfx = Join-Path ([IO.Path]::GetTempPath()) ('pt-sign-' + [guid]::NewGuid().ToString('N') + '.pfx')
+    try {
+        try {
+            [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_SIGN_PFX_BASE64.Trim()))
+        } catch {
+            # No reenviar la excepcion original: podria contener parte del valor.
+            throw 'WINDOWS_SIGN_PFX_BASE64 no es Base64 valido.'
+        }
+        # La contrasena nunca va en la linea de comandos de signtool (visible en
+        # la lista de procesos): se importa el PFX al almacen del usuario con
+        # SecureString y se firma por huella; el certificado se borra al final.
+        $secure = ConvertTo-SecureString -String $env:WINDOWS_SIGN_PFX_PASSWORD -AsPlainText -Force
+        try {
+            $cert = Import-PfxCertificate -FilePath $pfx -CertStoreLocation 'Cert:\CurrentUser\My' -Password $secure
+        } catch {
+            throw 'No se pudo importar el PFX: comprueba el archivo y la contrasena.'
+        }
+        $thumbprint = @($cert)[0].Thumbprint
+        Remove-Item -LiteralPath $pfx -Force
+        try {
+            # El servidor de sellado de tiempo puede fallar de forma transitoria.
+            $signed = $false
+            for ($attempt = 1; $attempt -le 3 -and -not $signed; $attempt++) {
+                & $signtool sign /fd SHA256 /td SHA256 /tr 'http://timestamp.digicert.com' `
+                    /d 'Pokemon Tracker' /s My /sha1 $thumbprint $File | Out-Host
+                if ($LASTEXITCODE -eq 0) { $signed = $true }
+                elseif ($attempt -lt 3) {
+                    Write-Host ("Firma fallida (intento $attempt de 3); reintentando...")
+                    Start-Sleep -Seconds (5 * $attempt)
+                }
+            }
+            if (-not $signed) { throw ('signtool no pudo firmar ' + (Split-Path $File -Leaf) + '.') }
+        } finally {
+            Get-ChildItem 'Cert:\CurrentUser\My' | Where-Object { $_.Thumbprint -eq $thumbprint } |
+                Remove-Item -DeleteKey -ErrorAction SilentlyContinue
+        }
+    } finally {
+        if (Test-Path -LiteralPath $pfx) { Remove-Item -LiteralPath $pfx -Force }
+    }
+    & $signtool verify /pa $File | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw ('La firma de ' + (Split-Path $File -Leaf) + ' no supera signtool verify /pa.') }
+    Write-Host ('Firmado y verificado: ' + (Split-Path $File -Leaf))
+    return $true
+}
+
+# Versiones exactas verificadas por hash (tools/update_desktop_lock.py) para
+# que dos compilaciones del mismo commit usen las mismas dependencias.
+& $Python -m pip install --require-hashes -r requirements-desktop.lock
 if ($LASTEXITCODE -ne 0) { throw 'No se pudieron instalar dependencias de escritorio.' }
 
 # --onefile prevents downloaded/extracted pythonnet DLLs from retaining the
@@ -29,6 +112,8 @@ if ($LASTEXITCODE -ne 0) { throw 'PyInstaller no pudo compilar PokemonTracker.ex
 $bundle = Join-Path $root 'dist'
 $exe = Join-Path $bundle 'PokemonTracker.exe'
 if (-not (Test-Path $exe)) { throw 'No se encontró PokemonTracker.exe.' }
+# Firmar antes del smoke test (prueba el EXE firmado) y antes del ZIP.
+$null = Invoke-OptionalSigning $exe
 # The ZIP contains just the self-extracting EXE, the app license and the guide.
 Copy-Item 'LICENSE.txt' (Join-Path $bundle 'LICENSE.txt')
 Copy-Item 'docs\INSTALACION_PORTABLE_WINDOWS.txt' (Join-Path $bundle 'LEEME.txt')

@@ -43,6 +43,17 @@ class ProcessMemoryTests(unittest.TestCase):
   self.assertEqual(error.diagnostic['winerror'],5)
   api.OpenProcess.assert_called_once_with(0x0400|0x0010,False,1432)
 
+ def test_handle_is_closed_when_metadata_fails_after_open_process(self):
+  from tracker.process_memory import WindowsProcess
+  api=Mock()
+  api.OpenProcess.return_value=4321
+  with patch('tracker.process_memory.windows_api',return_value=api), \
+       patch('tracker.process_memory.list_lime_processes',return_value=[(1432,'azahar-qt.exe')]), \
+       patch('tracker.process_memory.process_metadata',side_effect=OSError('EnumWindows falló')):
+   with self.assertRaises(OSError):
+    WindowsProcess(pid=1432)
+  api.CloseHandle.assert_called_once_with(4321)
+
  def test_all_emulators_use_validated_dynamic_policy_in_legacy_connector(self):
   # The service previously passed dynamic=False for Ultra Moon. The connector
   # must still select dynamic when the host is Azahar/Citra.

@@ -14,6 +14,8 @@ Este paquete es una **herramienta independiente para Windows** que investiga el 
 
 Al terminar se guarda un JSON en la carpeta **`runtime`** que queda junto al ejecutable, con nombre parecido a `diagnostico_gen6_20261010_XXXXXX.json`. Envíalo para analizar los candidatos. No contiene ROM, partida, contraseña, memoria cruda ni apodos, pero sí puede incluir PID y direcciones de memoria.
 
+Desde una copia del repositorio (con Python 3 de 64 bits) también puede ejecutarse `tools\Diagnostico_Gen6.bat`; en ese caso el JSON se guarda en la carpeta `runtime` de la raíz del repositorio.
+
 La búsqueda de PS puede tardar algunos minutos; la de cajas examina como máximo 128 MiB de RAM. Si una etapa falla o cancelas, igualmente se guarda el diagnóstico parcial.
 
 ### Estado del proyecto

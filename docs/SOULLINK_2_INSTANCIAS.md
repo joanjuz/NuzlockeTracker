@@ -3,8 +3,8 @@
 Desde v0.22.1 experimental, cada jugador necesita **su propio proceso del tracker**, no solo otra pestaña del navegador. Ambos procesos corren en puertos diferentes y guardan el progreso y las credenciales por separado.
 
 ## Preparación
-1. Mantén la pareja ya creada en el perfil **principal**: abre `Iniciar.bat` para ese jugador. Sus datos existentes en `runtime/` no cambian.
-2. Abre `Iniciar_Segundo_Jugador.bat` desde la misma carpeta. Se abre un segundo servidor con un puerto local diferente y el indicador **Sesión segundo-jugador**. Sus datos se guardan en `runtime/profiles/segundo-jugador/`.
+1. Mantén la pareja ya creada en el perfil **principal**: abre `tools\Iniciar.bat` para ese jugador. Sus datos existentes en `runtime/` no cambian.
+2. Abre `tools\Iniciar_Segundo_Jugador.bat` desde la misma carpeta. Se abre un segundo servidor con un puerto local diferente y el indicador **Sesión segundo-jugador**. Sus datos se guardan en `runtime/profiles/segundo-jugador/`.
 3. Abre dos procesos de Lime3DS: uno con Ultra Sol y otro con Ultra Luna, ambos con la partida cargada.
 4. En PowerShell, obtén los PID de ambos emuladores con:
 
@@ -18,8 +18,8 @@ Get-Process | Where-Object { $_.ProcessName -like 'lime3ds*' } | Select-Object I
 8. Cada proceso sincroniza su propio juego a Cloudflare y consulta la última sesión del otro. Tras vincularlos aparecerá el botón **Compañero**.
 
 ## Seguridad y almacenamiento
-- `Iniciar.bat` mantiene sus credenciales previas en `runtime/companion-credentials.json`; **no las borres**.
-- `Iniciar_Segundo_Jugador.bat` guarda su propia cuenta en `runtime/profiles/segundo-jugador/companion-credentials.json`.
+- `tools\Iniciar.bat` mantiene sus credenciales previas en `runtime/companion-credentials.json`; **no las borres**.
+- `tools\Iniciar_Segundo_Jugador.bat` guarda su propia cuenta en `runtime/profiles/segundo-jugador/companion-credentials.json`.
 - El archivo local `runtime/state.json` y el progreso anterior permanecen intactos. La sincronización no cambia la partida ni conecta dos ROM entre sí.
 - No compartas `CREATE_KEY`, tokens o archivos de `runtime`.
 - Si el código de invitación ya caducó, habrá que crear una pareja nueva desde el primer perfil (desvincular destruye los snapshots de la pareja anterior). No pulses Desvincular solo para abrir una segunda instancia.

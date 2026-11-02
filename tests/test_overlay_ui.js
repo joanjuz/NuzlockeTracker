@@ -57,8 +57,9 @@ for(const token of ['--page:#101010','--surface:#191919','--text:#f5f5f5',
 assert.match(editorCss,/\[data-theme="light"\]/);
 assert.match(editorCss,/\[data-theme="dark"\]/);
 assert.doesNotMatch(editorCss,/#101318|#1a1f29|#111721|#303949/i);
-assert.match(editor,/progressive-theme/);
-assert.match(editor,/addEventListener\('storage'/);
+assert.match(editor,/<script src="\/theme.js"><\/script>/);
+assert.match(read('theme.js'),/progressive-theme/);
+assert.match(read('theme.js'),/addEventListener\('storage'/);
 assert.match(edit,/status\.dataset\.error=String\(problem\)/);
 console.log('OBS overlay: capas separadas, personalización y sintaxis JavaScript OK');
 

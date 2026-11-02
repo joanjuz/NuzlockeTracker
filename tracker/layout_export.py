@@ -6,6 +6,7 @@ Never mutate source sprites, game saves, emulator memory or cloud credentials.
 from __future__ import annotations
 
 import io
+import logging
 import os
 import re
 import unicodedata
@@ -317,6 +318,7 @@ class PartyLayoutExporter:
         self.render_signatures = [None] * 6
         self.media_types = [None] * 6
         self.custom_cache = {}  # path -> (mtime_ns, size, validated media or None)
+        self.last_error = None  # last per-slot failure, for diagnostics
         self.directory.mkdir(parents=True, exist_ok=True)
         self.custom.mkdir(parents=True, exist_ok=True)
         # Guarantee six files immediately, including slots that are empty.
@@ -463,46 +465,84 @@ class PartyLayoutExporter:
                 tmp.unlink()
         return data
 
+    def _state(self):
+        # Only the party and the death keys are needed: avoid deep-copying the
+        # 32-box cache twice per second when the service offers a narrow copy.
+        fields = getattr(self.service, 'snapshot_fields', None)
+        if callable(fields):
+            return fields('party', 'progress')
+        return self.service.snapshot()
+
     def refresh(self):
-        state = self.service.snapshot()
+        state = self._state()
         party = state.get('party') or []
         deaths = (state.get('progress') or {}).get('deaths') or {}
         now = time.monotonic()
+        failed = None
         for i in range(6):
             mon = party[i] if i < len(party) else None
-            ident = sprite_id(mon)
-            if ident is None:
-                self.slots[i] = None
-                self.clear_slot(i)
-                continue
-            dead = pokemon_key(mon) in deaths
-            # User PNG/GIF changes are picked up on the next refresh.
-            # Animation conversion is cached when all inputs are unchanged.
-            custom = self.custom_media(mon, ident)
-            if custom is not None:
-                raw,kind=custom
-                self.slots[i]=ident
-                self.publish(i,ident,raw,animated=kind if kind!='png' else False,dead=dead)
-                continue
-            local = self.local_sprite(ident)
-            if local is not None:
-                self.slots[i] = ident
-                self.publish(i, ident, local, dead=dead)
-                continue
-            if self.slots[i] != ident:
-                self.slots[i] = ident
-                self.clear_slot(i)
-            future = self.futures.get(ident)
-            if future and future.done():
-                del self.futures[ident]
-                try:
-                    # Only use the downloaded sprite for the species currently
-                    # occupying this slot; keep custom priority intact.
-                    self.publish(i, ident, future.result(), dead=dead)
-                except Exception:
-                    self.retry_after[ident] = now + 30
-            elif future is None and now >= self.retry_after.get(ident, 0):
-                self.futures[ident] = self.pool.submit(self.download_and_store, ident)
+            try:
+                self._refresh_slot(i, mon, deaths, now)
+            except Exception as exc:
+                # One bad sprite (huge animation, damaged custom file) must not
+                # freeze the remaining slots or leave a dead Pokémon in color.
+                failed = f'Pokémon {i+1}: {exc}'
+                self._fallback_slot(i, mon, deaths)
+        # Diagnostics show the current problem only, not one already solved.
+        if failed != self.last_error:
+            if failed:
+                logging.getLogger('tracker.sprites').warning('Sprite OBS: %s', failed)
+            elif self.last_error:
+                logging.getLogger('tracker.sprites').info('Sprites OBS recuperados')
+        self.last_error = failed
+
+    def _fallback_slot(self, i, mon, deaths):
+        ident = sprite_id(mon)
+        if ident is None:
+            return
+        local = self.local_sprite(ident)
+        if local is None:
+            return
+        try:
+            self.publish(i, ident, local, dead=pokemon_key(mon) in deaths)
+            self.slots[i] = ident
+        except Exception:
+            pass  # refresh() already records this slot's error.
+
+    def _refresh_slot(self, i, mon, deaths, now):
+        ident = sprite_id(mon)
+        if ident is None:
+            self.slots[i] = None
+            self.clear_slot(i)
+            return
+        dead = pokemon_key(mon) in deaths
+        # User PNG/GIF changes are picked up on the next refresh.
+        # Animation conversion is cached when all inputs are unchanged.
+        custom = self.custom_media(mon, ident)
+        if custom is not None:
+            raw,kind=custom
+            self.slots[i]=ident
+            self.publish(i,ident,raw,animated=kind if kind!='png' else False,dead=dead)
+            return
+        local = self.local_sprite(ident)
+        if local is not None:
+            self.slots[i] = ident
+            self.publish(i, ident, local, dead=dead)
+            return
+        if self.slots[i] != ident:
+            self.slots[i] = ident
+            self.clear_slot(i)
+        future = self.futures.get(ident)
+        if future and future.done():
+            del self.futures[ident]
+            try:
+                # Only use the downloaded sprite for the species currently
+                # occupying this slot; keep custom priority intact.
+                self.publish(i, ident, future.result(), dead=dead)
+            except Exception:
+                self.retry_after[ident] = now + 30
+        elif future is None and now >= self.retry_after.get(ident, 0):
+            self.futures[ident] = self.pool.submit(self.download_and_store, ident)
 
     def run(self):
         while not self.stop.is_set():

@@ -10,9 +10,16 @@ import uuid
 from pathlib import Path
 
 
+PROFILE_ID = re.compile(r'[a-z0-9][a-z0-9_-]{0,31}')
+
+
+def valid_profile_id(value):
+    return isinstance(value, str) and PROFILE_ID.fullmatch(value) is not None
+
+
 def acquire_run_lock(home, profile):
     """Hold an OS lock until the returned file closes, including after crashes."""
-    if not isinstance(profile, str) or not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,31}', profile):
+    if not valid_profile_id(profile):
         raise ValueError('Perfil inválido.')
     directory = Path(home) / '.locks'
     directory.mkdir(parents=True, exist_ok=True)
@@ -41,7 +48,7 @@ class RunProfileStore:
         self.runtime = Path(runtime)
 
     def directory(self, ident):
-        if not isinstance(ident, str) or not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,31}', ident):
+        if not valid_profile_id(ident):
             raise ValueError('Perfil inválido.')
         candidate = self.runtime if ident == 'principal' else self.runtime / 'profiles' / ident
         if not candidate.resolve().is_relative_to(self.runtime.resolve()):

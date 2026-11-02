@@ -9,6 +9,7 @@ on:
     paths:
       - "desktop.py"
       - "requirements-desktop.txt"
+      - "requirements-desktop.lock"
       - "server.py"
       - "tracker/**"
       - "companion/**"
@@ -16,6 +17,7 @@ on:
       - "web/**"
       - "tests/test_desktop.py"
       - "tools/build_windows.ps1"
+      - "tools/Diagnostico_Gen6.*"
       - "docs/DESKTOP_WINDOWS.md"
       - ".github/workflows/windows-desktop.yml"
 
@@ -26,13 +28,13 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.13"
           architecture: x64
       - name: Instalar dependencias de escritorio
-        run: python -m pip install -r requirements-desktop.txt
+        run: python -m pip install --require-hashes -r requirements-desktop.lock
       - name: Pruebas Python
         run: python -m unittest discover -s tests -v
       - name: Compilar EXE Windows y paquete limpio
@@ -48,7 +50,7 @@ jobs:
           if (Test-Path '.\dist\tests') { throw 'El paquete contiene tests' }
           if (-not (Test-Path '.\dist\PokemonTracker.exe')) { throw 'Falta el EXE' }
       - name: Publicar ZIP para pruebas Windows
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: PokemonTracker-Windows-x64-onefile
           path: |
@@ -61,13 +63,13 @@ jobs:
       - name: Compilar diagnóstico Gen6 independiente
         shell: powershell
         run: |
-          python -m PyInstaller --noconfirm --clean --console --onefile --name Diagnostico_Gen6 Diagnostico_Gen6.py
+          python -m PyInstaller --noconfirm --clean --console --onefile --name Diagnostico_Gen6 --paths . tools/Diagnostico_Gen6.py
           if ($LASTEXITCODE -ne 0) { throw 'No se pudo compilar el diagnóstico Gen6' }
-          Copy-Item Diagnostico_Gen6.bat dist\Diagnostico_Gen6.bat
+          Copy-Item tools\Diagnostico_Gen6.bat dist\Diagnostico_Gen6.bat
           Copy-Item docs\DIAGNOSTICO_GEN6.md dist\LEEME_Diagnostico_Gen6.txt
           if (-not (Test-Path dist\Diagnostico_Gen6.exe)) { throw 'Falta el EXE Gen6' }
       - name: Publicar diagnóstico Gen6 Windows
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: PokemonTracker-Diagnostico-Gen6-Windows
           path: |

@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from http.server import ThreadingHTTPServer
 
-from tracker.overlay import OverlayManager, DEFAULT, validated_settings
+from tracker.overlay import OverlayManager, DEFAULT
 from tracker.layout_export import blank_sprite
 from tracker.service import TrackerService
 from server import make_handler, RemoteOverlayShare
