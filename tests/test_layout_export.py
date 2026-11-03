@@ -193,5 +193,19 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual(calls,['principal','segundo-jugador'])
 
 
+class SpriteImagesReexportTests(unittest.TestCase):
+    def test_layout_export_keeps_every_public_image_name(self):
+        # overlay, custom_sprites, api.static and item_sprites still import
+        # the image helpers from layout_export; they must be the same objects.
+        from tracker import layout_export, sprite_images
+        for name in layout_export.__all__:
+            self.assertTrue(hasattr(layout_export, name), name)
+        for name in ('BLANK_PNG', 'CUSTOM_EXTENSIONS', 'PNG_MAGIC', 'blank_sprite',
+                     'validate_png', 'validate_gif', 'grayscale_png', 'png_to_gif',
+                     'gif_to_outputs', 'animation_frames', 'animation_to_webp',
+                     'normalize_custom_sprite'):
+            self.assertIs(getattr(layout_export, name), getattr(sprite_images, name), name)
+
+
 if __name__ == '__main__':
     unittest.main()

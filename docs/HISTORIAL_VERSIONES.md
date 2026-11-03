@@ -1,3 +1,13 @@
+# 1.2.0 — Perfiles de estilo para OBS, lápidas y datos del Pokémon
+
+- Perfiles de estilo del overlay, fijables por fuente con `&preset=`.
+- Vista previa en vivo, estilo de muerte con lápida y animación, marco por hueco.
+- Capas de datos del Pokémon y de estadísticas de la partida.
+- Exportar e importar la configuración de OBS; sprites variocolor y hembra por conjunto.
+- Reorganización interna y herramienta de pruebas con memoria real anonimizada.
+
+[Notas completas de v1.2.0](releases/v1.2.0.md).
+
 # 1.1.0 — Conjuntos de sprites, cementerio en OBS e iconos de objetos
 
 - Conjuntos de sprites por subcarpeta, elegibles en el editor OBS, con respaldo en la carpeta principal.

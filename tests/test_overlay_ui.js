@@ -40,7 +40,9 @@ assert.match(edit,/\/api\/overlay\/font/);
 assert.match(edit,/\/api\/overlay\/settings/);
 assert.match(edit,/setTimeout\(save,350\)/);
 assert.match(edit,/new Option/);
-assert.doesNotMatch(editor,/id="preview"|Vista previa en tiempo real/);
+// La vista previa es el overlay real en un iframe del mismo origen (sin réplica propia).
+assert.match(editor,/<iframe id="preview-frame"[^>]*src="about:blank"/);
+assert.doesNotMatch(editor,/id="preview"/);
 assert.match(edit,/\/api\/overlay\/hp-image/);
 assert.match(edit,/\/api\/overlay\/share/);
 assert.match(client,/hp_custom_fill/);

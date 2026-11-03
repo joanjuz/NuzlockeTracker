@@ -15,7 +15,9 @@ from tracker import __version__
 
 # Lista blanca histórica de la VPN (server.py antes de tracker/api).
 REMOTE_EXACT = {'/overlay', '/overlay.js', '/overlay.css', '/api/overlay/public',
-                '/api/overlay/settings', '/fonts/Oxanium.ttf', '/overlay/counter-icon.png'}
+                '/api/overlay/settings', '/fonts/Oxanium.ttf', '/overlay/counter-icon.png',
+                # Added on purpose: death image and slot frame are part of the OBS look.
+                '/overlay/death-image', '/overlay/slot-frame.png'}
 REMOTE_PREFIXES = ('/overlay/media/pokemon_', '/overlay/item/', '/overlay/font/', '/overlay/hp-image/')
 # Added on purpose after the split: OBS graveyard sprites (read-only, by stable id).
 REMOTE_PATTERNS = {r'/overlay/graveyard/([0-9a-f]{12})'}

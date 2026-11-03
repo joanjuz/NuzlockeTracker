@@ -14,9 +14,47 @@ document.addEventListener('keyup',event=>{
   event.preventDefault();event.stopPropagation();
 },true);
 window.addEventListener('blur',()=>cardActivationKeys.clear());
-const nodes=Array.from({length:6},(_,i)=>{const node=document.createElement('article');node.className='card empty';node.innerHTML=`<strong>0${i+1}</strong><p>Esperando equipo</p>`;node.tabIndex=0;node.setAttribute('role','button');node.setAttribute('aria-label',`Abrir Pokémon ${i+1}`);node.onclick=()=>openDetail(state?.party[i],`party:${i}`);node.onkeydown=e=>activatePartyCard(e,node);$('party').append(node);return node});
-function portrait(p){const id=spriteId(p.species_id);return `<div class="portrait"><img src="/sprites/${id}.png" data-fallback="${id}" alt="${esc(p.species)}" loading="lazy"><div class="sprite-fallback" hidden>${num(p.species_id)}</div><div><h2>${esc(p.nickname||p.species)}</h2><p>${esc(p.species)} · ${p.level?`Nivel ${num(p.level)}`:'En caja'}</p></div></div>`}
-function card(p,i){if(!p)return `<strong>0${i+1}</strong><p>Sin Pokémon</p>`;const ratio=Number(p.hp)/Number(p.max_hp)*100,hp=Number.isFinite(ratio)?Math.max(0,Math.min(100,ratio)):0;return `<div class="card-top"><span>EQUIPO / 0${i+1}</span><span>${p.hp===0?'DEBILITADO':`NIVEL ${num(p.level)}`}</span></div>${portrait(p)}<div class="hp-label"><span>PS</span><span>${num(p.hp)} / ${num(p.max_hp)}</span></div><div class="hp-track"><span style="width:${hp}%"></span></div><div class="stats">${labels.map(([key,name])=>`<div class="stat"><small>${name}</small><strong>${num(p.stats?.[key])}</strong></div>`).join('')}</div><div class="traits"><div><span>Habilidad</span>${esc(p.ability)}</div><div><span>Objeto</span>${itemIcon(p)}${esc(p.item)}</div><div><span>Origen</span>${esc(p.met_location||'Sin lugar registrado')}</div></div><div class="moves">${list(p.move_names).map(m=>`<div class="move">${esc(m)}</div>`).join('')}</div>`}
+const nodes=Array.from({length:6},(_,i)=>{
+  const node=document.createElement('article');
+  node.className='card empty';
+  node.innerHTML=`<strong>0${i+1}</strong><p>Esperando equipo</p>`;
+  node.tabIndex=0;
+  node.setAttribute('role','button');
+  node.setAttribute('aria-label',`Abrir Pokémon ${i+1}`);
+  node.onclick=()=>openDetail(state?.party[i],`party:${i}`);
+  node.onkeydown=e=>activatePartyCard(e,node);
+  $('party').append(node);
+  return node;
+});
+function portrait(p){
+  const id=spriteId(p.species_id);
+  return `<div class="portrait"><img src="/sprites/${id}.png" data-fallback="${id}" alt="${esc(p.species)}" loading="lazy">`
+    +`<div class="sprite-fallback" hidden>${num(p.species_id)}</div>`
+    +`<div><h2>${esc(p.nickname||p.species)}</h2><p>${esc(p.species)} · ${p.level?`Nivel ${num(p.level)}`:'En caja'}</p></div></div>`;
+}
+// HP bar width in percent, clamped to 0-100; unknown values draw an empty bar.
+function hpPercent(p){
+  const ratio=Number(p.hp)/Number(p.max_hp)*100;
+  return Number.isFinite(ratio)?Math.max(0,Math.min(100,ratio)):0;
+}
+function cardStats(p){
+  return labels.map(([key,name])=>`<div class="stat"><small>${name}</small><strong>${num(p.stats?.[key])}</strong></div>`).join('');
+}
+function cardTraits(p){
+  return `<div><span>Habilidad</span>${esc(p.ability)}</div>`
+    +`<div><span>Objeto</span>${itemIcon(p)}${esc(p.item)}</div>`
+    +`<div><span>Origen</span>${esc(p.met_location||'Sin lugar registrado')}</div>`;
+}
+function card(p,i){
+  if(!p)return `<strong>0${i+1}</strong><p>Sin Pokémon</p>`;
+  return `<div class="card-top"><span>EQUIPO / 0${i+1}</span><span>${p.hp===0?'DEBILITADO':`NIVEL ${num(p.level)}`}</span></div>`
+    +portrait(p)
+    +`<div class="hp-label"><span>PS</span><span>${num(p.hp)} / ${num(p.max_hp)}</span></div>`
+    +`<div class="hp-track"><span style="width:${hpPercent(p)}%"></span></div>`
+    +`<div class="stats">${cardStats(p)}</div>`
+    +`<div class="traits">${cardTraits(p)}</div>`
+    +`<div class="moves">${list(p.move_names).map(m=>`<div class="move">${esc(m)}</div>`).join('')}</div>`;
+}
 // Held item icon served by the local tracker (custom icons included); spriteFallback hides it on 404.
 // Partner snapshots get none: their item ids may be missing or belong to another game.
 function itemIcon(p){

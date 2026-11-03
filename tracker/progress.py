@@ -1,4 +1,6 @@
 """Local, durable run annotations; independent of emulator and browser sessions."""
+from __future__ import annotations
+
 import copy
 import json
 import os
@@ -6,19 +8,24 @@ import re
 import shutil
 from collections import Counter
 from datetime import datetime, timezone
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 
 ORIGIN_CATEGORIES = ('route', 'fossil', 'gift', 'egg', 'trade')
 ORIGIN_KEY_PATTERN = re.compile(r'[0-9]{1,3}:[0-9]{1,10}\Z')
 MAX_ENCOUNTERS = 1200
+# Pokémon dict from tracker/pokemon.py and the persisted history (JSON).
+Pokemon = Mapping[str, Any]
+JSONDict = dict[str, Any]
 # Identity and encounter place only: never persist a full PK7 or expose ROM bytes.
 ENCOUNTER_FIELDS = ('species_id', 'species', 'nickname', 'origin_version',
                     'encryption_constant', 'met_location_id', 'met_location',
                     'egg_location_id', 'egg')
 
 
-def origin_category(pokemon, overrides=None):
+def origin_category(pokemon: Pokemon, overrides: Mapping[str | None, str] | None = None) -> str:
     """Conservative classification; never infer a fossil/gift from species or location.
 
     The game preserves the egg acquisition location even after hatching.
@@ -26,7 +33,7 @@ def origin_category(pokemon, overrides=None):
     """
     key = pokemon_key(pokemon)
     chosen = (overrides or {}).get(key)
-    if chosen in ORIGIN_CATEGORIES:
+    if chosen is not None and chosen in ORIGIN_CATEGORIES:
         return chosen
     if pokemon.get('egg') is True or (
         type(pokemon.get('egg_location_id')) is int
@@ -36,7 +43,7 @@ def origin_category(pokemon, overrides=None):
     return 'route'
 
 
-def pokemon_key(p):
+def pokemon_key(p: Pokemon) -> str | None:
     # EC stays unchanged when a Pokémon evolves, is renamed or changes slots.
     ec = p.get('encryption_constant')
     if type(ec) is not int:
@@ -45,16 +52,16 @@ def pokemon_key(p):
 
 
 class RunProgress:
-    def __init__(self, path):
+    def __init__(self, path: str | os.PathLike[str]) -> None:
         self.path = Path(path)
         # recovered_from: None (normal load), 'backup' or 'empty' after a
         # corrupt file was quarantined. dirty: in-memory changes not on disk.
-        self.recovered_from = None
+        self.recovered_from: str | None = None
         self.dirty = False
-        self.last_save_error = None
+        self.last_save_error: str | None = None
         # Only a file this instance loaded or wrote may become the .bak copy.
         self.disk_verified = False
-        self.data = self.empty_data()
+        self.data: JSONDict = self.empty_data()
         if self.path.exists():
             # OSError while reading (locked file) propagates on purpose:
             # starting empty would later overwrite a valid history.
@@ -64,23 +71,22 @@ class RunProgress:
                 self.disk_verified = True
             except (ValueError, TypeError, AttributeError, RecursionError):
                 self.quarantine()
-                self.data = self.load_backup()
-                self.recovered_from = 'empty' if self.data is None else 'backup'
-                if self.data is None:
-                    self.data = self.validated(self.empty_data())
+                backup = self.load_backup()
+                self.recovered_from = 'empty' if backup is None else 'backup'
+                self.data = self.validated(self.empty_data()) if backup is None else backup
                 self.persist()
         else:
             self.data = self.validated(self.data)
 
     @staticmethod
-    def empty_data():
+    def empty_data() -> JSONDict:
         return {'deaths': {}, 'missed_routes': [], 'origins': {}, 'encounters': {}, 'route_marks': {}, 'traded_routes': []}
 
     @property
-    def backup_path(self):
+    def backup_path(self) -> Path:
         return self.path.with_name(self.path.name + '.bak')
 
-    def quarantine(self):
+    def quarantine(self) -> None:
         """Keep the damaged file for manual inspection; never delete it."""
         stamp = datetime.now().strftime('%Y%m%d-%H%M%S')
         target = self.path.with_name(f'{self.path.name}.corrupt-{stamp}')
@@ -96,14 +102,14 @@ class RunProgress:
             except OSError:
                 pass
 
-    def load_backup(self):
+    def load_backup(self) -> JSONDict | None:
         try:
             return self.validated(json.loads(self.backup_path.read_text(encoding='utf-8')))
         except (OSError, ValueError, TypeError, AttributeError, RecursionError):
             return None
 
     @staticmethod
-    def validated(data):
+    def validated(data: Any) -> JSONDict:
         """Return the normalized history or raise ValueError/TypeError."""
         if not isinstance(data, dict):
             raise ValueError('El registro de la aventura no tiene un formato válido.')
@@ -146,10 +152,11 @@ class RunProgress:
             raise ValueError('Lectura histórica de cajas inválida')
         data.setdefault('revived_pending', [])
         data.setdefault('death_count', len(data['deaths']))
-        return data
+        result: JSONDict = data
+        return result
 
     @staticmethod
-    def encounter_record(p):
+    def encounter_record(p: Any) -> JSONDict | None:
         if not isinstance(p, dict) or p.get('checksum_valid') is not True:
             return None
         key = pokemon_key(p)
@@ -159,7 +166,7 @@ class RunProgress:
             return None
         return {field: copy.deepcopy(p[field]) for field in ENCOUNTER_FIELDS if field in p}
 
-    def remember(self, party, boxes):
+    def remember(self, party: list[Any] | None, boxes: Mapping[str, list[Any]] | None) -> bool:
         """Remember genuine, verified encounters across PC reads and trades.
 
         A missing Pokémon is not declared traded: the user must confirm that.
@@ -181,7 +188,7 @@ class RunProgress:
             self.persist()
         return changed
 
-    def observe_full_scan(self, party, boxes, box_count=32):
+    def observe_full_scan(self, party: Any, boxes: Any, box_count: int = 32) -> bool:
         """Auto-confirm only 1-for-1 trade-like replacements after TWO full verified scans.
 
         Neither moving to another box nor disappearing from a partial PC scan
@@ -193,7 +200,7 @@ class RunProgress:
             or any(not isinstance(v,list) or len(v)!=30 for v in boxes.values())
             or not isinstance(party,list) or len(party)!=6):
             return False
-        current={}
+        current: dict[str, int | None] = {}
         for p in [*party,*(mon for box in boxes.values() for mon in box)]:
             rec=self.encounter_record(p)
             if rec is None:
@@ -201,11 +208,12 @@ class RunProgress:
                     return False
                 continue
             key=pokemon_key(p)
+            assert key is not None  # encounter_record() guarantees an identity.
             if key in current and current[key]!=p.get('ot_id'):
                 return False
             ot=p.get('ot_id')
             current[key]=ot if type(ot) is int and 0<=ot<=0xffffffff else None
-        previous=self.data.get('full_scan_baseline',{})
+        previous: dict[str, int | None] = self.data.get('full_scan_baseline',{})
         if previous==current:
             return False
         if not previous:
@@ -241,7 +249,7 @@ class RunProgress:
         self.persist()
         return marked
 
-    def set_traded_route(self, route, traded):
+    def set_traded_route(self, route: str, traded: bool) -> bool:
         routes=set(self.data['traded_routes'])
         prior_misses=list(self.data['missed_routes'])
         if traded:
@@ -251,14 +259,15 @@ class RunProgress:
         else:
             routes.discard(route)
         value=sorted(routes,key=int)
-        changed=(value!=self.data['traded_routes'] or
+        current: list[str] = self.data['traded_routes']
+        changed=(value!=current or
                  prior_misses!=self.data['missed_routes'])
         if changed:
             self.data['traded_routes']=value
             self.persist()
         return changed
 
-    def mark_route(self, pokemon, kind, source='manual'):
+    def mark_route(self, pokemon: Pokemon, kind: str, source: str = 'manual') -> bool:
         """Mark the route of an OUTGOING trade or a fossil; reversible."""
         if kind not in ('trade','fossil') or source not in ('manual','auto'):
             raise ValueError('Tipo u origen de marca inválido')
@@ -277,14 +286,14 @@ class RunProgress:
         self.persist()
         return True
 
-    def clear_route_mark(self, key):
+    def clear_route_mark(self, key: str) -> bool:
         if key not in self.data['route_marks']:
             return False
         del self.data['route_marks'][key]
         self.persist()
         return True
 
-    def observe(self, party):
+    def observe(self, party: list[Any]) -> bool:
         changed = False
         for p in party:
             if not p or p.get('egg') or p.get('checksum_valid') is not True:
@@ -309,7 +318,7 @@ class RunProgress:
             self.persist()
         return changed
 
-    def mark_dead(self, pokemon, source='manual'):
+    def mark_dead(self, pokemon: Pokemon, source: str = 'manual') -> bool:
         """Record a death, distinguishing a partner response from a new loss.
 
         Soul Link responses still count as deaths, but must not trigger
@@ -332,7 +341,7 @@ class RunProgress:
         self.persist()
         return True
 
-    def revive(self, key, decrement_counter=False):
+    def revive(self, key: str, decrement_counter: bool = False) -> None:
         if key not in self.data['deaths']:
             return
         del self.data['deaths'][key]
@@ -342,7 +351,7 @@ class RunProgress:
             self.data['revived_pending'].append(key)
         self.persist()
 
-    def set_origin(self, pokemon, category):
+    def set_origin(self, pokemon: Pokemon, category: str) -> bool:
         """Persistent per-Pokémon classification; 'auto' resets the override."""
         if category != 'auto' and category not in ORIGIN_CATEGORIES:
             raise ValueError('Categoría de obtención inválida')
@@ -360,7 +369,7 @@ class RunProgress:
             return True
         return False
 
-    def set_miss(self, route, missed):
+    def set_miss(self, route: str, missed: bool) -> None:
         routes = set(self.data['missed_routes'])
         if missed:
             routes.add(route)
@@ -371,7 +380,7 @@ class RunProgress:
             self.data['missed_routes'] = value
             self.persist()
 
-    def save(self):
+    def save(self) -> None:
         """Atomic, durable write. Raises OSError; mutators use persist()."""
         self.path.parent.mkdir(parents=True, exist_ok=True)
         temporary = self.path.with_suffix('.tmp')
@@ -403,7 +412,7 @@ class RunProgress:
         self.dirty = False
         self.last_save_error = None
 
-    def persist(self):
+    def persist(self) -> bool:
         """Save without propagating disk errors.
 
         The change stays in memory and is marked dirty; flush() (called by
@@ -418,7 +427,7 @@ class RunProgress:
             self.last_save_error = str(exc)[:200]
             return False
 
-    def flush(self):
+    def flush(self) -> bool:
         """Retry a pending save. Returns True when nothing is left unsaved."""
         if not self.dirty:
             return True

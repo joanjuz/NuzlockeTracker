@@ -45,8 +45,8 @@ for (const theme of ['dark', 'light']) {
 assert.match(css, /input:not\(\[type="checkbox"\]\):not\(\[type="radio"\]\):not\(\[type="file"\]\),select\{border-color:var\(--control-border\)\}/);
 
 // Compact view preference survives a storage that throws.
-const line = app.split(/\r?\n/).find(text => text.startsWith('let compact='));
-assert.ok(line && line.trimEnd().endsWith('density()};'), 'La preferencia de densidad vive en una sola línea');
+const line = require('./ui_shared.js').slice('app/shell.js', 'let compact=', "\ndocument.addEventListener('pointerdown'");
+assert.match(line, /\$\('density'\)\.onclick=/, 'El bloque de densidad incluye el manejador del botón');
 const classes = new Set();
 const density = {textContent: '', onclick: null};
 const ctx = {

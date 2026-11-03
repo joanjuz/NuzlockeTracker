@@ -110,11 +110,19 @@ function renderBoxes(){
 }
 function gen7ScanStatus(snapshot){
   const count=Object.keys(snapshot.boxes||{}).length;
-  const pending={pending:'Verificando la dirección de las cajas',pending_empty:'PC vacío: dirección pendiente de confirmar; deposita un Pokémon y vuelve a leer',ambiguous:'Se encontraron varias ubicaciones de cajas; vuelve a leer para confirmar',invalid:'No se pudieron validar las cajas; vuelve a leer'};
+  const pending={
+    pending:'Verificando la dirección de las cajas',
+    pending_empty:'PC vacío: dirección pendiente de confirmar; deposita un Pokémon y vuelve a leer',
+    ambiguous:'Se encontraron varias ubicaciones de cajas; vuelve a leer para confirmar',
+    invalid:'No se pudieron validar las cajas; vuelve a leer'
+  };
   const unverified=snapshot.box_verified===false;
   const label=unverified?(pending[snapshot.box_status]||'Dirección de cajas sin validar')+' · ':'';
   const cached=unverified&&count?' · Cajas guardadas: no verificadas en esta conexión':'';
-  return label+count+' / 32 cajas leídas'+cached+(snapshot.scan?.active?' · Lectura global: '+snapshot.scan.completed+' / 32':snapshot.stale&&count?' · Última lectura guardada (sin conexión)':'');
+  const progress=snapshot.scan?.active
+    ?' · Lectura global: '+snapshot.scan.completed+' / 32'
+    :snapshot.stale&&count?' · Última lectura guardada (sin conexión)':'';
+  return label+count+' / 32 cajas leídas'+cached+progress;
 }
 function gen6ScanStatus(snapshot){
   return 'Gen6 experimental: '
@@ -122,4 +130,21 @@ function gen6ScanStatus(snapshot){
     +` · ${Object.keys(snapshot.boxes).length} / 31 cajas leídas`
     +(snapshot.scan.active?` · Escaneo: ${snapshot.scan.completed}/31`:'');
 }
-$('box').onchange=()=>{renderBoxes();command({action:'box',number:Number($('box').value)})};$('search').oninput=renderBoxes;$('global').onchange=renderBoxes;$('living-dex').onchange=()=>{$('box').disabled=$('living-dex').checked;$('global').disabled=$('living-dex').checked;$('living-dex-sprites').disabled=!$('living-dex').checked;boxSignature='';renderBoxes()};$('living-dex-sprites').onchange=()=>{boxSignature='';renderBoxes()};$('cancel').onclick=()=>command({action:'cancel'});
+$('box').onchange=()=>{
+  renderBoxes();
+  command({action:'box',number:Number($('box').value)});
+};
+$('search').oninput=renderBoxes;
+$('global').onchange=renderBoxes;
+$('living-dex').onchange=()=>{
+  $('box').disabled=$('living-dex').checked;
+  $('global').disabled=$('living-dex').checked;
+  $('living-dex-sprites').disabled=!$('living-dex').checked;
+  boxSignature='';
+  renderBoxes();
+};
+$('living-dex-sprites').onchange=()=>{
+  boxSignature='';
+  renderBoxes();
+};
+$('cancel').onclick=()=>command({action:'cancel'});

@@ -1,5 +1,12 @@
 # Progressive Tracker
 
+## v1.2.0: perfiles de estilo para OBS, lápidas y datos del Pokémon
+
+Guarda varios estilos de overlay y fija uno por fuente de OBS, elige cómo se ve un
+Pokémon caído (gris, oculto o lápida, con animación), añade nivel, tipos, shiny y
+sexo, estadísticas de la partida y un marco por hueco, y respalda toda la
+configuración de OBS en un archivo. Consulta las [notas de la versión](docs/releases/v1.2.0.md).
+
 ## v1.1.0: conjuntos de sprites, cementerio en OBS e iconos de objetos
 
 Cada subcarpeta de `sprites_personalizados` es un conjunto de sprites que eliges en
@@ -35,7 +42,7 @@ la distribución publicada se encuentra en GitHub Releases.
 
 **Progressive Tracker** (antes *Pokémon Tracker*) es una aplicación local para Windows que lee los datos de Pokémon desde la memoria del emulador, organiza aventuras Nuzlocke y Soul Link y genera fuentes visuales para OBS.
 
-> **Versión de descarga:** **v1.1.0**, con conjuntos de sprites, cementerio en OBS, objetos en OBS, perfiles independientes, Soul Link directo, seis juegos y contadores OBS. La versión descargable es una aplicación **portable**: no hace falta instalar Python ni Node.js.
+> **Versión de descarga:** **v1.2.0**, con perfiles de estilo para OBS, conjuntos de sprites, cementerio en OBS, objetos en OBS, perfiles independientes, Soul Link directo, seis juegos y contadores OBS. La versión descargable es una aplicación **portable**: no hace falta instalar Python ni Node.js.
 
 ## Descargar para Windows
 
@@ -89,11 +96,14 @@ powershell -ExecutionPolicy Bypass -File tools/build_windows.ps1
 
 Los lanzadores de desarrollo están en `tools/`: `tools\Iniciar.bat` (lectura real), `tools\Iniciar_Demo.bat` (o `bash tools/Iniciar_Demo.sh` en Linux), `tools\Iniciar_Segundo_Jugador.bat` y los diagnósticos `tools\Diagnostico_Gen6.bat` y `tools\Diagnostico_Combate.bat`. Cada uno cambia a la raíz del repositorio antes de ejecutar Python, así que pueden abrirse con doble clic.
 
+Para crear una prueba de regresión con tu partida real, abre el emulador con el juego cargado y ejecuta `python tools/capture_ram_fixture.py --label equipo-ruta-1`: guarda solo los bytes que el tracker decodifica, con motes, entrenador e identificadores anonimizados, en `tests/fixtures/ram/`.
+
 Las compilaciones y pruebas se ejecutan en GitHub Actions. El flujo de release genera el ZIP desde Windows, ejecuta pruebas, verifica que el EXE se inicia y publica la descarga junto a su hash SHA-256.
 
 ## Documentación
 
 - [Instalación de la versión portable](docs/INSTALACION_PORTABLE_WINDOWS.txt)
+- [Notas de la versión v1.2.0](docs/releases/v1.2.0.md)
 - [Notas de la versión v1.1.0](docs/releases/v1.1.0.md)
 - [Notas de la versión v1.0.0](docs/releases/v1.0.0.md)
 - [Notas de la versión v0.25.0](docs/releases/v0.25.0.md)

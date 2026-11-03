@@ -30,6 +30,11 @@ def decode_slot(snapshot, index, max_species=807):
     if species == 0: return None
     if not 1 <= species <= max_species or data[28] >= 25: raise ValueError('Datos fuera del perfil Pokémon correspondiente.')
     iv = struct.unpack_from('<I', data, 116)[0]
+    # PK6/PK7 (PKHeX): TID16/SID16 at 0x0C/0x0E, PID at 0x18, and byte 0x1D
+    # holds fateful flag (bit 0), gender (bits 1-2) and form (bits 3-7).
+    tid, sid = struct.unpack_from('<HH', data, 0x0C)
+    pid = struct.unpack_from('<I', data, 0x18)[0]
+    shiny = (tid ^ sid ^ (pid & 0xFFFF) ^ (pid >> 16)) < 16
     met_date=None
     try:met_date=date(2000+data[0xD4],data[0xD5],data[0xD6]).isoformat()
     except ValueError:pass
@@ -38,7 +43,7 @@ def decode_slot(snapshot, index, max_species=807):
                   item_id=item, ability_id=data[20], nature=NATURES[data[28]],
                   moves=list(struct.unpack_from('<4H', data, 90)), move_pp=list(data[0x62:0x66]), move_pp_ups=list(data[0x66:0x6A]),
                   ev=list(data[30:36]), iv=[(iv >> (j*5)) & 31 for j in range(6)],
-                  form=data[29] >> 3, egg=bool(iv & (1 << 30)), checksum_valid=True,
+                  form=data[29] >> 3, gender=(data[0x1D] >> 1) & 3, shiny=shiny, egg=bool(iv & (1 << 30)), checksum_valid=True,
                   level=None, hp=None, max_hp=None, stats=None,
                   encryption_constant=seed, ot_id=struct.unpack_from('<I',data,0x0C)[0], met_location_id=struct.unpack_from('<H',data,0xDA)[0],
                   egg_location_id=struct.unpack_from('<H',data,0xD8)[0],

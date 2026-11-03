@@ -385,6 +385,7 @@ def create_desktop_window(backend, webview):
     def save_export(kind):
         # Profiles swap the service without rebuilding the native window.
         export_api.service = backend.service
+        export_api.overlay = getattr(backend, 'overlay', None)
         return export_api.save_export(kind)
 
     window = webview.create_window('Pokémon Tracker', backend.url,

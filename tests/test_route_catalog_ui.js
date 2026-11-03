@@ -10,8 +10,7 @@ const companion = fs.readFileSync(path.join(__dirname, '../web/companion.js'), '
 const settle = () => new Promise(resolve => setImmediate(resolve));
 
 // Startup asks for /api/routes only through the per-game cache (no double fetch).
-const startFn = source.split(/\r?\n/).find(line => line.startsWith('async function start(){'));
-assert.ok(startFn, 'start() debe existir');
+const startFn = sliceFile('app.js', 'async function start(){', '\nstart();');
 assert.doesNotMatch(startFn, /api\/routes/, 'start() no descarga rutas por su cuenta');
 assert.match(startFn, /getJSON\('\/api\/session'\)/);
 assert.match(startFn, /getJSON\('\/api\/state'\)/);

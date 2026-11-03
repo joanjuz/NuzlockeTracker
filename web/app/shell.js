@@ -1,7 +1,26 @@
 'use strict';
 // Tabs, navigation strip, companion view switch and display preferences.
 const views={dead:['Muertos',''],party:['Equipo actual',''],boxes:['Tus cajas',''],places:['Rutas',''],analysis:['Análisis del equipo',''],overlay:['Diseñar overlay para OBS',''],connection:['Conexión','']};
-function switchTab(tab){if(companionView&&tab==='connection'){return;}if(tab==='overlay'){const frame=$('overlay-editor-frame');if(!frame.src)frame.src=frame.dataset.src;} document.querySelectorAll('nav button').forEach(b=>{const active=b.dataset.tab===tab;b.classList.toggle('active',active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});for(const key of Object.keys(views))$(key+'-view').hidden=key!==tab;$('title').textContent=views[tab][0];$('subtitle').textContent=views[tab][1];$('subtitle').hidden=!views[tab][1];renderActiveView();if(tab==='connection')refreshProcesses();}
+function switchTab(tab){
+  if(companionView&&tab==='connection')return;
+  if(tab==='overlay'){
+    // The overlay editor iframe loads lazily on its first visit.
+    const frame=$('overlay-editor-frame');
+    if(!frame.src)frame.src=frame.dataset.src;
+  }
+  document.querySelectorAll('nav button').forEach(b=>{
+    const active=b.dataset.tab===tab;
+    b.classList.toggle('active',active);
+    if(active)b.setAttribute('aria-current','page');
+    else b.removeAttribute('aria-current');
+  });
+  for(const key of Object.keys(views))$(key+'-view').hidden=key!==tab;
+  $('title').textContent=views[tab][0];
+  $('subtitle').textContent=views[tab][1];
+  $('subtitle').hidden=!views[tab][1];
+  renderActiveView();
+  if(tab==='connection')refreshProcesses();
+}
 function renderActiveView(){
   if(!state)return;
   if(!$('boxes-view').hidden)renderBoxes();
@@ -48,6 +67,18 @@ function setCompanionView(enabled,remote){
 }
 window.setCompanionView=setCompanionView;
 $('theme').value=document.documentElement.dataset.theme||'dark';$('theme').onchange=()=>{document.documentElement.dataset.theme=$('theme').value;try{localStorage.setItem('progressive-theme',$('theme').value)}catch(e){}};
-let compact=false;try{compact=localStorage.getItem('progressive-density')==='compact'}catch(e){}function density(){document.body.classList.toggle('compact',compact);$('density').textContent=compact?'Vista amplia':'Vista compacta'}density();$('density').onclick=()=>{compact=!compact;try{localStorage.setItem('progressive-density',compact?'compact':'comfortable')}catch(e){}density()};
+// Compact view preference; storage may be unavailable, so failures keep the default.
+let compact=false;
+try{compact=localStorage.getItem('progressive-density')==='compact'}catch(e){}
+function density(){
+  document.body.classList.toggle('compact',compact);
+  $('density').textContent=compact?'Vista amplia':'Vista compacta';
+}
+density();
+$('density').onclick=()=>{
+  compact=!compact;
+  try{localStorage.setItem('progressive-density',compact?'compact':'comfortable')}catch(e){}
+  density();
+};
 document.addEventListener('pointerdown',event=>{document.querySelectorAll('details[open]').forEach(menu=>{if(!menu.contains(event.target))menu.open=false})});
 document.addEventListener('keydown',event=>{if(event.key==='Escape')document.querySelectorAll('details[open]').forEach(menu=>menu.open=false)});

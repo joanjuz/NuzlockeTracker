@@ -9,18 +9,36 @@ import os
 import threading
 import time
 from pathlib import Path
+from typing import Any, Protocol
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
-from .snapshot import SUPPORTED_GAMES, shared_state, snapshot
+from .snapshot import SUPPORTED_GAMES, JSONDict, shared_state, snapshot
 from .direct import DirectHost, SECRET_RE, identity, invitation, partner as direct_partner, request_json
 
 # Only the public endpoint is preconfigured, never the administrative CREATE_KEY.
 DEFAULT_WORKER_URL = 'https://pokemon-tracker-companion.pokemon-tracker.workers.dev'
 
+# Direct session as (http://host:port, session secret).
+DirectSession = tuple[str, str]
 
-def validate_worker_url(url):
+
+class Transport(Protocol):
+    """fetch_json signature; tests inject fakes with the same shape."""
+    def __call__(self, url: str, method: str = ..., payload: JSONDict | None = ...,
+                 token: str | None = ..., setup_key: str | None = ...) -> JSONDict: ...
+
+
+class SyncService(Protocol):
+    """Subset of TrackerService used by the sync thread."""
+    condition: threading.Condition
+    state: dict[str, Any]
+
+    def snapshot(self) -> dict[str, Any]: ...
+
+
+def validate_worker_url(url: object) -> str:
     if not isinstance(url, str):
         raise ValueError('Introduce la URL HTTPS de Cloudflare Worker')
     parts = urlsplit(url.strip())
@@ -37,7 +55,8 @@ def validate_worker_url(url):
     return 'https://' + parts.hostname.lower()
 
 
-def fetch_json(url, method='GET', payload=None, token=None, setup_key=None):
+def fetch_json(url: str, method: str = 'GET', payload: JSONDict | None = None,
+               token: str | None = None, setup_key: str | None = None) -> JSONDict:
     body = json.dumps(payload, ensure_ascii=False).encode('utf-8') if payload is not None else None
     # Cloudflare workers.dev may reject urllib's default Python-urllib User-Agent.
     # Mozilla/5.0 is the value verified to work against our public /health endpoint.
@@ -51,7 +70,7 @@ def fetch_json(url, method='GET', payload=None, token=None, setup_key=None):
     request = Request(url, data=body, method=method, headers=headers)
     try:
         with urlopen(request, timeout=8) as response:
-            raw = response.read(850_000)
+            raw: bytes = response.read(850_000)
             if response.status not in (200, 201):
                 raise ValueError('Error HTTP del servicio: ' + str(response.status))
             result = json.loads(raw)
@@ -74,11 +93,11 @@ def fetch_json(url, method='GET', payload=None, token=None, setup_key=None):
     return result
 
 
-def safe_message(value):
+def safe_message(value: object) -> bool:
     return isinstance(value, str) and len(value) <= 200 and not any(ord(c) < 32 or c in '<>' for c in value)
 
 
-def cloud_partner(data):
+def cloud_partner(data: object) -> JSONDict | None:
     """Validate the partner record returned by the Worker before showing or caching it."""
     if data is None:
         return None
@@ -100,7 +119,8 @@ def cloud_partner(data):
 
 
 class CompanionSync:
-    def __init__(self, service, directory, transport=fetch_json):
+    def __init__(self, service: SyncService, directory: str | os.PathLike[str],
+                 transport: Transport = fetch_json) -> None:
         self.service = service
         self.directory = Path(directory)
         self.settings_path = self.directory / 'companion-credentials.json'
@@ -109,14 +129,14 @@ class CompanionSync:
         self.lock = threading.RLock()
         self.stop = threading.Event()
         self.wake = threading.Event()
-        self.thread = None
-        self.settings = {}
-        self.direct_host = None
-        self.direct_session = None
-        self.partner = None
+        self.thread: threading.Thread | None = None
+        self.settings: JSONDict = {}
+        self.direct_host: DirectHost | None = None
+        self.direct_session: DirectSession | None = None
+        self.partner: JSONDict | None = None
         self.error = ''
-        self.last_uploaded_hash = None
-        self.last_core_hash = None
+        self.last_uploaded_hash: str | None = None
+        self.last_core_hash: str | None = None
         self.last_upload_at = 0.0
         # Backoff (seconds) after an unexpected failure in the sync thread.
         self.retry_base = 1.0
@@ -136,7 +156,7 @@ class CompanionSync:
             except (ValueError, OSError, KeyError, AttributeError, RecursionError):
                 self.partner = None
 
-    def _store(self, path, data):
+    def _store(self, path: Path, data: JSONDict) -> None:
         self.directory.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix('.tmp')
         with open(tmp, 'w', encoding='utf-8') as file:
@@ -147,7 +167,7 @@ class CompanionSync:
             pass
         os.replace(tmp, path)
 
-    def default_worker_url(self):
+    def default_worker_url(self) -> str:
         # A second profile may inherit the public address, never private tokens.
         principal = self.directory.parent.parent if self.directory.parent.name == 'profiles' else self.directory
         path = principal / 'companion-credentials.json'
@@ -159,7 +179,7 @@ class CompanionSync:
                 pass
         return DEFAULT_WORKER_URL
 
-    def status(self):
+    def status(self) -> JSONDict:
         with self.lock:
             worker_url = self.settings.get('worker_url') or self.default_worker_url()
             invite = self.settings.get('invite_code', '')
@@ -184,7 +204,7 @@ class CompanionSync:
                     'partner': self.partner,
                     'error': self.error}
 
-    def _create_or_join(self, action, options):
+    def _create_or_join(self, action: str, options: JSONDict) -> JSONDict:
         invite = options.get('invite_code', '')
         if not isinstance(invite, str):
             raise ValueError('Código de invitación inválido')
@@ -232,7 +252,7 @@ class CompanionSync:
             self.wake.set()
         return self.status()
 
-    def perform(self, action, options=None):
+    def perform(self, action: str, options: JSONDict | None = None) -> JSONDict:
         options = options or {}
         if action in ('direct_host', 'direct_join'):
             with self.lock:
@@ -241,7 +261,9 @@ class CompanionSync:
             name, game = identity(options.get('name'), options.get('game'))
             # Open the listener / contact the host WITHOUT holding self.lock:
             # status() and the sync thread must not block on the network.
-            host = session = partner = None
+            host: DirectHost | None = None
+            session: DirectSession | None = None
+            partner: JSONDict | None = None
             if action == 'direct_host':
                 try:
                     host = DirectHost(options.get('host', '127.0.0.1'), options.get('port', 8770), name, game)
@@ -312,7 +334,7 @@ class CompanionSync:
             return self.status()
         raise ValueError('Acción de compañero inválida')
 
-    def sync_once(self, force=False, fetch_partner=True):
+    def sync_once(self, force: bool = False, fetch_partner: bool = True) -> None:
         with self.lock:
             settings = dict(self.settings)
         if not settings:
@@ -379,13 +401,13 @@ class CompanionSync:
                 if self.settings.get('token') == settings['token']:
                     self.error = str(error)
 
-    def start(self):
+    def start(self) -> None:
         if self.thread is not None:
             return
         self.thread = threading.Thread(target=self._run, daemon=True, name='companion-sync')
         self.thread.start()
 
-    def _sync_direct(self, settings):
+    def _sync_direct(self, settings: JSONDict) -> None:
         try:
             local = snapshot(self.service.snapshot())
             if local['game'] != settings['game']:
@@ -412,14 +434,14 @@ class CompanionSync:
                 if host is self.direct_host and session == self.direct_session and self.settings == settings:
                     self.error = str(error)
 
-    def _detach_direct(self):
+    def _detach_direct(self) -> tuple[DirectHost | None, DirectSession | None]:
         """Call with self.lock held: forget the direct transport and return it."""
         host, session = self.direct_host, self.direct_session
         self.direct_host = self.direct_session = None
         return host, session
 
     @staticmethod
-    def _shutdown_direct(host, session):
+    def _shutdown_direct(host: DirectHost | None, session: DirectSession | None) -> None:
         """Call WITHOUT self.lock: closes the listener or notifies the host."""
         if host:
             host.close()
@@ -429,7 +451,7 @@ class CompanionSync:
             except ValueError:
                 pass  # Local disconnect must work when a peer is offline.
 
-    def _run(self):
+    def _run(self) -> None:
         # Observe local state revisions via TrackerService.condition; poll remote
         # every five seconds even without local changes.
         last_revision = None
@@ -464,7 +486,7 @@ class CompanionSync:
                 if self.stop.wait(min(self.retry_max, self.retry_base * 2 ** min(failures - 1, 10))):
                     break
 
-    def close(self):
+    def close(self) -> None:
         self.stop.set()
         self.wake.set()
         if self.thread:

@@ -17,6 +17,9 @@ En Pokémon Tracker abre **OBS**, utiliza los botones **Copiar** y pega cada URL
 | Objetos equipados | http://127.0.0.1:8765/overlay?layer=items |
 | Solo objeto del Pokémon 1 | http://127.0.0.1:8765/overlay?layer=items&slot=1 |
 | Cementerio | http://127.0.0.1:8765/overlay?layer=graveyard |
+| Datos (nivel, tipos, shiny, sexo) | http://127.0.0.1:8765/overlay?layer=info |
+| Estadísticas de la partida | http://127.0.0.1:8765/overlay?layer=stats |
+| Cualquier fuente con un perfil fijo | añade `&preset=Nombre` al enlace |
 
 Cambia el valor slot=1 por cualquier posición entre 1 y 6 para crear **18 elementos independientes** y moverlos donde quieras en OBS. También puedes utilizar solo las tres filas, o la composición completa. El fondo de las fuentes es transparente. Recomendación inicial: 960 × 180 px por fila.
 
@@ -32,6 +35,22 @@ La pestaña **OBS** tiene guardado automático, sin la antigua vista previa inte
 
 **Cementerio:** fuente aparte (`layer=graveyard`) con los Pokémon caídos de la partida activa en una cuadrícula y con el sprite en gris. Puedes elegir cuántos mostrar (hasta 60), las columnas, el tamaño del sprite, el orden (recientes o antiguos primero), el título con el total y si se ven el mote, la especie, el nivel y la ruta de captura. Usa el conjunto de sprites elegido.
 
+**Variantes shiny y hembra:** dentro de un conjunto, las subcarpetas `shiny/` y `female/` (o `Hembra/`) se usan solas cuando el Pokémon es variocolor o hembra; si falta el archivo, se usa el sprite normal del conjunto.
+
+**Perfiles de estilo:** guarda la configuración actual con un nombre («Combate», «Exploración»…) y aplícala con un clic. Con «Fijar enlaces a este perfil», los enlaces copiados llevan `&preset=Nombre` y esa fuente de OBS usa siempre ese perfil, aunque cambies la configuración actual. Los perfiles se guardan por partida. Un perfil fija la apariencia (tamaños, colores, capas, orden del cementerio…); el conjunto de sprites y las imágenes importadas (barra, contador, marco y lápida) son comunes a todos los perfiles, porque los comparten todas las fuentes de OBS.
+
+**Vista previa:** el editor muestra arriba la fuente elegida sobre un fondo a cuadros (para ver la transparencia) y se actualiza mientras cambias los ajustes.
+
+**Estilo de muerte:** al morir, el sprite puede pasar a gris, ocultarse o cambiar por una lápida. Para usar tu propia lápida, coloca `lapida.png` (o GIF/WebP) en `sprites_personalizados` o en el conjunto elegido. Opcionalmente, una animación de fundido o sacudida se reproduce una sola vez, en el momento de la muerte.
+
+**Marco por hueco:** importa un PNG transparente que se dibuja detrás de cada sprite del equipo.
+
+**Datos del Pokémon:** capa `layer=info` con nivel, tipos (con su color), estrella si es variocolor y símbolo de sexo; cada dato se puede ocultar. También puede ir dentro de la composición.
+
+**Estadísticas de la partida:** capa `layer=stats` con capturas, muertes, Pokémon vivos en el equipo y rutas perdidas, en fila o en columna.
+
+**Copia de seguridad:** «Exportar ajustes» guarda en un archivo la configuración, los perfiles, los PNG importados y las fuentes; «Importar ajustes» la restaura en otra partida u otro equipo. Si el conjunto de sprites o la fuente no existen en el destino, se usa la carpeta principal y la fuente del sistema. Si las fuentes o imágenes son muy grandes, la exportación omite las que no caben (hasta unos 40 MB) y lo avisa.
+
 **Motes:** Oxanium, Arial, Segoe UI, Verdana, Georgia, monospace, o cualquier fuente que importe el usuario en formato TTF, OTF, WOFF o WOFF2 (hasta 3 MB). Se personalizan tamaño, color, contorno, grosor y ancho de posición.
 
 **Objetos:** muestra el objeto que lleva cada Pokémon en ese momento (Restos, Cinta Elección…); se vacía cuando lo consume o se lo quitas. Se usa como fuente aparte con `layer=items` o dentro de la composición, debajo de los motes, activando «Incluir objetos en composición». Tamaño y color configurables. «Mostrar objeto como» permite elegir **nombre, icono o icono y nombre**; el icono va encima del nombre y su tamaño es ajustable. Los iconos son los sprites de objetos de PokeAPI: se descargan una vez y quedan en la caché local de sprites; si un icono no existe o no hay conexión, se muestra el nombre. Las configuraciones guardadas antes de estas opciones siguen igual (solo nombre).
@@ -40,7 +59,7 @@ La pestaña **OBS** tiene guardado automático, sin la antigua vista previa inte
 
 ## Privacidad, persistencia y compatibilidad
 
-El editor y toda la API privada del tracker **solo escuchan en localhost**. El acceso remoto opcional abre un segundo servidor de **solo lectura** en la IPv4 exacta que indiques. Publica exclusivamente especie, mote, objeto equipado, los datos visibles del cementerio (mote, especie, nivel y ruta de los caídos), vida actual/máxima, porcentaje, estado de muerte y si la lectura está desactualizada. No expone cajas, ROM, PID ni tokens Soul Link.
+El editor y toda la API privada del tracker **solo escuchan en localhost**. El acceso remoto opcional abre un segundo servidor de **solo lectura** en la IPv4 exacta que indiques. Publica exclusivamente especie, mote, objeto equipado, nivel, tipos, si es variocolor, sexo, estadísticas de la partida (capturas, muertes, vivos y rutas perdidas), los datos visibles del cementerio (mote, especie, nivel y ruta de los caídos), vida actual/máxima, porcentaje, estado de muerte y si la lectura está desactualizada. No expone cajas, ROM, PID ni tokens Soul Link.
 
 Las opciones del editor se guardan por perfil bajo AppData/PokemonTracker/runtime/obs-overlay.json, y las tipografías bajo runtime/obs-fonts. Estos archivos no se distribuyen en el ejecutable.
 

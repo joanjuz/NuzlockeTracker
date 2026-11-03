@@ -14,9 +14,23 @@ function renderDead(){
   detailButton.onclick=()=>openDetail(p,`dead:${key}`);
   reviveButton.className='revive-button';reviveButton.textContent='Revivir';reviveButton.setAttribute('aria-label',`Revivir a ${p.nickname||p.species}`);
   reviveButton.title='Quitar de Muertos. No cambia los PS del juego.';
-  reviveButton.disabled=typeof companionView!=='undefined'&&companionView;reviveButton.onclick=async()=>{reviveButton.disabled=true;try{const lower=confirm('¿Quieres reducir también el contador de muertes en 1?');await command({action:'revive',key,decrement_counter:lower})}finally{reviveButton.disabled=false}};
+  reviveButton.disabled=typeof companionView!=='undefined'&&companionView;
+  reviveButton.onclick=async()=>{
+   reviveButton.disabled=true;
+   try{
+    const lower=confirm('¿Quieres reducir también el contador de muertes en 1?');
+    await command({action:'revive',key,decrement_counter:lower});
+   }finally{
+    reviveButton.disabled=false;
+   }
+  };
   entry.append(detailButton,reviveButton);$('dead').append(entry);
  }
  if(!Object.keys(deaths).length)$('dead').innerHTML='<p class="subtitle">Sin muertes registradas.</p>';
 }
-function sprite(p){return `<div class="route-sprite ${isDead(p)?'dead-sprite':''}" title="${isDead(p)?'Muerto · ':''}${esc(p.nickname||p.species)} · ${esc(p.species)}"><img src="/sprites/${spriteId(p.species_id)}.png" data-fallback="${spriteId(p.species_id)}" alt="${esc(p.species)}" loading="lazy"><span class="sprite-number" hidden>#${num(p.species_id)}</span></div>`}
+function sprite(p){
+ const dead=isDead(p),id=spriteId(p.species_id);
+ return `<div class="route-sprite ${dead?'dead-sprite':''}" title="${dead?'Muerto · ':''}${esc(p.nickname||p.species)} · ${esc(p.species)}">`
+  +`<img src="/sprites/${id}.png" data-fallback="${id}" alt="${esc(p.species)}" loading="lazy">`
+  +`<span class="sprite-number" hidden>#${num(p.species_id)}</span></div>`;
+}

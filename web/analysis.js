@@ -17,7 +17,34 @@ if([111,116,232].includes(id)&&n>1)n*=.75;
 if(id===25&&n<=1)n=0;
 return n}
 function attackType(move,p,abilities=true){if(!abilities||move.type!=='Normal')return move.type;return {174:'Hielo',182:'Hada',184:'Volador',206:'Eléctrico'}[p.ability_id]||move.type}
-function offensive(chart,move,p,defense,abilities=true){let attack=attackType(move,p,abilities);let n=1;for(const t of typeList(defense)){let x=rate(chart,attack,t);if(abilities&&p.ability_id===113&&t==='Fantasma'&&['Normal','Lucha'].includes(attack))x=1;if(move.id===573&&t==='Agua'&&attack==='Hielo')x=2;if(move.id===614&&t==='Volador'&&attack==='Tierra')x=1;n*=x}if(move.id===560)n*=basic(chart,'Volador',defense);return n}
-function coverage(chart,pokemon,defense,abilities=true){let best=null;for(const p of pokemon){for(const move of Array.isArray(p.analysis_moves)?p.analysis_moves:[]){if(!move||move.category==='Estado')continue;const value=offensive(chart,move,p,defense,abilities);if(best===null||value>best.value)best={value,move,pokemon:p}}}return best}
+function offensive(chart,move,p,defense,abilities=true){
+  const attack=attackType(move,p,abilities);
+  let n=1;
+  for(const t of typeList(defense)){
+    let x=rate(chart,attack,t);
+    // Scrappy (113): Normal and Fighting moves hit Ghost.
+    if(abilities&&p.ability_id===113&&t==='Fantasma'&&['Normal','Lucha'].includes(attack))x=1;
+    // Freeze-Dry (573) is super effective against Water.
+    if(move.id===573&&t==='Agua'&&attack==='Hielo')x=2;
+    // Thousand Arrows (614) hits Flying.
+    if(move.id===614&&t==='Volador'&&attack==='Tierra')x=1;
+    n*=x;
+  }
+  // Flying Press (560) adds the Flying matchup.
+  if(move.id===560)n*=basic(chart,'Volador',defense);
+  return n;
+}
+function coverage(chart,pokemon,defense,abilities=true){
+  let best=null;
+  for(const p of pokemon){
+    const moves=Array.isArray(p.analysis_moves)?p.analysis_moves:[];
+    for(const move of moves){
+      if(!move||move.category==='Estado')continue;
+      const value=offensive(chart,move,p,defense,abilities);
+      if(best===null||value>best.value)best={value,move,pokemon:p};
+    }
+  }
+  return best;
+}
 const api={basic,defensive,attackType,offensive,coverage};root.TypeAnalysis=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof window!=='undefined'?window:globalThis);

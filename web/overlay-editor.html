@@ -4,6 +4,11 @@
 <link rel="stylesheet" href="/overlay-editor.css"></head>
 <body><header><div><strong>OBS · Overlay del equipo</strong><p>Organiza las capas como quieras. Cada enlace funciona como Fuente de navegador en OBS.</p></div><span id="status" role="status" aria-live="polite">Cargando…</span></header>
 <main>
+<section class="panel preview-panel" aria-labelledby="preview-heading"><div class="preview-title"><h2 id="preview-heading">Vista previa</h2>
+<label class="inline-control">Capa<select id="preview-layer"><option value="all">Composición</option><option value="sprites">Sprites</option><option value="names">Motes</option><option value="hp">Vida</option><option value="items">Objetos</option><option value="info">Datos</option><option value="counter">Muertes / vidas</option><option value="graveyard">Cementerio</option><option value="stats">Estadísticas</option></select></label></div>
+<p>Muestra la fuente tal como la verá OBS, con los datos de la partida activa. Se actualiza sola al cambiar cualquier ajuste; el fondo a cuadros indica las zonas transparentes.</p>
+<div id="preview-stage" class="preview-stage"><iframe id="preview-frame" title="Vista previa de la fuente de OBS" src="about:blank" loading="lazy" tabindex="-1"></iframe></div>
+<p id="preview-size" class="source-size" role="status" aria-live="polite"></p></section>
 <section class="panel"><h2>Fuentes para OBS</h2><p>Las fuentes de sprites, motes, PS y muertes o vidas son independientes: puedes moverlas donde quieras. También puedes usar <strong>un único Pokémon</strong> por fuente.</p>
 <div class="share-tools">
 <strong>Dirección para las fuentes</strong>
@@ -11,11 +16,27 @@
 <label>Mi dirección IPv4 de Radmin VPN<input id="share-ip" type="text" inputmode="decimal" placeholder="Ejemplo: 26.10.20.30" autocomplete="off"></label>
 <div class="share-buttons"><button id="share-enable" type="button">Activar / actualizar IP</button><button id="share-disable" type="button" class="secondary">Desactivar</button></div>
 <p id="share-status" role="status">El acceso remoto está apagado.</p>
-<p>Usa la IP de <strong>tu propia computadora</strong> en Radmin VPN, no la del compañero. Se comparten sprites, motes, objetos, PS y el contador de muertes o vidas. No abre los controles del tracker.</p>
+<p>Usa la IP de <strong>tu propia computadora</strong> en Radmin VPN, no la del compañero. Se comparten sprites, motes, objetos, datos, PS, estadísticas y el contador de muertes o vidas. No abre los controles del tracker.</p>
 </div>
 <div id="links" class="links"></div><p id="source-size" class="source-size" role="status" aria-live="polite"></p>
 <label>Slot independiente (1 a 6)<select id="slot"><option value="">Todos los Pokémon</option><option value="1">Pokémon 1</option><option value="2">Pokémon 2</option><option value="3">Pokémon 3</option><option value="4">Pokémon 4</option><option value="5">Pokémon 5</option><option value="6">Pokémon 6</option></select></label>
 </section>
+
+<section class="panel" aria-labelledby="presets-heading"><h2 id="presets-heading">Perfiles de estilo</h2>
+<p>Guarda la personalización actual con un nombre («Combate», «Exploración»…) y recupérala cuando quieras. Una fuente de OBS fijada a un perfil conserva ese estilo aunque sigas editando. El conjunto de sprites y las imágenes importadas (barra, contador, marco y lápida) son comunes a todos los perfiles.</p>
+<div class="preset-controls">
+<label class="wide-control">Perfiles guardados<select id="preset-list"><option value="">Sin perfiles guardados</option></select></label>
+<div class="button-row wide-control"><button id="preset-apply" type="button">Aplicar</button><button id="preset-delete" type="button" class="secondary">Eliminar</button></div>
+<label class="wide-control">Nombre del nuevo perfil<input id="preset-name" type="text" maxlength="40" placeholder="Ejemplo: Combate" autocomplete="off" spellcheck="false"></label>
+<div class="button-row wide-control"><button id="preset-save" type="button">Guardar como…</button></div>
+<label class="check wide-control">Fijar enlaces a este perfil<input id="preset-pin" type="checkbox"></label>
+</div>
+<p id="preset-status" class="control-status" role="status" aria-live="polite"></p>
+<h3>Copia de seguridad</h3>
+<p>El archivo incluye la personalización, los perfiles, los PNG importados y las fuentes propias. Al importarlo se sustituyen los ajustes y perfiles actuales.</p>
+<div class="button-row"><button id="overlay-export" type="button" class="secondary">Exportar ajustes</button>
+<label class="file-button secondary">Importar ajustes<input id="overlay-import" type="file" accept=".json,application/json"></label></div>
+<p id="backup-status" class="control-status" role="status" aria-live="polite"></p></section>
 <section class="panel"><h2>Composición y sprites</h2><div class="controls">
 <label class="wide-control">Orden de capas<select id="order"><option value="sprites,names,hp">Sprites → motes → vida</option><option value="names,sprites,hp">Motes → sprites → vida</option><option value="hp,sprites,names">Vida → sprites → motes</option><option value="sprites,hp,names">Sprites → vida → motes</option><option value="names,hp,sprites">Motes → vida → sprites</option><option value="hp,names,sprites">Vida → motes → sprites</option></select></label>
 <label>Distribución<select id="direction"><option value="row">En fila</option><option value="column">En columna</option><option value="grid">Cuadrícula 3 × 2</option></select></label>
@@ -26,7 +47,12 @@
 <label class="wide-control">Escalado de sprite<select id="sprite_scaling"><option value="pixelated">Píxel nítido (pixel art)</option><option value="smooth">Suave (HD y fanmade)</option></select></label>
 <label>Margen de sprite (px)<input id="sprite_padding" type="number" min="0" max="64"></label>
 <label class="check">Sombra de sprite<input id="sprite_shadow" type="checkbox"></label>
-<label class="check">Mostrar ranuras vacías<input id="show_empty" type="checkbox"></label></div>
+<label class="check">Mostrar ranuras vacías<input id="show_empty" type="checkbox"></label>
+<label class="wide-control">Pokémon debilitado<select id="death_style"><option value="gray">Sprite en gris</option><option value="tombstone">Lápida en lugar del sprite</option><option value="hide">Ocultar el sprite</option></select></label>
+<label class="wide-control">Animación al caer<select id="death_animation"><option value="none">Sin animación</option><option value="fade">Fundido de un segundo</option><option value="shake">Sacudida breve</option></select></label>
+<label class="wide-control">Importar marco PNG para cada posición<input id="slot_frame_upload" type="file" accept=".png,image/png"></label>
+<label class="check">Usar marco detrás del sprite<input id="slot_frame" type="checkbox"></label></div>
+<p>La animación solo se reproduce cuando un Pokémon cae durante la partida, no al abrir la fuente. Para usar tu propia lápida, guarda una imagen llamada <code>lapida</code> (por ejemplo <code>lapida.png</code>) en el conjunto de sprites elegido; si no hay ninguna se usa la lápida incluida. El marco se dibuja centrado detrás de cada sprite, sin deformarse.</p>
 <label class="wide-control">Conjunto de sprites<select id="sprite_set"><option value="">Carpeta principal</option></select></label>
 <label class="wide-control">Crear conjunto al importar (opcional)<input id="sprite-set-new" type="text" maxlength="40" placeholder="Ejemplo: HD o Pixel" autocomplete="off"></label>
 <p>Cada subcarpeta de <code>sprites_personalizados</code> es un conjunto. El overlay usa el conjunto elegido y, si falta un sprite, el de la carpeta principal. Las importaciones van al conjunto elegido o al que escribas arriba.</p>
@@ -58,6 +84,20 @@
 <label>Color del objeto<input id="item_color" type="color"></label></div>
 <label class="sprite-uploader">Importar iconos de objetos propios (selección múltiple)<input id="item-sprite-upload" type="file" accept=".png,.apng,.gif,.webp,.jpg,.jpeg,.bmp" multiple></label>
 <p id="item-sprite-info">Se guardan en <code>objetos</code> dentro del conjunto elegido. Nombra cada archivo con el número del objeto, su nombre en inglés o en español: <code>234.png</code>, <code>leftovers.png</code> o <code>restos.png</code>. Tienen prioridad sobre los iconos descargados.</p></section>
+<section class="panel"><h2>Datos del Pokémon</h2><p>Nivel, tipos, estrella si es variocolor y símbolo de sexo de cada Pokémon del equipo. Usa el enlace «Datos» como fuente aparte o inclúyelos en la composición, después de los motes y los objetos.</p><div class="controls">
+<label class="check">Incluir datos en composición<input id="info_in_composition" type="checkbox"></label>
+<label>Tamaño del texto (px)<input id="info_size" type="number" min="8" max="60" value="14"></label>
+<label class="check">Nivel<input id="info_show_level" type="checkbox" checked></label>
+<label class="check">Tipos<input id="info_show_types" type="checkbox" checked></label>
+<label class="check">Variocolor (★)<input id="info_show_shiny" type="checkbox" checked></label>
+<label class="check">Sexo (♂ / ♀)<input id="info_show_gender" type="checkbox" checked></label></div></section>
+<section class="panel"><h2>Estadísticas de la partida</h2><p>Totales de la partida activa en una sola fuente: capturas, muertes, Pokémon vivos y rutas perdidas. Usa el enlace «Estadísticas».</p><div class="controls">
+<label class="check">Capturas<input id="stats_show_captures" type="checkbox" checked></label>
+<label class="check">Muertes<input id="stats_show_deaths" type="checkbox" checked></label>
+<label class="check">Vivos<input id="stats_show_alive" type="checkbox" checked></label>
+<label class="check">Rutas perdidas<input id="stats_show_missed" type="checkbox" checked></label>
+<label>Disposición<select id="stats_direction"><option value="row">En una línea</option><option value="column">En columna</option></select></label>
+<label>Tamaño del texto (px)<input id="stats_size" type="number" min="10" max="80" value="20"></label></div></section>
 <section class="panel"><h2>Cementerio</h2><p>Muestra los Pokémon caídos de la partida activa en una cuadrícula, con su sprite en gris. Usa el enlace «Cementerio» como fuente aparte en OBS.</p><div class="controls">
 <label>Pokémon mostrados<input id="graveyard_max" type="number" min="1" max="60"></label>
 <label>Columnas<input id="graveyard_columns" type="number" min="1" max="12"></label>
