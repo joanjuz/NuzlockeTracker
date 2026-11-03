@@ -60,7 +60,7 @@ class ServerHardeningTests(unittest.TestCase):
         self.assertEqual(unknown['routes'], [])
 
     def test_cross_site_pages_cannot_trigger_sprite_downloads(self):
-        with patch('server.fetch_sprite', return_value=BLANK_PNG) as fetch:
+        with patch('tracker.api.static.fetch_sprite', return_value=BLANK_PNG) as fetch:
             status, _ = self.get('/soullink/sprite/25.png', {'Sec-Fetch-Site': 'cross-site'})
             self.assertEqual(status, 403)
             fetch.assert_not_called()
@@ -87,6 +87,16 @@ class ServerHardeningTests(unittest.TestCase):
         status, headers = self.headers_of('/theme.js')
         self.assertEqual(status, 200)
         self.assertNotIn('Content-Security-Policy', headers)
+
+    def test_every_script_and_stylesheet_of_the_pages_is_served(self):
+        import re
+        root = Path(__file__).resolve().parent.parent / 'web'
+        for page in ('index.html', 'overlay.html', 'overlay-editor.html'):
+            html = (root / page).read_text(encoding='utf-8')
+            for url in re.findall(r'<(?:script src|link rel="stylesheet" href)="([^"]+)"', html):
+                with self.subTest(page=page, url=url):
+                    status, _ = self.get(url)
+                    self.assertEqual(status, 200)
 
     def test_no_inline_scripts_or_handlers_in_pages(self):
         import re

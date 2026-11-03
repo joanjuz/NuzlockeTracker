@@ -1,10 +1,8 @@
 'use strict';
 const assert = require('node:assert/strict');
 const fs = require('node:fs'),vm = require('node:vm'),path = require('node:path');
-const src = fs.readFileSync(path.join(__dirname,'../web/app.js'),'utf8');
+const {slice} = require('./ui_shared.js');
 const html = fs.readFileSync(path.join(__dirname,'../web/index.html'),'utf8');
-const start = src.indexOf('const ORIGIN_TYPES='),end = src.indexOf("\n$('route-search').oninput", start);
-assert.ok(start>=0 && end>start);
 class Node{
  constructor(){this.children=[];this.innerHTML='';this.textContent='';this.events={};this.dataset={}}
  replaceChildren(){this.children=[]}
@@ -32,11 +30,9 @@ const ctx={
 };
 vm.createContext(ctx);
 require('./ui_shared.js').loadShared(ctx,['list','GAME_FAMILIES','gameFamily']);
-vm.runInContext(src.slice(start,end),ctx);
-const clickStart=src.indexOf("$('places').addEventListener('click'");
-const clickEnd=src.indexOf("\n$('detail-content')",clickStart);
-assert.ok(clickStart>=0&&clickEnd>clickStart);
-vm.runInContext(src.slice(clickStart,clickEnd),ctx);
+vm.runInContext(slice('app/routes.js','const ORIGIN_TYPES=',"\n$('route-search').oninput"),ctx);
+// The delegated click handler closes web/app/routes.js.
+vm.runInContext(slice('app/routes.js',"$('places').addEventListener('click'"),ctx);
 const click=(selector,data,pressed)=>get('places').events.click({target:{closest:s=>s===selector?{
  dataset:data,getAttribute:()=>pressed?'true':'false'
 }:null}});

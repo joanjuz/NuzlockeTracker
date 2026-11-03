@@ -15,7 +15,7 @@ class DesktopTests(unittest.TestCase):
         root = Path(__file__).resolve().parent.parent
         javascript = (root/'web'/'app.js').read_text(encoding='utf-8')
         html = (root/'web'/'index.html').read_text(encoding='utf-8')
-        server = (root/'server.py').read_text(encoding='utf-8')
+        from tracker.api.static import STATIC_FILES
         self.assertIn("window.pywebview.api.save_export(kind)", javascript)
         self.assertIn("exportWithDialog('session')", javascript)
         self.assertIn("exportWithDialog('diagnostic')", javascript)
@@ -23,7 +23,7 @@ class DesktopTests(unittest.TestCase):
         self.assertEqual(html.count('id="save-session"'),1)
         self.assertEqual(html.count('id="diagnostic"'),1)
         self.assertLess(html.index('id="save-session"'), html.index('id="companion-dialog"'))
-        self.assertIn("'/app-icon.png':('web/app-icon.png','image/png')", server)
+        self.assertEqual(STATIC_FILES['/app-icon.png'], ('web/app-icon.png', 'image/png'))
         self.assertIn('<link rel="icon" href="/app-icon.png"', html)
 
 

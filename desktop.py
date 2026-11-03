@@ -23,6 +23,7 @@ from tracker.layout_export import PartyLayoutExporter, layout_directory
 from tracker.overlay import OverlayManager
 from tracker.desktop_export import DesktopExportApi
 from tracker.run_profiles import RunProfileStore, acquire_run_lock
+from tracker.updates import CACHE_NAME as UPDATE_CACHE_NAME, UpdateChecker
 from tracker import __version__, diaglog
 
 APP_NAME = 'PokemonTracker'
@@ -135,7 +136,7 @@ def automatic_session(home):
 class LocalBackend:
     """Start/stop the same tracker core as server.py, without an external browser."""
     def __init__(self, runtime, profile, layout_path=None, sprite_cache=None, custom_dir=None,
-                 profile_lock=None, slot_profile=None, slot_lock=None):
+                 profile_lock=None, slot_profile=None, slot_lock=None, check_updates=False):
         self.runtime = Path(runtime)
         self.profile = profile
         base = self.runtime if profile == 'principal' else self.runtime.parent.parent
@@ -157,6 +158,9 @@ class LocalBackend:
         self.server = None
         self.worker = None
         self.http_thread = None
+        # One checker per process: survives profile switches (it lives outside
+        # _start_services) and only reaches the network when check_updates.
+        self.updates = UpdateChecker(base / UPDATE_CACHE_NAME, enabled=check_updates)
 
     @property
     def url(self):
@@ -183,15 +187,18 @@ class LocalBackend:
         self.http_thread = threading.Thread(target=self.server.serve_forever,
                                              name='tracker-http', daemon=True)
         self.http_thread.start()
+        self.updates.start()
         return self
 
     def _handler(self):
         return make_handler(self.service, self.token, self.companion,
                             profile=self.profile, overlay=self.overlay,
                             share=self.remote_share, sprite_cache=self.sprite_cache,
-                            profiles=self)
+                            profiles=self, updates=self.updates, layout=self.layout)
 
     def _start_services(self):
+        if self.profile == 'principal':
+            self.profiles.restore_principal()  # opened explicitly: list it again
         self.service = TrackerService(self.runtime / 'state.json')
         self.companion = CompanionSync(self.service, self.runtime)
         self.overlay = OverlayManager(self.service, self.runtime, self.layout_path,custom_dir=self.custom_dir)
@@ -204,8 +211,10 @@ class LocalBackend:
         self.companion.start()
         self.layout = PartyLayoutExporter(self.service, self.layout_path,
                                           cache_dir=self.sprite_cache,
-                                          custom_dir=self.custom_dir)
+                                          custom_dir=self.custom_dir,
+                                          sprite_set=self.overlay.selected_sprite_set)
         self.layout.start()
+        self.remote_share.layout = self.layout
 
     def profiles_status(self):
         with self.request_lock:
@@ -305,6 +314,7 @@ class LocalBackend:
             self.service.flush_state(force=True)
 
     def close(self):
+        self.updates.close()
         self._stop_services()
         if self.server:
             if self.http_thread and self.http_thread.is_alive():
@@ -419,7 +429,8 @@ def main(argv=None):
             profile, layout_path=layout_directory(home, slot),
             sprite_cache=home / 'sprite-cache',
             custom_dir=layout_directory(home).parent / 'sprites_personalizados',
-            profile_lock=locked, slot_profile=slot, slot_lock=slot_lock
+            profile_lock=locked, slot_profile=slot, slot_lock=slot_lock,
+            check_updates=not opts.smoke_test
         ).start()
         if opts.smoke_test:
             smoke_test(backend)

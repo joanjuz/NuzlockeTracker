@@ -42,6 +42,21 @@ def acquire_run_lock(home, profile):
     return handle
 
 
+# The main run keeps its data loose in runtime/ (next to profiles/, the update
+# cache, etc.), so deleting it removes ONLY these entries, never the folder.
+PRINCIPAL_FILE_PATTERNS = ('state.json', 'state.tmp', 'state-*-progress.json*', 'state-progress.json*',
+                           'session-profile.json', 'obs-overlay.json', 'obs-overlay.tmp',
+                           'pk3ds-templates.json', 'companion-credentials.json', 'companion-cache.json',
+                           'run-profile.json')
+PRINCIPAL_DIRS = ('obs-fonts', 'obs-hp-images', 'diagnosticos')
+PRINCIPAL_DELETED = '.principal-deleted'
+
+
+def _is_link(path):
+    info = path.lstat()
+    return path.is_symlink() or bool(getattr(info, 'st_file_attributes', 0) & 0x400)
+
+
 class RunProfileStore:
     """Directory discovery avoids a shared index that two windows could overwrite."""
     def __init__(self, runtime):
@@ -56,7 +71,7 @@ class RunProfileStore:
         return candidate
 
     def profiles(self):
-        ids = ['principal']
+        ids = [] if (self.runtime / PRINCIPAL_DELETED).exists() else ['principal']
         if (self.runtime / 'profiles' / 'segundo-jugador').is_dir() or not (self.runtime / '.second-profile-deleted').exists():
             ids.append('segundo-jugador')
         directory = self.runtime / 'profiles'
@@ -91,10 +106,45 @@ class RunProfileStore:
             raise ValueError('La partida seleccionada no existe.')
         return self.directory(ident)
 
+    def principal_entries(self):
+        """Files and folders that belong to the main run (see PRINCIPAL_FILE_PATTERNS)."""
+        found = []
+        for pattern in PRINCIPAL_FILE_PATTERNS:
+            found.extend(p for p in self.runtime.glob(pattern) if p.parent == self.runtime)
+        found.extend(self.runtime / name for name in PRINCIPAL_DIRS if (self.runtime / name).exists())
+        return sorted(set(found))
+
+    def restore_principal(self):
+        """The main run is used again (e.g. opened explicitly): list it again."""
+        (self.runtime / PRINCIPAL_DELETED).unlink(missing_ok=True)
+
+    def _delete_principal(self):
+        self.require('principal')
+        with acquire_run_lock(self.runtime.parent, 'principal'):
+            entries = self.principal_entries()
+            root = self.runtime.resolve()
+            # Check everything first: refuse links/junctions before deleting anything.
+            for entry in entries:
+                if _is_link(entry) or entry.resolve().parent != root:
+                    raise ValueError('No se puede eliminar la partida: contiene enlaces de archivos o carpetas.')
+                if entry.is_dir():
+                    for directory, folders, files in os.walk(entry, followlinks=False):
+                        for item in [Path(directory) / n for n in folders + files]:
+                            if _is_link(item) or not item.resolve().is_relative_to(entry.resolve()):
+                                raise ValueError('No se puede eliminar la partida: contiene enlaces de archivos o carpetas.')
+            self.runtime.mkdir(parents=True, exist_ok=True)
+            (self.runtime / PRINCIPAL_DELETED).touch()
+            for entry in entries:
+                if entry.is_dir():
+                    shutil.rmtree(entry)
+                else:
+                    entry.unlink(missing_ok=True)
+
     def delete(self, ident):
         """Delete only an inactive run while excluding other tracker windows."""
         if ident == 'principal':
-            raise ValueError('La partida principal no se puede eliminar.')
+            self._delete_principal()
+            return
         target = self.require(ident)
         with acquire_run_lock(self.runtime.parent, ident):
             expected_parent = self.runtime.resolve() / 'profiles'

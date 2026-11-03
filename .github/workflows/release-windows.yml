@@ -4,18 +4,28 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Etiqueta semantica (ejemplo v1.0.0); requiere docs/releases/<tag>.md'
+        description: 'Etiqueta semantica (ejemplo v1.1.0); requiere docs/releases/<tag>.md'
         required: true
-        default: 'v1.0.0'
+        default: 'v1.1.0'
         type: string
 
+# Dos trabajos para separar privilegios (docs/FIRMA_CODIGO.md):
+# - build: compila, prueba y firma con un token de SOLO LECTURA. Si se usa
+#   SignPath, la accion recibe ese token para descargar el EXE sin firmar, asi
+#   que nunca debe poder escribir en el repositorio.
+# - publish: solo descarga el paquete ya verificado y crea el release; es el
+#   unico trabajo con contents: write y no ejecuta codigo del repositorio.
 jobs:
-  release-windows:
+  build:
     if: github.repository == 'joanjuz/NuzlockeTracker'
     runs-on: windows-latest
-    timeout-minutes: 45
+    # Margen para la aprobacion manual de SignPath (release-signing).
+    timeout-minutes: 90
     permissions:
-      contents: write
+      contents: read
+      # signpath/github-action-submit-signing-request lee el job y descarga el
+      # artefacto sin firmar con el GITHUB_TOKEN.
+      actions: read
     env:
       RELEASE_TAG: ${{ inputs.tag }}
 
@@ -31,6 +41,44 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ inputs.tag }}
+          persist-credentials: false
+
+      # Elige la firma sin exponer valores: solo se comprueba si cada secreto o
+      # variable existe. SignPath tiene prioridad sobre el PFX; una
+      # configuracion de SignPath incompleta detiene la publicacion.
+      - name: Elegir metodo de firma
+        id: signing
+        shell: pwsh
+        env:
+          HAS_SIGNPATH_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN != '' }}
+          SIGNPATH_ORGANIZATION_ID: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          SIGNPATH_PROJECT_SLUG: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          SIGNPATH_SIGNING_POLICY_SLUG: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          HAS_PFX: ${{ secrets.WINDOWS_SIGN_PFX_BASE64 != '' }}
+          HAS_PFX_PASSWORD: ${{ secrets.WINDOWS_SIGN_PFX_PASSWORD != '' }}
+        run: |
+          $signpath = @{
+            'secreto SIGNPATH_API_TOKEN' = $env:HAS_SIGNPATH_TOKEN -eq 'true'
+            'variable SIGNPATH_ORGANIZATION_ID' = -not [string]::IsNullOrWhiteSpace($env:SIGNPATH_ORGANIZATION_ID)
+            'variable SIGNPATH_PROJECT_SLUG' = -not [string]::IsNullOrWhiteSpace($env:SIGNPATH_PROJECT_SLUG)
+            'variable SIGNPATH_SIGNING_POLICY_SLUG' = -not [string]::IsNullOrWhiteSpace($env:SIGNPATH_SIGNING_POLICY_SLUG)
+          }
+          $present = @($signpath.Keys | Where-Object { $signpath[$_] })
+          $missing = @($signpath.Keys | Where-Object { -not $signpath[$_] })
+          $hasPfx = $env:HAS_PFX -eq 'true' -or $env:HAS_PFX_PASSWORD -eq 'true'
+          if ($present.Count -gt 0 -and $missing.Count -gt 0) {
+            throw ('SignPath mal configurado; falta: ' + ($missing -join ', '))
+          }
+          if ($present.Count -eq $signpath.Count) {
+            $mode = 'signpath'
+            if ($hasPfx) { Write-Host '::warning::SignPath configurado: se ignoran los secretos WINDOWS_SIGN_PFX_*.' }
+          } elseif ($hasPfx) {
+            $mode = 'pfx'
+          } else {
+            $mode = 'unsigned'
+          }
+          "mode=$mode" >> $env:GITHUB_OUTPUT
+          "Metodo de firma: **$mode**" >> $env:GITHUB_STEP_SUMMARY
 
       - name: Preparar Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
@@ -60,20 +108,85 @@ jobs:
       - name: Pruebas del Worker Cloudflare
         run: node --test cloudflare/companion-worker/tests.mjs
 
-      # Firma Authenticode opcional (docs/FIRMA_CODIGO.md). Los secretos solo se
-      # exponen a este paso; si no existen llegan vacios y el script compila sin
-      # firmar. build_windows.ps1 nunca imprime sus valores.
-      - name: Compilar ejecutable Windows portable, firmar (opcional) y smoke test
+      # Firma PFX opcional (docs/FIRMA_CODIGO.md). Los secretos solo llegan a
+      # este paso y solo en modo pfx; si no, quedan vacios y el script compila
+      # sin firmar. build_windows.ps1 nunca imprime sus valores.
+      # En modo signpath se compila SIN firmar y sin ZIP (-Stage Build); el
+      # empaquetado se hace despues, sobre el EXE firmado.
+      - name: Compilar ejecutable Windows portable y smoke test
         shell: powershell
         env:
-          WINDOWS_SIGN_PFX_BASE64: ${{ secrets.WINDOWS_SIGN_PFX_BASE64 }}
-          WINDOWS_SIGN_PFX_PASSWORD: ${{ secrets.WINDOWS_SIGN_PFX_PASSWORD }}
+          SIGNING_MODE: ${{ steps.signing.outputs.mode }}
+          WINDOWS_SIGN_PFX_BASE64: ${{ steps.signing.outputs.mode == 'pfx' && secrets.WINDOWS_SIGN_PFX_BASE64 || '' }}
+          WINDOWS_SIGN_PFX_PASSWORD: ${{ steps.signing.outputs.mode == 'pfx' && secrets.WINDOWS_SIGN_PFX_PASSWORD || '' }}
         run: |
           Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-          .\tools\build_windows.ps1
+          if ($env:SIGNING_MODE -eq 'signpath') {
+            .\tools\build_windows.ps1 -Stage Build
+          } else {
+            .\tools\build_windows.ps1
+          }
 
+      # --- Firma con SignPath (solo modo signpath) ---------------------------
+      # El artefacto de GitHub es un ZIP con PokemonTracker.exe en la raiz; la
+      # configuracion de artefacto de SignPath debe describir exactamente eso.
+      - name: Subir EXE sin firmar para SignPath
+        id: upload-unsigned
+        if: steps.signing.outputs.mode == 'signpath'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: PokemonTracker-sin-firmar-${{ env.RELEASE_TAG }}
+          path: dist/PokemonTracker.exe
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Firmar con SignPath
+        if: steps.signing.outputs.mode == 'signpath'
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG }}
+          github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: build/signpath-signed
+
+      - name: Verificar firma de SignPath y sustituir el EXE
+        if: steps.signing.outputs.mode == 'signpath'
+        shell: pwsh
+        run: |
+          $signed = 'build/signpath-signed/PokemonTracker.exe'
+          if (-not (Test-Path -LiteralPath $signed)) {
+            Get-ChildItem -Recurse 'build/signpath-signed' -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName }
+            throw 'SignPath no devolvio build/signpath-signed/PokemonTracker.exe'
+          }
+          $unsignedHash = (Get-FileHash 'dist/PokemonTracker.exe' -Algorithm SHA256).Hash
+          if ((Get-FileHash $signed -Algorithm SHA256).Hash -eq $unsignedHash) {
+            throw 'El EXE devuelto por SignPath es identico al enviado (no se firmo).'
+          }
+          $signature = Get-AuthenticodeSignature -LiteralPath $signed
+          if ($signature.Status -ne 'Valid') {
+            throw "Firma Authenticode no valida: $($signature.Status) $($signature.StatusMessage)"
+          }
+          if (-not $signature.TimeStamperCertificate) { throw 'La firma no tiene sello de tiempo.' }
+          "Firmante: $($signature.SignerCertificate.Subject)" | Tee-Object -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          Copy-Item -LiteralPath $signed -Destination 'dist/PokemonTracker.exe' -Force
+
+      - name: Smoke test y ZIP con el EXE firmado por SignPath
+        if: steps.signing.outputs.mode == 'signpath'
+        shell: powershell
+        run: |
+          Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+          .\tools\build_windows.ps1 -Stage Package
+
+      # --- Comprobaciones comunes a los tres modos ---------------------------
       - name: Verificar paquete listo para publicar
         shell: pwsh
+        env:
+          SIGNING_MODE: ${{ steps.signing.outputs.mode }}
         run: |
           if (-not (Test-Path 'out/PokemonTracker-Windows-x64.zip')) { throw 'ZIP no encontrado' }
           if (-not (Test-Path 'dist/PokemonTracker.exe')) { throw 'EXE no encontrado' }
@@ -81,12 +194,23 @@ jobs:
           if (-not (Test-Path 'dist/LICENSE.txt')) { throw 'Licencia no encontrada' }
           $signature = Get-AuthenticodeSignature 'dist/PokemonTracker.exe'
           "Firma Authenticode del EXE: $($signature.Status)" | Tee-Object -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          if ($env:SIGNING_MODE -ne 'unsigned' -and $signature.Status -ne 'Valid') {
+            throw "Se esperaba un EXE firmado ($env:SIGNING_MODE) y la firma es $($signature.Status)"
+          }
           $items = @((tar -tf 'out/PokemonTracker-Windows-x64.zip'))
           if ($LASTEXITCODE -ne 0) { throw 'ZIP no legible' }
           foreach ($required in @('PokemonTracker.exe','LEEME.txt','LICENSE.txt')) {
             if (-not ($items | Where-Object { $_ -like "*$required" })) {
               throw "No se encontro $required dentro del ZIP"
             }
+          }
+          if ($items.Count -ne 3) { throw "El ZIP debe contener solo 3 archivos y tiene $($items.Count)" }
+          # El EXE dentro del ZIP debe ser el mismo (firmado) que se publica suelto.
+          $check = Join-Path $env:RUNNER_TEMP 'zip-check'
+          Expand-Archive 'out/PokemonTracker-Windows-x64.zip' -DestinationPath $check -Force
+          $inner = (Get-FileHash (Join-Path $check 'PokemonTracker.exe') -Algorithm SHA256).Hash
+          if ($inner -ne (Get-FileHash 'dist/PokemonTracker.exe' -Algorithm SHA256).Hash) {
+            throw 'El EXE del ZIP no coincide con dist/PokemonTracker.exe'
           }
 
       - name: Preparar notas de version y SHA-256
@@ -105,15 +229,45 @@ jobs:
           }
           $sums | Set-Content -Path 'out/SHA256SUMS.txt' -Encoding utf8
 
-      - name: Guardar paquete como artefacto de respaldo
+      # Respaldo y entrada del trabajo publish: mismo contenido que el release.
+      - name: Guardar paquete como artefacto
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ProgressiveTracker-Windows-x64-${{ env.RELEASE_TAG }}
           path: |
             out/PokemonTracker-Windows-x64.zip
             out/SHA256SUMS.txt
+            out/RELEASE_NOTES.md
+            dist/PokemonTracker.exe
+            dist/LEEME.txt
+            dist/LICENSE.txt
           if-no-files-found: error
           retention-days: 30
+
+  publish:
+    needs: build
+    if: github.repository == 'joanjuz/NuzlockeTracker'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+
+    steps:
+      - name: Descargar paquete verificado
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ProgressiveTracker-Windows-x64-${{ inputs.tag }}
+          path: release
+
+      - name: Comprobar SHA-256 del paquete descargado
+        working-directory: release
+        # SHA256SUMS.txt se genera en Windows (CRLF): normalizar antes de comprobar.
+        run: |
+          cp dist/PokemonTracker.exe out/PokemonTracker.exe
+          (cd out && sed -e 's/\r$//' -e '1s/^\xEF\xBB\xBF//' SHA256SUMS.txt | sha256sum --strict --check -)
+          rm out/PokemonTracker.exe
 
       - name: Publicar GitHub Release con descarga
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
@@ -121,13 +275,13 @@ jobs:
           tag_name: ${{ env.RELEASE_TAG }}
           target_commitish: ${{ github.sha }}
           name: Progressive Tracker ${{ env.RELEASE_TAG }}
-          body_path: out/RELEASE_NOTES.md
+          body_path: release/out/RELEASE_NOTES.md
           files: |
-            out/PokemonTracker-Windows-x64.zip
-            dist/PokemonTracker.exe
-            dist/LEEME.txt
-            dist/LICENSE.txt
-            out/SHA256SUMS.txt
+            release/out/PokemonTracker-Windows-x64.zip
+            release/dist/PokemonTracker.exe
+            release/dist/LEEME.txt
+            release/dist/LICENSE.txt
+            release/out/SHA256SUMS.txt
           fail_on_unmatched_files: true
           draft: false
           prerelease: false

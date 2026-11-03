@@ -16,6 +16,7 @@ En Pokémon Tracker abre **OBS**, utiliza los botones **Copiar** y pega cada URL
 | Solo barra del Pokémon 1 | http://127.0.0.1:8765/overlay?layer=hp&slot=1 |
 | Objetos equipados | http://127.0.0.1:8765/overlay?layer=items |
 | Solo objeto del Pokémon 1 | http://127.0.0.1:8765/overlay?layer=items&slot=1 |
+| Cementerio | http://127.0.0.1:8765/overlay?layer=graveyard |
 
 Cambia el valor slot=1 por cualquier posición entre 1 y 6 para crear **18 elementos independientes** y moverlos donde quieras en OBS. También puedes utilizar solo las tres filas, o la composición completa. El fondo de las fuentes es transparente. Recomendación inicial: 960 × 180 px por fila.
 
@@ -25,6 +26,12 @@ La pestaña **OBS** tiene guardado automático, sin la antigua vista previa inte
 
 **Sprites:** reutiliza los GIF y PNG de la carpeta layout, junto con los sprites personalizados existentes. Cuando un Pokémon está registrado en Muertos, su sprite se muestra en escala de grises. El overlay aplica el gris directamente aunque el archivo exportado tarde en regenerarse (por ejemplo, con sprites HD animados), y lo quita al revivirlo.
 
+**Conjuntos de sprites:** cada subcarpeta de `sprites_personalizados` es un conjunto (por ejemplo `HD/` o `Pixel/`). En «Conjunto de sprites» eliges cuál usa OBS; si a un conjunto le falta un Pokémon, se usa el de la carpeta principal y, si tampoco está, el sprite normal. Las importaciones van al conjunto elegido; escribe un nombre en «Crear conjunto al importar» para crear uno nuevo al importar.
+
+**Iconos de objetos propios:** coloca imágenes en `sprites_personalizados/objetos/` (o en `objetos/` dentro de un conjunto) nombradas con el número del objeto, su nombre en inglés de PokeAPI o su nombre en español: `234.png`, `leftovers.png` o `restos.png`. Tienen prioridad sobre los iconos descargados y también se ven en la ventana principal. Admiten PNG, GIF y WebP animados.
+
+**Cementerio:** fuente aparte (`layer=graveyard`) con los Pokémon caídos de la partida activa en una cuadrícula y con el sprite en gris. Puedes elegir cuántos mostrar (hasta 60), las columnas, el tamaño del sprite, el orden (recientes o antiguos primero), el título con el total y si se ven el mote, la especie, el nivel y la ruta de captura. Usa el conjunto de sprites elegido.
+
 **Motes:** Oxanium, Arial, Segoe UI, Verdana, Georgia, monospace, o cualquier fuente que importe el usuario en formato TTF, OTF, WOFF o WOFF2 (hasta 3 MB). Se personalizan tamaño, color, contorno, grosor y ancho de posición.
 
 **Objetos:** muestra el objeto que lleva cada Pokémon en ese momento (Restos, Cinta Elección…); se vacía cuando lo consume o se lo quitas. Se usa como fuente aparte con `layer=items` o dentro de la composición, debajo de los motes, activando «Incluir objetos en composición». Tamaño y color configurables. «Mostrar objeto como» permite elegir **nombre, icono o icono y nombre**; el icono va encima del nombre y su tamaño es ajustable. Los iconos son los sprites de objetos de PokeAPI: se descargan una vez y quedan en la caché local de sprites; si un icono no existe o no hay conexión, se muestra el nombre. Las configuraciones guardadas antes de estas opciones siguen igual (solo nombre).
@@ -33,7 +40,7 @@ La pestaña **OBS** tiene guardado automático, sin la antigua vista previa inte
 
 ## Privacidad, persistencia y compatibilidad
 
-El editor y toda la API privada del tracker **solo escuchan en localhost**. El acceso remoto opcional abre un segundo servidor de **solo lectura** en la IPv4 exacta que indiques. Publica exclusivamente especie, mote, objeto equipado, vida actual/máxima, porcentaje, estado de muerte y si la lectura está desactualizada. No expone cajas, ROM, PID ni tokens Soul Link.
+El editor y toda la API privada del tracker **solo escuchan en localhost**. El acceso remoto opcional abre un segundo servidor de **solo lectura** en la IPv4 exacta que indiques. Publica exclusivamente especie, mote, objeto equipado, los datos visibles del cementerio (mote, especie, nivel y ruta de los caídos), vida actual/máxima, porcentaje, estado de muerte y si la lectura está desactualizada. No expone cajas, ROM, PID ni tokens Soul Link.
 
 Las opciones del editor se guardan por perfil bajo AppData/PokemonTracker/runtime/obs-overlay.json, y las tipografías bajo runtime/obs-fonts. Estos archivos no se distribuyen en el ejecutable.
 

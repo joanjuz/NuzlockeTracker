@@ -263,3 +263,11 @@ h1,h2,h3,.brand{font-weight:700;letter-spacing:.01em}.topbar nav button{font-wei
 /* Field borders reach 3:1 against their backgrounds (WCAG 1.4.11); other lines stay subtle. */
 :root,[data-theme="dark"]{--control-border:#6b6b6b}[data-theme="light"]{--control-border:#8a8a8a}
 input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),select{border-color:var(--control-border)}
+/* Held item icon next to its name (team cards and detail dialog); same chip in both themes. */
+.item-icon{width:24px;height:24px;margin:-6px 6px -6px 0;vertical-align:middle;object-fit:contain;background:var(--soft);border-radius:6px}
+[data-theme="light"] .item-icon{background:#00000008}
+/* Update notice under the page header: one dismissible line; theme tokens keep both themes legible. */
+.update-notice{display:flex;align-items:center;justify-content:space-between;gap:8px 14px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:9px;padding:8px 10px 8px 14px;margin-bottom:14px;font-size:13px}
+.update-notice p{margin:0;overflow-wrap:anywhere}
+.update-notice a{color:var(--accent);font-weight:700;text-underline-offset:3px}
+.update-notice button{font-size:12px;padding:6px 12px}

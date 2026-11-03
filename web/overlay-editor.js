@@ -9,11 +9,15 @@
     'counter_mode','counter_total','counter_lost','counter_icon_size','counter_in_composition','counter_custom_icon',
     'render_scale','sprite_scaling','sprite_shadow','sprite_padding','hp_animation_ms',
     'items_in_composition','item_size','item_color','item_display','item_icon_size',
+    'sprite_set','graveyard_max','graveyard_columns','graveyard_sprite_size','graveyard_order',
+    'graveyard_title','graveyard_show_name','graveyard_show_species','graveyard_show_level','graveyard_show_route',
   ];
   const numberFields=new Set(['gap','slot_width','sprite_size','name_size','name_weight','hp_height',
     'hp_radius','hp_border_width','hp_low_threshold','hp_mid_threshold','hp_text_size',
-    'render_scale','sprite_padding','hp_animation_ms','counter_total','counter_icon_size','item_size','item_icon_size']);
-  const checkFields=new Set(['hp_reverse','hp_glow','show_empty','hp_custom_fill','hp_custom_frame','sprite_shadow','counter_in_composition','counter_custom_icon','items_in_composition']);
+    'render_scale','sprite_padding','hp_animation_ms','counter_total','counter_icon_size','item_size','item_icon_size',
+    'graveyard_max','graveyard_columns','graveyard_sprite_size']);
+  const checkFields=new Set(['hp_reverse','hp_glow','show_empty','hp_custom_fill','hp_custom_frame','sprite_shadow','counter_in_composition','counter_custom_icon','items_in_composition',
+    'graveyard_title','graveyard_show_name','graveyard_show_species','graveyard_show_level','graveyard_show_route']);
   const status=$('status');
   let token='',pending=null,defaultConfig=null,loading=true;
   let shared={enabled:false,ip:'',port:null,base_url:''},lastEdited=null,publicParty=[];
@@ -67,12 +71,18 @@
       hp:rows*(c.hp_height+(c.hp_label==='none'?0:4+Math.ceil(c.hp_text_size*1.3)))+(rows-1)*c.gap,
       items:rows*((c.item_display==='name'?0:c.item_icon_size+2)+(c.item_display==='icon'?0:Math.ceil(c.item_size*1.3)*2)+4)+(rows-1)*c.gap};
     const counterWidth=Math.max(c.counter_icon_size,Math.min(width,120+c.counter_total*(c.counter_icon_size+8)));
+    const graveCols=Math.max(1,c.graveyard_columns||6),graveCount=Math.min(c.graveyard_max||12,60);
+    const graveWidth=graveCols*Math.max(c.slot_width,c.graveyard_sprite_size)+(graveCols-1)*c.gap;
+    const graveText=[c.graveyard_show_name,c.graveyard_show_species,c.graveyard_show_level,c.graveyard_show_route]
+      .filter(Boolean).length*Math.ceil(c.name_size*0.8*1.3);
+    heights.graveyard=(c.graveyard_title?Math.ceil(c.name_size*1.3)+6:0)+
+      Math.ceil(graveCount/graveCols)*(c.graveyard_sprite_size+graveText+4)+(Math.ceil(graveCount/graveCols)-1)*c.gap;
     heights.counter=c.counter_mode==='lives'?Math.ceil((120+c.counter_total*(c.counter_icon_size+8))/counterWidth)*(Math.max(c.counter_icon_size,c.name_size*1.3)+8):Math.ceil(c.name_size*1.3)+4;
     heights.all=heights.sprites+heights.names+heights.hp+2*c.gap;
     if(c.items_in_composition)heights.all+=heights.items+c.gap;
     if(c.counter_in_composition&&c.counter_mode!=='off')heights.all+=heights.counter+c.gap;
     for(const el of document.querySelectorAll('[data-source-size]')){
-      const layer=el.dataset.sourceSize,w=layer==='counter'?counterWidth:width;
+      const layer=el.dataset.sourceSize,w=layer==='counter'?counterWidth:layer==='graveyard'?graveWidth:width;
       el.textContent='Ancho '+Math.ceil(w*scale)+' × alto '+Math.ceil(heights[layer]*scale)+' px';
     }
     $('source-size').textContent='Dimensiones orientativas para OBS a '+scale+'×. Conserva estos tamaños de render; deja margen adicional si tu fuente personalizada o tus motes son más altos.';
@@ -81,8 +91,8 @@
     const slot=$('slot').value,container=$('links');container.replaceChildren();
     const remote=$('link-target').value==='vpn'&&shared.enabled;
     const base=remote?shared.base_url:location.origin;
-    for(const [label,layer] of [['Composición','all'],['Sprites','sprites'],['Motes','names'],['Vida','hp'],['Objetos','items'],['Muertes / vidas','counter']]){
-      const url=base+'/overlay?layer='+layer+(slot&&layer!=='counter'?'&slot='+slot:'');
+    for(const [label,layer] of [['Composición','all'],['Sprites','sprites'],['Motes','names'],['Vida','hp'],['Objetos','items'],['Muertes / vidas','counter'],['Cementerio','graveyard']]){
+      const url=base+'/overlay?layer='+layer+(slot&&!['counter','graveyard'].includes(layer)?'&slot='+slot:'');
       const row=document.createElement('div');row.className='link-line';
       const title=document.createElement('label');title.textContent=label;title.htmlFor='source-url-'+layer;
       const input=document.createElement('input');input.id='source-url-'+layer;input.readOnly=true;input.value=url;
@@ -211,14 +221,22 @@
     }catch(error){say('Icono: '+error.message,true,control)}
     finally{control.value=''}
   };
-  $('sprite-upload').onchange=async()=>{
-    const files=[...($('sprite-upload').files||[])];
+  // Destination set for imports: the typed new name, else the selected set.
+  function importTarget(){
+    const typed=$('sprite-set-new').value.trim();
+    if(typed&&!/^[A-Za-z0-9][A-Za-z0-9 _-]{0,39}$/.test(typed))
+      throw new Error('Nombre de conjunto inválido: letras, números, espacios, - o _ (máx. 40)');
+    return typed||$('sprite_set').value||'';
+  }
+  async function importImages(control,endpoint,noun){
+    const files=[...(control.files||[])];
     if(!files.length)return;
-    if(files.length>30){say('Importa hasta 30 sprites por lote',true,$('sprite-upload'));return;}
-    let imported=0;
+    if(files.length>30){say('Importa hasta 30 archivos por lote',true,control);return;}
+    let imported=0,folder='';
     try{
+      const target=importTarget();
       for(const file of files){
-        if(file.size>8_000_000)throw new Error(file.name+': máximo 8 MB por sprite');
+        if(file.size>8_000_000)throw new Error(file.name+': máximo 8 MB por archivo');
         const ext=(file.name.split('.').pop()||'').toLowerCase();
         if(!['png','apng','gif','webp','jpg','jpeg','bmp'].includes(ext))
           throw new Error(file.name+': extensión no admitida');
@@ -226,14 +244,40 @@
         const stem=rawName.normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
           .replace(/[^A-Za-z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80);
         if(!stem)throw new Error('Nombre de archivo inválido');
-        await post('/api/overlay/sprite',{name:stem+'.'+ext,data:await encodeFile(file)});
+        const result=await post(endpoint,{name:stem+'.'+ext,data:await encodeFile(file),sprite_set:target});
+        folder=result.path_hint||folder;
         imported++;
-        say('Sprites importados: '+imported+' / '+files.length,false,$('sprite-upload'));
+        say(noun+' importados: '+imported+' / '+files.length,false,control);
       }
-      $('sprite-import-info').textContent='Importados '+imported+' sprites. OBS los actualizará automáticamente.';
-    }catch(error){say('Importación ('+imported+'/'+files.length+'): '+error.message,true,$('sprite-upload'));}
-    finally{$('sprite-upload').value='';}
+      return {imported,folder,target};
+    }catch(error){say('Importación ('+imported+'/'+files.length+'): '+error.message,true,control);return null;}
+    finally{control.value='';}
+  }
+  $('sprite-upload').onchange=async()=>{
+    const result=await importImages($('sprite-upload'),'/api/overlay/sprite','Sprites');
+    if(!result)return;
+    $('sprite-import-info').textContent='Importados '+result.imported+' sprites en '+result.folder+'. OBS los actualizará automáticamente.';
+    if(result.target&&result.target!==$('sprite_set').value){$('sprite-set-new').value='';await loadSpriteSets(result.target);}
   };
+  // Outside .controls, so it is wired explicitly: switching sets saves at once.
+  $('sprite_set').onchange=()=>{if(loading)return;lastEdited=$('sprite_set');save($('sprite_set'));};
+  $('item-sprite-upload').onchange=async()=>{
+    const result=await importImages($('item-sprite-upload'),'/api/overlay/item-sprite','Iconos');
+    if(!result)return;
+    $('item-sprite-info').textContent='Importados '+result.imported+' iconos en '+result.folder+'.';
+    if(result.target&&result.target!==$('sprite_set').value){$('sprite-set-new').value='';await loadSpriteSets();}
+  };
+  async function loadSpriteSets(select){
+    try{
+      const response=await fetch('/api/overlay/sprite-sets');
+      if(!response.ok)return;
+      const data=await response.json(),input=$('sprite_set'),prior=select??input.value;
+      input.replaceChildren(new Option('Carpeta principal',''));
+      for(const name of Array.isArray(data.sets)?data.sets:[])input.add(new Option(name,name));
+      if([...input.options].some(o=>o.value===prior))input.value=prior;
+      if(select!==undefined&&input.value===select&&!loading){lastEdited=input;save(input);}
+    }catch(_){}
+  }
   async function importHealth(kind){
     const control=$('hp_'+kind+'_upload');
     const file=control.files?.[0];if(!file)return;
@@ -286,6 +330,7 @@
         fetch('/api/overlay/settings'),fetch('/api/overlay/fonts'),fetch('/api/overlay/share')]);
       if(!response.ok||!fontRes.ok||!shareRes.ok)throw new Error('No se encuentra el editor local');
       const current=await response.json();populateFonts(await fontRes.json());
+      await loadSpriteSets(current.sprite_set||'');
       shared=await shareRes.json();
       try{$('share-ip').value=shared.ip||localStorage.getItem('progressive-obs-vpn-ip')||''}catch(_){}
       $('link-target').value=shared.enabled?'vpn':'local';

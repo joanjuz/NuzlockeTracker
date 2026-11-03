@@ -1,8 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
-const source=fs.readFileSync(path.join(__dirname,'../web/app.js'),'utf8');
-const end=source.indexOf('// End named run controls.');
-assert.ok(end>0);
+const source=require('./ui_shared.js').scripts['app/profiles.js'];
+assert.ok(source.includes('// End named run controls.'));
 class Node{
   constructor(){this.value='';this.dataset={};this.hidden=true;this.disabled=false;this.textContent='';this.children=[];this.open=false;}
   replaceChildren(...items){this.children=items;}
@@ -21,7 +20,7 @@ function harness(){
       if(!replies.length)throw Error('Missing test response');
       const reply=replies.shift();return {ok:reply.ok!==false,json:async()=>reply.data};
     }};
-  vm.createContext(context);vm.runInContext(source.slice(0,end),context);
+  vm.createContext(context);vm.runInContext(source,context);
   return {context,$,requests,replies,reloaded:()=>reloaded};
 }
 const status={active:'principal',profiles:[{id:'principal',name:'Principal'},{id:'run-123',name:'<script>literal</script>'}]};
@@ -96,6 +95,16 @@ async function test_delete_inactive_profile_with_single_click(){
   assert.equal(h.$('delete-run-profile-dialog').open,false);
   assert.equal(h.reloaded(),0);
 }
+async function test_principal_can_be_deleted_when_another_run_is_open(){
+  const h=harness();const other={...status,active:'run-123'};h.replies.push({data:other});await h.context.loadRunProfiles();
+  h.$('delete-run-profile').onclick();
+  assert.equal(h.$('delete-run-profile-select').children[0].disabled,false,'Principal seleccionable');
+  assert.equal(h.$('delete-run-profile-select').children[1].disabled,true,'la abierta no');
+  assert.equal(h.$('delete-run-profile-select').value,'principal');
+  h.replies.push({data:{active:'run-123',profiles:[other.profiles[1]]}});
+  await h.$('delete-run-profile-confirm').onclick();
+  assert.deepEqual(JSON.parse(h.requests[1].options.body),{action:'delete',id:'principal'});
+}
 async function test_delete_locked_error_retains_dialog_and_selection(){
   const h=harness();h.replies.push({data:status});await h.context.loadRunProfiles();
   h.$('delete-run-profile').onclick();
@@ -109,7 +118,7 @@ async function test_delete_locked_error_retains_dialog_and_selection(){
 (async()=>{
   for(const test of [test_picker_population_and_explicit_switch,test_failed_switch_restores_picker_and_shows_error,
     test_create_run_then_selects_returned_id_and_reloads,test_empty_name_and_creation_error_keep_dialog_usable,
-    test_unavailable_profile_api_does_not_break_startup,test_delete_inactive_profile_with_single_click,test_delete_locked_error_retains_dialog_and_selection]){
+    test_unavailable_profile_api_does_not_break_startup,test_delete_inactive_profile_with_single_click,test_principal_can_be_deleted_when_another_run_is_open,test_delete_locked_error_retains_dialog_and_selection]){
     await test();console.log(test.name+' OK');
   }
 })().catch(error=>{console.error(error);process.exitCode=1;});
