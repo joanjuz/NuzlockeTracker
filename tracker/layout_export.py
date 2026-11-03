@@ -2,25 +2,69 @@
 
 Local-only layout output; all six slots always have PNG + GIF counterparts.
 Never mutate source sprites, game saves, emulator memory or cloud credentials.
+
+Image validation/conversion lives in tracker.sprite_images; its public names
+are re-exported here so existing imports (overlay, custom sprites, API, tests)
+keep working unchanged.
 """
 from __future__ import annotations
 
-import io
 import logging
 import os
 import re
-import unicodedata
-import struct
 import sys
 import threading
 import time
+import unicodedata
 import urllib.request
-import zlib
-from concurrent.futures import ThreadPoolExecutor
+from collections.abc import Callable, Mapping
+from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
+from typing import Any, Protocol
 
-from PIL import Image, ImageOps, UnidentifiedImageError
 from .progress import pokemon_key
+from .sprite_images import (
+    BLANK_PNG,
+    CUSTOM_EXTENSIONS,
+    GIF_MAGIC,
+    MAX_GIF_BYTES,
+    MAX_GIF_FRAME_PIXELS,
+    MAX_GIF_FRAMES,
+    MAX_GIF_TOTAL_PIXELS,
+    PNG_MAGIC,
+    _chunk,
+    animation_frames,
+    animation_to_webp,
+    blank_sprite,
+    gif_to_outputs,
+    grayscale_png,
+    normalize_custom_sprite,
+    png_to_gif,
+    validate_gif,
+    validate_png,
+)
+
+__all__ = [
+    'ALOLA_SPRITES', 'BLANK_PNG', 'CUSTOM_EXTENSIONS', 'GIF_MAGIC', 'MAX_GIF_BYTES',
+    'MAX_GIF_FRAMES', 'MAX_GIF_FRAME_PIXELS', 'MAX_GIF_TOTAL_PIXELS', 'PNG_MAGIC',
+    'PartyLayoutExporter', '_chunk', 'animation_frames', 'animation_to_webp',
+    'blank_sprite', 'custom_media_names', 'custom_names', 'fetch_sprite',
+    'gif_to_outputs', 'grayscale_png', 'layout_directory', 'normalize_custom_sprite',
+    'png_to_gif', 'safe_sprite_stem', 'sprite_id', 'validate_gif', 'validate_png',
+]
+
+# Pokémon dict as produced by tracker/pokemon.py (party, boxes, deaths).
+Pokemon = dict[str, Any]
+# (bytes, kind) where kind is 'png', 'gif', 'webp' or 'apng'.
+Media = tuple[bytes, str]
+
+
+class LayoutService(Protocol):
+    """Subset of TrackerService the exporter needs (read-only)."""
+    condition: threading.Condition
+
+    def snapshot(self) -> dict[str, Any]: ...
+
 
 # PokeAPI sprite IDs for Gen7 Alolan variants. Do not show the Kanto sprite
 # when an Alolan species has been detected.
@@ -30,30 +74,9 @@ ALOLA_SPRITES = {
     53: 10108, 74: 10109, 75: 10110, 76: 10111, 88: 10112,
     89: 10113, 103: 10114, 105: 10115,
 }
-PNG_MAGIC = b'\x89PNG\r\n\x1a\n'
-GIF_MAGIC = (b'GIF87a', b'GIF89a')
-MAX_GIF_BYTES = 5_000_000
-MAX_GIF_FRAMES = 120
-MAX_GIF_FRAME_PIXELS = 512 * 512
-MAX_GIF_TOTAL_PIXELS = 12_000_000
 
 
-def _chunk(name, data):
-    return struct.pack('>I', len(data)) + name + data + struct.pack(
-        '>I', zlib.crc32(name + data) & 0xffffffff)
-
-
-def blank_sprite(size=96):
-    """Fixed transparent canvas avoids OBS resizing a slot when it is empty."""
-    raw = b''.join(b'\x00' + bytes(size * 4) for _ in range(size))
-    return (PNG_MAGIC + _chunk(b'IHDR', struct.pack('>IIBBBBB', size, size, 8, 6, 0, 0, 0))
-            + _chunk(b'IDAT', zlib.compress(raw, 9)) + _chunk(b'IEND', b''))
-
-
-BLANK_PNG = blank_sprite()
-
-
-def sprite_id(mon):
+def sprite_id(mon: object) -> int | None:
     if not isinstance(mon, dict):
         return None
     species = mon.get('species_id')
@@ -64,103 +87,7 @@ def sprite_id(mon):
     return species
 
 
-def validate_png(data):
-    if not isinstance(data, bytes) or not (33 <= len(data) <= 8_000_000):
-        raise ValueError('Sprite PNG inválido')
-    if not data.startswith(PNG_MAGIC) or data[12:16] != b'IHDR':
-        raise ValueError('Cabecera PNG inválida')
-    width, height = struct.unpack_from('>II', data, 16)
-    if not (1 <= width <= 2048 and 1 <= height <= 2048 and width * height <= 2_500_000):
-        raise ValueError('Dimensiones PNG inválidas')
-    return data
-
-
-def grayscale_png(data):
-    """Desaturate an output PNG, preserving alpha and never editing its source."""
-    validate_png(data)
-    with Image.open(io.BytesIO(data)) as src:
-        rgba = src.convert('RGBA')
-        gray = ImageOps.grayscale(rgba)
-        result = Image.merge('RGBA', (gray, gray, gray, rgba.getchannel('A')))
-        out = io.BytesIO()
-        result.save(out, format='PNG')
-    return validate_png(out.getvalue())
-
-
-
-def validate_gif(data):
-    """Validate small finite GIFs before decoding user-generated animations."""
-    if not isinstance(data, bytes) or len(data) < 19 or len(data) > MAX_GIF_BYTES:
-        raise ValueError('GIF personalizado demasiado grande o inválido')
-    if not data.startswith(GIF_MAGIC):
-        raise ValueError('El archivo no contiene un GIF')
-    try:
-        with Image.open(io.BytesIO(data)) as image:
-            width, height = image.size
-            count = image.n_frames
-            if (image.format != 'GIF' or not 1 <= width <= 512 or
-                    not 1 <= height <= 512 or not 1 <= count <= MAX_GIF_FRAMES or
-                    width * height * count > MAX_GIF_TOTAL_PIXELS):
-                raise ValueError('GIF fuera de los límites de fotogramas o resolución')
-            # Decoding now avoids accepting truncated files as valid custom assets.
-            for index in range(count):
-                image.seek(index)
-                image.load()
-    except (UnidentifiedImageError, OSError, EOFError) as exc:
-        raise ValueError('GIF dañado o incompleto') from exc
-    return data
-
-
-def animation_frames(data, dead=False):
-    validate_gif(data)
-    frames = []
-    durations = []
-    with Image.open(io.BytesIO(data)) as animation:
-        for index in range(animation.n_frames):
-            animation.seek(index)
-            rgba = animation.convert('RGBA')
-            if dead:
-                gray = ImageOps.grayscale(rgba)
-                rgba = Image.merge('RGBA', (gray, gray, gray, rgba.getchannel('A')))
-            frames.append(rgba)
-            duration = int(animation.info.get('duration', 100) or 100)
-            durations.append(max(20, min(duration, 5000)))
-    return frames, durations
-
-
-def gif_to_outputs(data, dead=False):
-    """Produce an animated GIF + its first PNG frame for legacy OBS layouts."""
-    frames, durations = animation_frames(data, dead=dead)
-    first_png = io.BytesIO()
-    frames[0].save(first_png, format='PNG')
-    # Preserve original GIF palette, alpha and animation when it already
-    # loops. Lossy recompression is reserved for grayscale dead Pokémon.
-    if not dead:
-        with Image.open(io.BytesIO(data)) as original:
-            if original.info.get('loop')==0:
-                return validate_png(first_png.getvalue()), validate_gif(data)
-    output = io.BytesIO()
-    frames[0].save(output, format='GIF', save_all=True,
-                   append_images=frames[1:], duration=durations,
-                   loop=0, disposal=2)
-    return validate_png(first_png.getvalue()), validate_gif(output.getvalue())
-
-
-def png_to_gif(data):
-    """Single-frame GIF gives OBS a fixed .gif path for nonanimated species."""
-    validate_png(data)
-    with Image.open(io.BytesIO(data)) as src:
-        output = io.BytesIO()
-        rgba=src.convert('RGBA')
-        # GIF is now only for legacy external links. The new browser overlay
-        # renders the lossless PNG at the original resolution.
-        if rgba.width>512 or rgba.height>512:
-            rgba.thumbnail((512,512),resample=Image.Resampling.NEAREST)
-        rgba.save(output, format='GIF', loop=0)
-        return validate_gif(output.getvalue())
-
-
-def safe_sprite_stem(value):
+def safe_sprite_stem(value: object) -> str:
     """Normalize friendly names to safe file stems, never to paths."""
     if not isinstance(value, str):
         return ''
@@ -169,10 +96,7 @@ def safe_sprite_stem(value):
     return re.sub(r'[^a-z0-9]+', '-', base).strip('-')[:80]
 
 
-CUSTOM_EXTENSIONS = ('.gif', '.webp', '.png', '.apng', '.jpg', '.jpeg', '.bmp')
-
-
-def custom_media_names(mon, ident):
+def custom_media_names(mon: Pokemon, ident: int) -> tuple[str, ...]:
     """Allow National Dex, padded ID, names, regional variants and shiny names.
 
     All returned names are flat filenames; files never leave the custom directory.
@@ -201,7 +125,7 @@ def custom_media_names(mon, ident):
     return tuple(stem+ext for ext in CUSTOM_EXTENSIONS for stem in stems)
 
 
-def custom_names(mon, ident):
+def custom_names(mon: Pokemon, ident: int) -> tuple[str, ...]:
     """Species National Dex ID; regional names override their numeric form ID."""
     species = mon['species_id']
     if mon.get('form') == 1 and species in ALOLA_SPRITES:
@@ -209,67 +133,7 @@ def custom_names(mon, ident):
     return (f'{species}.png',)
 
 
-def normalize_custom_sprite(data, ext):
-    """Decode bounded user artwork; keep native PNG precision and WebP animation.
-
-    Accepted: PNG/APNG, animated GIF/WebP, static WebP/JPEG/BMP.
-    No SVG (scripts/external resource references are unsuitable for OBS).
-    """
-    if not isinstance(data, bytes) or len(data)>8_000_000:
-        raise ValueError('Imagen personalizada demasiado grande')
-    if ext not in CUSTOM_EXTENSIONS:
-        raise ValueError('Formato de sprite no admitido')
-    try:
-        with Image.open(io.BytesIO(data)) as im:
-            width,height=im.size
-            count=getattr(im,'n_frames',1)
-            if not (1<=width<=2048 and 1<=height<=2048 and
-                    width*height<=2_500_000 and 1<=count<=120 and
-                    width*height*count<=16_000_000):
-                raise ValueError('Sprite supera los límites de imagen/animación')
-            if count>1:
-                if ext=='.gif':
-                    return validate_gif(data),'gif'
-                if ext not in ('.webp','.apng','.png'):
-                    raise ValueError('Animación no admitida')
-                # APNG/WebP animation stays high fidelity with alpha (not a GIF palette).
-                for n in range(count):
-                    im.seek(n)
-                    im.load()
-                return data, 'webp' if ext=='.webp' else 'apng'
-            im.seek(0)
-            rgba=im.convert('RGBA')
-            if ext=='.png' and data.startswith(PNG_MAGIC):
-                return validate_png(data),'png'
-            output=io.BytesIO()
-            rgba.save(output,format='PNG',optimize=True)
-            return validate_png(output.getvalue()),'png'
-    except (UnidentifiedImageError,OSError,EOFError,ValueError) as exc:
-        raise ValueError('No se puede leer el sprite personalizado: '+str(exc)) from exc
-
-
-def animation_to_webp(data, kind, dead=False):
-    """Animated RGBA to WebP, lossless and without palette quantization."""
-    frames=[];durations=[]
-    with Image.open(io.BytesIO(data)) as im:
-        for n in range(im.n_frames):
-            im.seek(n)
-            image=im.convert('RGBA')
-            if dead:
-                gray=ImageOps.grayscale(image)
-                image=Image.merge('RGBA',(gray,gray,gray,image.getchannel('A')))
-            frames.append(image)
-            durations.append(max(20,min(int(im.info.get('duration',100) or 100),5000)))
-    first=io.BytesIO();frames[0].save(first,format='PNG')
-    out=io.BytesIO()
-    frames[0].save(out,format='WEBP',save_all=True,append_images=frames[1:],
-                   duration=durations,loop=0,lossless=True,quality=100,method=4)
-    if out.tell()>16_000_000:
-        raise ValueError('Animación personalizada demasiado grande')
-    return validate_png(first.getvalue()),out.getvalue()
-
-
-def fetch_sprite(identifier):
+def fetch_sprite(identifier: int) -> bytes:
     if not 1 <= identifier <= 10115:
         raise ValueError('Identificador fuera de rango')
     url = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/' + str(identifier) + '.png'
@@ -278,7 +142,9 @@ def fetch_sprite(identifier):
         return validate_png(response.read(500_001))
 
 
-def layout_directory(home, profile='principal', executable=None, frozen=None):
+def layout_directory(home: str | os.PathLike[str], profile: str = 'principal',
+                     executable: str | os.PathLike[str] | None = None,
+                     frozen: bool | None = None) -> Path:
     """Portable next-to-EXE when writable, otherwise persistent AppData fallback."""
     home = Path(home)
     if frozen is None:
@@ -300,30 +166,35 @@ def layout_directory(home, profile='principal', executable=None, frozen=None):
 
 
 class PartyLayoutExporter:
-    def __init__(self, service, directory, cache_dir=None, downloader=fetch_sprite, bundled=None, custom_dir=None,
-                 sprite_set=None):
+    def __init__(self, service: LayoutService, directory: str | os.PathLike[str],
+                 cache_dir: str | os.PathLike[str] | None = None,
+                 downloader: Callable[[int], bytes] = fetch_sprite,
+                 bundled: str | os.PathLike[str] | None = None,
+                 custom_dir: str | os.PathLike[str] | None = None,
+                 sprite_set: Callable[[], str | None] | None = None) -> None:
         self.service = service
         # Callable returning the selected sprite set (subfolder) or ''.
-        self.sprite_set = sprite_set if callable(sprite_set) else (lambda: '')
+        self.sprite_set: Callable[[], str | None] = sprite_set if callable(sprite_set) else (lambda: '')
         self.directory = Path(directory)
         self.cache = Path(cache_dir or self.directory.parent / 'sprite-cache')
         self.custom = Path(custom_dir or self.directory.parent / 'sprites_personalizados')
         self.bundled = Path(bundled or (Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent.parent)) / 'data' / 'sprites'))
         self.downloader = downloader
         self.stop = threading.Event()
-        self.thread = None
+        self.thread: threading.Thread | None = None
         self.pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix='layout-sprite')
-        self.futures = {}
-        self.retry_after = {}
+        self.futures: dict[int, Future[bytes]] = {}
+        self.retry_after: dict[int, float] = {}
         # futures/retry_after are shared with HTTP threads (sprite_for).
         self.futures_lock = threading.Lock()
-        self.slots = [None] * 6
-        self.contents = [None] * 6
-        self.gif_contents = [None] * 6
-        self.render_signatures = [None] * 6
-        self.media_types = [None] * 6
-        self.custom_cache = {}  # path -> (mtime_ns, size, validated media or None)
-        self.last_error = None  # last per-slot failure, for diagnostics
+        self.slots: list[int | None] = [None] * 6
+        self.contents: list[bytes | None] = [None] * 6
+        self.gif_contents: list[bytes | None] = [None] * 6
+        self.render_signatures: list[tuple[int, bool, bool | str, bytes] | None] = [None] * 6
+        self.media_types: list[str | None] = [None] * 6
+        # path -> (mtime_ns, size), validated media or None
+        self.custom_cache: dict[Path, tuple[tuple[int, int], Media | None]] = {}
+        self.last_error: str | None = None  # last per-slot failure, for diagnostics
         self.directory.mkdir(parents=True, exist_ok=True)
         self.custom.mkdir(parents=True, exist_ok=True)
         # Guarantee six files immediately, including slots that are empty.
@@ -333,7 +204,7 @@ class PartyLayoutExporter:
             self.write_gif_slot(index, self.blank_gif)
             self.write_media_type(index, 'png')
 
-    def write_slot(self, index, data):
+    def write_slot(self, index: int, data: bytes) -> None:
         if self.contents[index] == data:
             return
         name = self.directory / f'pokemon_{index+1}.png'
@@ -346,7 +217,7 @@ class PartyLayoutExporter:
             if tmp.exists():
                 tmp.unlink()
 
-    def write_gif_slot(self, index, data):
+    def write_gif_slot(self, index: int, data: bytes) -> None:
         if self.gif_contents[index] == data:
             return
         name = self.directory / f'pokemon_{index+1}.gif'
@@ -359,7 +230,7 @@ class PartyLayoutExporter:
             if tmp.exists():
                 tmp.unlink()
 
-    def write_media_type(self,index,kind):
+    def write_media_type(self, index: int, kind: str) -> None:
         if self.media_types[index]==kind:
             return
         target=self.directory/f'pokemon_{index+1}.media'
@@ -371,7 +242,7 @@ class PartyLayoutExporter:
         finally:
             tmp.unlink(missing_ok=True)
 
-    def write_webp_slot(self,index,data):
+    def write_webp_slot(self, index: int, data: bytes) -> None:
         target=self.directory/f'pokemon_{index+1}.webp'
         tmp=self.directory/f'.pokemon_{index+1}.{os.getpid()}.webp.tmp'
         try:
@@ -380,7 +251,8 @@ class PartyLayoutExporter:
         finally:
             tmp.unlink(missing_ok=True)
 
-    def publish(self, index, ident, source, animated=False, dead=False):
+    def publish(self, index: int, ident: int, source: bytes,
+                animated: bool | str = False, dead: bool = False) -> None:
         """Expose the original visual format, not an indexed GIF for every PNG."""
         signature = (ident, dead, animated, source)
         if self.render_signatures[index] == signature:
@@ -404,13 +276,13 @@ class PartyLayoutExporter:
             self.write_media_type(index,'png')
         self.render_signatures[index]=signature
 
-    def clear_slot(self,index):
+    def clear_slot(self, index: int) -> None:
         self.render_signatures[index]=None
         self.write_slot(index,BLANK_PNG)
         self.write_gif_slot(index,self.blank_gif)
         self.write_media_type(index,'png')
 
-    def local_sprite(self, ident):
+    def local_sprite(self, ident: int) -> bytes | None:
         for folder in (self.cache, self.bundled):
             candidate = folder / f'{ident}.png'
             if candidate.is_file():
@@ -420,8 +292,8 @@ class PartyLayoutExporter:
                     continue
         return None
 
-    def custom_media(self,mon,ident):
-        from .custom_sprites import search_dirs
+    def custom_media(self, mon: Pokemon, ident: int) -> Media | None:
+        from .custom_sprites import sprite_dirs
         if not self.custom.is_dir():return None
         try:
             chosen=self.sprite_set() or ''
@@ -430,12 +302,12 @@ class PartyLayoutExporter:
         # Resolve case-insensitively, including names such as Pikachu.PNG.
         # Selected set first, then the root folder; files never leave them.
         names=custom_media_names(mon,ident)
-        for folder in search_dirs(self.custom,chosen):
+        for folder in sprite_dirs(self.custom,chosen,mon):
             media=self._custom_media_in(folder,names)
             if media is not None:return media
         return None
 
-    def _custom_media_in(self,folder,names):
+    def _custom_media_in(self, folder: Path, names: tuple[str, ...]) -> Media | None:
         from .custom_sprites import listing
         available=listing(folder)  # cached until the folder changes
         for name in names:
@@ -462,7 +334,7 @@ class PartyLayoutExporter:
                 self.custom_cache.pop(candidate,None)
         return None
 
-    def sprite_for(self, mon, download=True):
+    def sprite_for(self, mon: Pokemon, download: bool = True) -> Media | None:
         """Media for any Pokémon (e.g. the OBS graveyard) without blocking.
 
         Returns (bytes, kind) from the custom set, cache or bundled sprites;
@@ -495,10 +367,10 @@ class PartyLayoutExporter:
                 self.retry_after[ident] = now + 30
         return None
 
-    def render_sprite(self, data, dead):
+    def render_sprite(self, data: bytes, dead: bool) -> bytes:
         return grayscale_png(data) if dead else data
 
-    def download_and_store(self, ident):
+    def download_and_store(self, ident: int) -> bytes:
         data = validate_png(self.downloader(ident))
         self.cache.mkdir(parents=True, exist_ok=True)
         tmp = self.cache / f'.{ident}.{os.getpid()}.tmp'
@@ -510,15 +382,16 @@ class PartyLayoutExporter:
                 tmp.unlink()
         return data
 
-    def _state(self):
+    def _state(self) -> dict[str, Any]:
         # Only the party and the death keys are needed: avoid deep-copying the
         # 32-box cache twice per second when the service offers a narrow copy.
         fields = getattr(self.service, 'snapshot_fields', None)
         if callable(fields):
-            return fields('party', 'progress')
+            state: dict[str, Any] = fields('party', 'progress')
+            return state
         return self.service.snapshot()
 
-    def refresh(self):
+    def refresh(self) -> None:
         state = self._state()
         party = state.get('party') or []
         deaths = (state.get('progress') or {}).get('deaths') or {}
@@ -541,9 +414,9 @@ class PartyLayoutExporter:
                 logging.getLogger('tracker.sprites').info('Sprites OBS recuperados')
         self.last_error = failed
 
-    def _fallback_slot(self, i, mon, deaths):
+    def _fallback_slot(self, i: int, mon: Pokemon | None, deaths: Mapping[str, Any]) -> None:
         ident = sprite_id(mon)
-        if ident is None:
+        if ident is None or mon is None:
             return
         local = self.local_sprite(ident)
         if local is None:
@@ -554,9 +427,9 @@ class PartyLayoutExporter:
         except Exception:
             pass  # refresh() already records this slot's error.
 
-    def _refresh_slot(self, i, mon, deaths, now):
+    def _refresh_slot(self, i: int, mon: Pokemon | None, deaths: Mapping[str, Any], now: float) -> None:
         ident = sprite_id(mon)
-        if ident is None:
+        if ident is None or mon is None:
             self.slots[i] = None
             self.clear_slot(i)
             return
@@ -595,7 +468,7 @@ class PartyLayoutExporter:
                 with self.futures_lock:
                     self.retry_after[ident] = now + 30
 
-    def run(self):
+    def run(self) -> None:
         while not self.stop.is_set():
             try:
                 self.refresh()
@@ -605,13 +478,13 @@ class PartyLayoutExporter:
             with self.service.condition:
                 self.service.condition.wait(timeout=0.5)
 
-    def start(self):
+    def start(self) -> None:
         if self.thread is not None:
             return
         self.thread = threading.Thread(target=self.run, name='layout-export', daemon=True)
         self.thread.start()
 
-    def close(self):
+    def close(self) -> None:
         self.stop.set()
         with self.service.condition:
             self.service.condition.notify_all()

@@ -7,7 +7,16 @@ python_version = "3.13"
 # El lector de memoria usa APIs ctypes exclusivas de Windows (WinDLL,
 # WinError); CI ejecuta mypy en Linux, asi que se fija la plataforma.
 platform = "win32"
-files = ["tracker/process_memory.py"]
+files = [
+    "tracker/process_memory.py",
+    "tracker/layout_export.py",
+    "tracker/sprite_images.py",
+    "tracker/progress.py",
+    "tracker/templates.py",
+    "companion/snapshot.py",
+    "companion/direct.py",
+    "companion/sync.py",
+]
 # Los modulos importados (pokemon, boxes, profiles) aun no tienen tipos:
 # se siguen para resolver nombres, pero sus errores no se informan.
 follow_imports = "silent"
@@ -17,7 +26,16 @@ warn_redundant_casts = true
 warn_return_any = true
 
 [[tool.mypy.overrides]]
-module = ["tracker.process_memory"]
+module = [
+    "tracker.process_memory",
+    "tracker.layout_export",
+    "tracker.sprite_images",
+    "tracker.progress",
+    "tracker.templates",
+    "companion.snapshot",
+    "companion.direct",
+    "companion.sync",
+]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 check_untyped_defs = true

@@ -44,6 +44,27 @@ body{font-family:var(--font);color:var(--fg);padding:0}
 .overlay-item-icon{width:var(--item-icon,32px);height:var(--item-icon,32px);object-fit:contain;image-rendering:var(--sprite-render,pixelated);display:block}
 .overlay-item-icon[hidden]{display:none}
 .overlay-slot.dead .overlay-image{filter:grayscale(1) var(--sprite-shadow,)}
+/* Optional PNG frame behind every sprite slot. */
+.overlay-layer[data-layer=sprites] .overlay-slot{position:relative;background:var(--slot-frame,none) center/contain no-repeat}
+.overlay-death{display:none;position:absolute;left:50%;top:50%;width:var(--sprite);height:var(--sprite);
+  transform:translate(-50%,-50%);object-fit:contain;image-rendering:var(--sprite-render,pixelated);
+  padding:var(--sprite-padding,0px);filter:var(--sprite-shadow,none)}
+#overlay[data-death=hide] .overlay-slot.dead .overlay-image,
+#overlay[data-death=tombstone] .overlay-slot.dead .overlay-image{opacity:0}
+#overlay[data-death=tombstone] .overlay-slot.dead .overlay-death{display:block}
+/* Death animations: played once on the alive -> dead change (class removed after ~1 s). */
+@keyframes death-gray{from{filter:grayscale(0) var(--sprite-shadow,)}to{filter:grayscale(1) var(--sprite-shadow,)}}
+@keyframes death-out{from{opacity:1}to{opacity:0}}
+@keyframes death-in{from{opacity:0}to{opacity:1}}
+@keyframes death-shake{
+  0%,100%{transform:translateX(0)}15%{transform:translateX(-6%) rotate(-4deg)}30%{transform:translateX(5%) rotate(3deg)}
+  45%{transform:translateX(-4%) rotate(-2deg)}60%{transform:translateX(3%) rotate(1deg)}75%{transform:translateX(-1%)}}
+.overlay-slot.dying-fade .overlay-image{animation:death-gray 1s ease-out}
+#overlay[data-death=hide] .overlay-slot.dying-fade .overlay-image,
+#overlay[data-death=tombstone] .overlay-slot.dying-fade .overlay-image{animation:death-out 1s ease-out}
+#overlay[data-death=tombstone] .overlay-slot.dying-fade .overlay-death{animation:death-in 1s ease-out}
+.overlay-slot.dying-shake{animation:death-shake .55s ease-in-out}
+@media (prefers-reduced-motion:reduce){.overlay-slot.dying-shake{animation:none}}
 .overlay-slot.empty{visibility:hidden}
 .overlay-slot.stale{opacity:.82}
 
@@ -59,3 +80,30 @@ body{font-family:var(--font);color:var(--fg);padding:0}
 .counter-number{font-size:var(--name);font-weight:var(--weight);font-variant-numeric:tabular-nums;text-shadow:0 1px 3px var(--outline);white-space:nowrap}
 .counter-icon{display:block;width:var(--counter-icon);height:var(--counter-icon);object-fit:contain;font-size:var(--counter-icon);line-height:1;text-align:center;color:#ef5967}
 .counter-icon.lost{filter:grayscale(1);opacity:.3}
+
+/* Info per slot: level, type badges, shiny star and gender. */
+.overlay-info{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:.3em;
+  font-size:var(--info-size,14px);font-weight:var(--weight);line-height:1.2;color:var(--fg)}
+.overlay-info:empty{display:none}
+.info-level,.info-shiny,.info-gender{white-space:nowrap;
+  text-shadow:-1px -1px 0 var(--outline),1px -1px 0 var(--outline),-1px 1px 0 var(--outline),1px 1px 0 var(--outline)}
+.info-type{--type:#68707c;background:var(--type);color:#fff;padding:.08em .5em .12em;border-radius:.35em;
+  font-size:.82em;white-space:nowrap;text-shadow:0 1px 1px #0008;box-shadow:inset 0 0 0 1px #0003}
+.info-shiny{color:#f6cf57}
+.info-gender.male{color:#6cb4ff}
+.info-gender.female{color:#ff8fb6}
+.type-normal{--type:#868660}.type-fuego{--type:#e4762f}.type-agua{--type:#4f86e3}.type-planta{--type:#5fae45}
+.type-electrico{--type:#b8900c}.type-hielo{--type:#3a9c9c}.type-lucha{--type:#b5322b}.type-veneno{--type:#9443a0}
+.type-tierra{--type:#a97d36}.type-volador{--type:#8a7fe0}.type-psiquico{--type:#ea4f7f}.type-bicho{--type:#7a8a16}
+.type-roca{--type:#8f7a28}.type-fantasma{--type:#6a5596}.type-dragon{--type:#6236e8}.type-siniestro{--type:#6b5446}
+.type-acero{--type:#74749a}.type-hada{--type:#c45f8c}
+
+/* Run statistics (standalone source only). */
+.overlay-stats{display:flex;flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:.25em .7em;
+  max-width:var(--overlay-viewport,100vw);font-size:var(--stats-size,20px);font-weight:var(--weight);color:var(--fg);line-height:1.2}
+.overlay-stats[data-direction=column]{flex-direction:column;gap:.2em}
+.overlay-stats[hidden]{display:none}
+.stat{display:inline-flex;gap:.3em;white-space:nowrap;
+  text-shadow:-1px -1px 0 var(--outline),1px -1px 0 var(--outline),-1px 1px 0 var(--outline),1px 1px 0 var(--outline)}
+.overlay-stats[data-direction=row] .stat+.stat::before{content:"·";margin-right:.4em;opacity:.8}
+.stat-value{font-variant-numeric:tabular-nums}

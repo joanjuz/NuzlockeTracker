@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Etiqueta semantica (ejemplo v1.1.0); requiere docs/releases/<tag>.md'
+        description: 'Etiqueta semantica (ejemplo v1.2.0); requiere docs/releases/<tag>.md'
         required: true
-        default: 'v1.1.0'
+        default: 'v1.2.0'
         type: string
 
 # Dos trabajos para separar privilegios (docs/FIRMA_CODIGO.md):

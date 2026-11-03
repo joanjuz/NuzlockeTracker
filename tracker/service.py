@@ -1,11 +1,13 @@
 """Headless tracker: one memory worker, versioned JSON snapshots."""
 import copy,json,os,queue,threading,time
+from collections.abc import Callable
+from typing import Any
 from datetime import datetime, timezone
 from dataclasses import replace
 from pathlib import Path
 from .process_memory import LimeProcessMemory,DiscoveryCancelled,list_emulator_instances
 from .connectors import LimeGDB
-from .profiles import capture_party, PROFILES, ULTRA_MOON_10, GEN6_GAMES
+from .profiles import capture_party, GameProfile, PROFILES, ULTRA_MOON_10, GEN6_GAMES
 from .pokemon import decode_party
 from .boxes import read_box,decode_box
 from .catalog import Catalog
@@ -21,6 +23,9 @@ from .templates import TemplateManager
 from . import diaglog
 
 LOG=diaglog.get('service')
+
+# Six decoded party slots (None = empty slot), as produced by decode_party().
+Party=list[dict[str,Any]|None]
 
 class TrackerService:
     def __init__(self,output,connector_factory=None):
@@ -426,159 +431,231 @@ class TrackerService:
             self.session_save_error=str(exc)[:200]
         if self.refresh_persist_warning():
             with self.condition:self.state['revision']+=1;self.condition.notify_all()
-    def poll(self):
-        # Gen6 overworld party may be temporarily unavailable or stale while
-        # the game is in battle. The battle roster is independently verified.
+    # ------------------------------------------------------------------
+    # Memory polling. poll() runs once per worker tick: read the party,
+    # merge battle HP, advance at most one PC box and publish one update().
+    # Every access goes through self.reader.read(); nothing is ever written.
+    # ------------------------------------------------------------------
+    def poll(self) -> None:
+        party=self._read_party()
+        if self.profile.generation==6:
+            self._poll_gen6(party)
+        else:
+            self._poll_gen7(party)
+
+    def _cancel_predicate(self,generation:int)->Callable[[],bool]:
+        """Cancel PC work when the connection changes or the worker stops."""
+        return lambda:generation!=self.connection_generation or self.stop.is_set()
+
+    def _read_party(self)->Party|None:
+        """Decode and enrich the overworld team.
+
+        Gen6 overworld party may be temporarily unavailable or stale while
+        the game is in battle (the battle roster is verified separately), so
+        an invalid Gen6 snapshot yields None. Gen7 errors propagate.
+        """
         try:
-            party=[self.enrich(p) for p in decode_party(capture_party(self.reader,self.profile),
-                 max_species=721 if self.profile.generation==6 else 807)]
+            return [self.enrich(p) for p in decode_party(capture_party(self.reader,self.profile),
+                    max_species=721 if self.profile.generation==6 else 807)]
         except ValueError:
             if self.profile.generation!=6:raise
-            party=None
-        if self.profile.generation==6:
-            saved=self.snapshot_fields('party','stale','box_verified')
-            if not party or not any(party):
-                previous=saved.get('party',[]) if not saved.get('stale',True) else []
-                if not previous or not any(previous):
-                    raise ValueError('Equipo PK6 temporalmente no disponible.')
-                party,gen6_battle=apply_gen6_battle_hp(
-                    self.reader,previous,self.profile.name,self.profile.party_address,self.diagnostic)
-                if not gen6_battle:
-                    raise ValueError('Equipo PK6 temporalmente no disponible; esperando regreso.')
-            else:
-                party,gen6_battle=apply_gen6_battle_hp(
-                    self.reader,party,self.profile.name,self.profile.party_address,self.diagnostic)
-                # If the overworld mirror changes during combat, compare
-                # against last verified team. Never trust a stored party alone:
-                # the complete runtime battle roster/HP must validate as well.
-                if not gen6_battle and not saved.get('stale',True) and any(saved.get('party',[])):
-                    previous,in_battle=apply_gen6_battle_hp(
-                        self.reader,saved['party'],self.profile.name,self.profile.party_address)
-                    if in_battle:party,gen6_battle=previous,True
-            # Keep memory snapshots isolated and reject apparently valid but
-            # inconsistent RAM instead of guessing a PC base from empty bytes.
-            changes={'party':party,'stale':False,'battle_hp':gen6_battle}
-            if self.scan_next is not None:
-                number=self.scan_next
-                if self.gen6_probe is None:
-                    original=PROFILES[self.profile.name].party_address
-                    shift=self.profile.party_address-original
-                    generation=(self.config or {}).get('_connection_generation',self.connection_generation)
-                    self.gen6_probe=Gen6BoxProbe(self.profile.box_address,shift,
-                        cancel=lambda:generation!=self.connection_generation or self.stop.is_set())
-                    if self.diagnostic is not None:
-                        self.diagnostic['gen6_party_shift']=shift
-                self.gen6_probe.read(self.reader,number)
-                done=number==31
-                self.scan_next=None if done else number+1
-                changes['scan']={'active':not done,'completed':number}
-                if done:
-                    chosen,verified_boxes=self.gen6_probe.finish()
-                    if self.diagnostic is not None:
-                        self.diagnostic['gen6_box_candidates']=self.gen6_probe.diagnostic()
-                    if chosen is None and not self.gen6_research_done:
-                        self.gen6_research_done=True
-                        try:
-                            generation=(self.config or {}).get('_connection_generation',self.connection_generation)
-                            found,discovered,search_report=search_pc_memory(
-                                self.reader,PROFILES[self.profile.name].box_address,
-                                cancel=lambda:generation!=self.connection_generation or self.stop.is_set())
-                            if self.diagnostic is not None:
-                                self.diagnostic['gen6_box_search']=search_report
-                            if found is not None:
-                                chosen,verified_boxes=found,discovered
-                        except DiscoveryCancelled:raise
-                        except (ValueError,ConnectionError,OSError) as exc:
-                            if self.diagnostic is not None:
-                                self.diagnostic['gen6_box_search']={
-                                    'error':str(exc)[:120]}
-                    if chosen is not None:
-                        changes['boxes']={k:[self.enrich(p) for p in box]
-                            for k,box in verified_boxes.items()}
-                        changes['box_verified']=True
-                        self.scan_verified=set(range(1,32))
-                        self.profile=replace(self.profile,box_address=chosen)
-                    else:
-                        self.scan_verified=set()
-                        changes['box_verified']=bool(saved.get('box_verified',False))
-                    changes['connection']={'status':'connected','message':(
-                        'Gen6 experimental · equipo y 31 cajas PK6 verificadas · PS combate experimental'
-                        if chosen is not None else
-                        'Gen6 experimental · equipo válido; cajas no verificadas (prueba con Pokémon depositado)')}
-                    self.gen6_probe=None
-                    self.next_box_refresh_at=time.monotonic()+180.0
-            else:
-                changes['connection']={'status':'connected','message':(
-                    'Gen6 experimental · equipo y cajas PK6 · PS combate experimental'
-                    if saved.get('box_verified') else
-                    'Gen6 experimental · equipo válido, cajas no verificadas')}
-            self.update(**changes)
+            return None
+
+    # -- Gen6 X/Y/ORAS -------------------------------------------------
+    def _poll_gen6(self,party:Party|None)->None:
+        saved=self.snapshot_fields('party','stale','box_verified')
+        party,gen6_battle=self._gen6_battle_party(party,saved)
+        # Keep memory snapshots isolated and reject apparently valid but
+        # inconsistent RAM instead of guessing a PC base from empty bytes.
+        changes:dict[str,Any]={'party':party,'stale':False,'battle_hp':gen6_battle}
+        if self.scan_next is not None:
+            changes.update(self._gen6_scan_step(saved))
+        else:
+            changes['connection']=self._gen6_idle_connection(saved)
+        self.update(**changes)
+        if self.diagnostic is not None:
+            self.diagnostic.update(box_status=('verified' if self.snapshot_fields('box_verified').get('box_verified') else 'unverified_gen6'),
+                box_address=hex(self.profile.box_address),validated_team_slots=sum(p is not None for p in party),
+                battle_hp=gen6_battle)
+
+    def _gen6_battle_party(self,party:Party|None,saved:dict[str,Any])->tuple[Party,bool]:
+        """Merge verified Gen6 battle HP; raise ValueError if no team is usable."""
+        if not party or not any(party):
+            previous=saved.get('party',[]) if not saved.get('stale',True) else []
+            if not previous or not any(previous):
+                raise ValueError('Equipo PK6 temporalmente no disponible.')
+            party,gen6_battle=apply_gen6_battle_hp(
+                self.reader,previous,self.profile.name,self.profile.party_address,self.diagnostic)
+            if not gen6_battle:
+                raise ValueError('Equipo PK6 temporalmente no disponible; esperando regreso.')
+            return party,gen6_battle
+        party,gen6_battle=apply_gen6_battle_hp(
+            self.reader,party,self.profile.name,self.profile.party_address,self.diagnostic)
+        # If the overworld mirror changes during combat, compare
+        # against last verified team. Never trust a stored party alone:
+        # the complete runtime battle roster/HP must validate as well.
+        if not gen6_battle and not saved.get('stale',True) and any(saved.get('party',[])):
+            previous,in_battle=apply_gen6_battle_hp(
+                self.reader,saved['party'],self.profile.name,self.profile.party_address)
+            if in_battle:party,gen6_battle=previous,True
+        return party,gen6_battle
+
+    def _gen6_scan_step(self,saved:dict[str,Any])->dict[str,Any]:
+        """Read the next of the 31 Gen6 boxes; finish the scan after box 31."""
+        number=self.scan_next
+        if self.gen6_probe is None:
+            original=PROFILES[self.profile.name].party_address
+            shift=self.profile.party_address-original
+            generation=(self.config or {}).get('_connection_generation',self.connection_generation)
+            self.gen6_probe=Gen6BoxProbe(self.profile.box_address,shift,
+                cancel=self._cancel_predicate(generation))
             if self.diagnostic is not None:
-                self.diagnostic.update(box_status=('verified' if self.snapshot_fields('box_verified').get('box_verified') else 'unverified_gen6'),
-                    box_address=hex(self.profile.box_address),validated_team_slots=sum(p is not None for p in party),
-                    battle_hp=gen6_battle)
-            return
+                self.diagnostic['gen6_party_shift']=shift
+        self.gen6_probe.read(self.reader,number)
+        done=number==31
+        self.scan_next=None if done else number+1
+        changes:dict[str,Any]={'scan':{'active':not done,'completed':number}}
+        if done:
+            changes.update(self._gen6_finish_scan(saved))
+        return changes
+
+    def _gen6_finish_scan(self,saved:dict[str,Any])->dict[str,Any]:
+        """Publish the 31 boxes only for a unique validated PC base."""
+        chosen,verified_boxes=self.gen6_probe.finish()
+        if self.diagnostic is not None:
+            self.diagnostic['gen6_box_candidates']=self.gen6_probe.diagnostic()
+        if chosen is None and not self.gen6_research_done:
+            self.gen6_research_done=True
+            found,discovered=self._gen6_search_pc()
+            if found is not None:
+                chosen,verified_boxes=found,discovered
+        changes:dict[str,Any]={}
+        if chosen is not None:
+            changes['boxes']={k:[self.enrich(p) for p in box]
+                for k,box in verified_boxes.items()}
+            changes['box_verified']=True
+            self.scan_verified=set(range(1,32))
+            self.profile=replace(self.profile,box_address=chosen)
+        else:
+            self.scan_verified=set()
+            changes['box_verified']=bool(saved.get('box_verified',False))
+        changes['connection']={'status':'connected','message':(
+            'Gen6 experimental · equipo y 31 cajas PK6 verificadas · PS combate experimental'
+            if chosen is not None else
+            'Gen6 experimental · equipo válido; cajas no verificadas (prueba con Pokémon depositado)')}
+        self.gen6_probe=None
+        self.next_box_refresh_at=time.monotonic()+180.0
+        return changes
+
+    def _gen6_search_pc(self)->tuple[int|None,dict[str,list[dict[str,Any]|None]]|None]:
+        """Bounded read-only PC search; cancellation propagates, other errors are reported."""
+        try:
+            generation=(self.config or {}).get('_connection_generation',self.connection_generation)
+            found,discovered,search_report=search_pc_memory(
+                self.reader,PROFILES[self.profile.name].box_address,
+                cancel=self._cancel_predicate(generation))
+            if self.diagnostic is not None:
+                self.diagnostic['gen6_box_search']=search_report
+            return found,discovered
+        except DiscoveryCancelled:raise
+        except (ValueError,ConnectionError,OSError) as exc:
+            if self.diagnostic is not None:
+                self.diagnostic['gen6_box_search']={
+                    'error':str(exc)[:120]}
+            return None,None
+
+    @staticmethod
+    def _gen6_idle_connection(saved:dict[str,Any])->dict[str,str]:
+        return {'status':'connected','message':(
+            'Gen6 experimental · equipo y cajas PK6 · PS combate experimental'
+            if saved.get('box_verified') else
+            'Gen6 experimental · equipo válido, cajas no verificadas')}
+
+    # -- Gen7 USUM -----------------------------------------------------
+    def _poll_gen7(self,party:Party)->None:
         party,in_battle=apply_battle_hp(self.reader,party,self.profile.name)
         saved=self.snapshot_fields('box_verified','selected_box','box_status')
-        changes={'party':party,'stale':False,'battle_hp':in_battle}
+        changes:dict[str,Any]={'party':party,'stale':False,'battle_hp':in_battle}
         if self.scan_next is not None:
-            number=self.scan_next
-            if self.gen7_probe is None:
-                delta=self.profile.party_address-ULTRA_MOON_10.party_address
-                addresses=tuple(a for a in (self.profile.box_address,ULTRA_MOON_10.box_address,
-                           ULTRA_MOON_10.box_address+delta) if 0x30000000<=a<=0x40000000-32*6960)
-                generation=self.connection_generation
-                self.gen7_probe=Gen7BoxProbe(addresses,
-                    cancel=lambda:generation!=self.connection_generation or self.stop.is_set())
-            self.gen7_probe.read(self.reader,number)
-            done=number==32
-            self.scan_next=None if done else number+1
-            changes.update(box_verified=False,box_status='pending',
-                           scan={'active':not done,'completed':number})
-            if done:
-                chosen,boxes=self.gen7_probe.finish()
-                status=self.gen7_probe.status
-                changes['box_status']=status
-                if self.diagnostic is not None:
-                    self.diagnostic['gen7_box_candidates']=self.gen7_probe.diagnostic()
-                if chosen is not None:
-                    changes['boxes']={k:[self.enrich(p) for p in box] for k,box in boxes.items()}
-                    changes['box_verified']=True
-                    self.scan_verified=set(range(1,33))
-                    self.sun_box_base=chosen
-                    self.profile=replace(self.profile,box_address=chosen)
-                else:self.scan_verified=set()
-                self.gen7_probe=None
-                self.next_box_refresh_at=time.monotonic()+180.0
+            changes.update(self._gen7_scan_step())
         elif saved.get('box_verified') and self.sun_box_base is not None:
-            # Only refresh a selected box after its whole layout was verified.
-            number=saved['selected_box']
-            try:
-                raw=read_box(self.reader,number,self.sun_box_base)
-                if raw!=read_box(self.reader,number,self.sun_box_base):
-                    raise ValueError('La caja cambió entre lecturas')
-                members=decode_box(raw)
-                # Shallow copy: only this box gets a fresh list; the other
-                # box lists are never mutated in place.
-                with self.condition:boxes=dict(self.state.get('boxes') or {})
-                boxes[str(number)]=[self.enrich(p) for p in members]
-                changes['boxes']=boxes
-            except DiscoveryCancelled:raise
-            except (ValueError,ConnectionError,OSError):
-                changes.update(box_verified=False,box_status='invalid')
-                self.scan_next=1;self.gen7_probe=None
-                changes['scan']={'active':True,'completed':0}
+            changes.update(self._gen7_refresh_selected_box(saved))
         status=changes.get('box_status',saved.get('box_status','pending'))
-        messages={'verified':'equipo y 32 cajas verificadas',
-                  'pending':'equipo conectado; verificando cajas',
-                  'pending_empty':'equipo conectado; cajas pendientes (deposita un Pokémon)',
-                  'ambiguous':'equipo conectado; varias copias de PC, cajas pendientes',
-                  'invalid':'equipo conectado; cajas pendientes de una lectura válida'}
-        changes['connection']={'status':'connected','message':'Conectado · '+messages.get(status,messages['pending'])}
+        changes['connection']=self._gen7_connection(status)
         if self.diagnostic is not None:
             self.diagnostic.update(box_address=hex(self.profile.box_address),box_status=status,
                 box_verified=changes.get('box_verified',saved.get('box_verified',False)),battle_hp=in_battle)
         self.update(**changes)
+
+    @staticmethod
+    def gen7_box_candidates(profile:GameProfile)->tuple[int,...]:
+        """USUM PC bases to probe: profile base, Moon base and Moon base shifted like the party."""
+        delta=profile.party_address-ULTRA_MOON_10.party_address
+        return tuple(a for a in (profile.box_address,ULTRA_MOON_10.box_address,
+                     ULTRA_MOON_10.box_address+delta) if 0x30000000<=a<=0x40000000-32*6960)
+
+    def _gen7_scan_step(self)->dict[str,Any]:
+        """Read the next of the 32 USUM boxes; finish the scan after box 32."""
+        number=self.scan_next
+        if self.gen7_probe is None:
+            self.gen7_probe=Gen7BoxProbe(self.gen7_box_candidates(self.profile),
+                cancel=self._cancel_predicate(self.connection_generation))
+        self.gen7_probe.read(self.reader,number)
+        done=number==32
+        self.scan_next=None if done else number+1
+        changes:dict[str,Any]={'box_verified':False,'box_status':'pending',
+                               'scan':{'active':not done,'completed':number}}
+        if done:
+            changes.update(self._gen7_finish_scan())
+        return changes
+
+    def _gen7_finish_scan(self)->dict[str,Any]:
+        """Publish the 32 boxes only for a unique populated PC candidate."""
+        chosen,boxes=self.gen7_probe.finish()
+        changes:dict[str,Any]={'box_status':self.gen7_probe.status}
+        if self.diagnostic is not None:
+            self.diagnostic['gen7_box_candidates']=self.gen7_probe.diagnostic()
+        if chosen is not None:
+            changes['boxes']={k:[self.enrich(p) for p in box] for k,box in boxes.items()}
+            changes['box_verified']=True
+            self.scan_verified=set(range(1,33))
+            self.sun_box_base=chosen
+            self.profile=replace(self.profile,box_address=chosen)
+        else:self.scan_verified=set()
+        self.gen7_probe=None
+        self.next_box_refresh_at=time.monotonic()+180.0
+        return changes
+
+    def _gen7_refresh_selected_box(self,saved:dict[str,Any])->dict[str,Any]:
+        """Re-read only the selected box once the whole PC layout was verified."""
+        number=saved['selected_box']
+        try:
+            raw=read_box(self.reader,number,self.sun_box_base)
+            if raw!=read_box(self.reader,number,self.sun_box_base):
+                raise ValueError('La caja cambió entre lecturas')
+            members=decode_box(raw)
+            # Shallow copy: only this box gets a fresh list; the other
+            # box lists are never mutated in place.
+            with self.condition:boxes=dict(self.state.get('boxes') or {})
+            boxes[str(number)]=[self.enrich(p) for p in members]
+            return {'boxes':boxes}
+        except DiscoveryCancelled:raise
+        except (ValueError,ConnectionError,OSError):
+            self.scan_next=1;self.gen7_probe=None
+            return {'box_verified':False,'box_status':'invalid',
+                    'scan':{'active':True,'completed':0}}
+
+    _GEN7_MESSAGES:dict[str,str]={
+        'verified':'equipo y 32 cajas verificadas',
+        'pending':'equipo conectado; verificando cajas',
+        'pending_empty':'equipo conectado; cajas pendientes (deposita un Pokémon)',
+        'ambiguous':'equipo conectado; varias copias de PC, cajas pendientes',
+        'invalid':'equipo conectado; cajas pendientes de una lectura válida'}
+
+    @classmethod
+    def _gen7_connection(cls,status:str)->dict[str,str]:
+        return {'status':'connected','message':'Conectado · '+cls._GEN7_MESSAGES.get(status,cls._GEN7_MESSAGES['pending'])}
+
     def handle(self,cmd):
         action=cmd['action']
         if action=='save_session':

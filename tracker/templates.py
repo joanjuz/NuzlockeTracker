@@ -1,11 +1,15 @@
 """Read-only pk3DS Progressive CSV templates. No ROM or save file is modified."""
+from __future__ import annotations
+
 import csv
 import io
 import json
 import os
 import re
 import unicodedata
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from pathlib import Path
+from typing import Any
 
 from .catalog import Catalog
 
@@ -72,20 +76,20 @@ EVOLUTION_METHODS = {
 }
 
 
-def spanish_item(name):
+def spanish_item(name: str | None) -> str:
     if not name:
         return ''
     text = name.replace('_', ' ').replace('-', ' ').strip()
     return ITEM_NAMES.get(text.casefold(), text)
 
 
-def argument_item(row, catalog):
+def argument_item(row: Mapping[str, str], catalog: Catalog) -> str:
     """Resolve object numeric ID against USUM (not a PokeAPI item index)."""
     ident = row.get('Argument', '')
     try:
         key = int(ident)
         if 1 <= key <= 959:
-            name = catalog.name('items', key)
+            name: str = catalog.name('items', key)
             if not name.startswith('ID '):
                 return name
     except (TypeError, ValueError):
@@ -93,12 +97,12 @@ def argument_item(row, catalog):
     return spanish_item(row.get('AltItemName') or row.get('ItemName') or '')
 
 
-def pretty_reference(method):
+def pretty_reference(method: str) -> str:
     """Translate the PokeAPI reference without leaking internal IDs."""
     parts = method.split(' · ', 1)
     trigger = parts[0]
     info = parts[1] if len(parts) > 1 else ''
-    props = {}
+    props: dict[str, str] = {}
     for part in info.split('; '):
         if ': ' in part:
             k, v = part.split(': ', 1)
@@ -131,15 +135,15 @@ def pretty_reference(method):
     return result
 
 
-def evolution_form(row):
+def evolution_form(row: Mapping[str, int]) -> int | None:
     """Form in pk3DS EvolutionSet7 denotes the RESULT, -1 inherits source."""
     return row['form'] if row['form'] >= 0 else None
 
-def normalize(name):
+def normalize(name: str) -> str:
     return ''.join(c for c in unicodedata.normalize('NFKD', name.casefold()) if not unicodedata.combining(c)).replace(' ', '').replace('-', '').replace("'", '')
 
 
-def rows(text, required):
+def rows(text: object, required: Iterable[str]) -> Iterator[dict[str, str]]:
     if not isinstance(text, str) or len(text.encode('utf-8')) > MAX_FILE_SIZE:
         raise ValueError('La plantilla supera el límite permitido (180 KB).')
     # pk3DS balance templates include comments, blank rows, and extra columns.
@@ -156,7 +160,7 @@ def rows(text, required):
         yield {k: str(v or '').strip() for k, v in entry.items() if k and k != '_extra'}
 
 
-def number(value, low, high, field):
+def number(value: Any, low: int, high: int, field: str) -> int:
     try:
         result = int(value)
     except (TypeError, ValueError):
@@ -166,15 +170,15 @@ def number(value, low, high, field):
     return result
 
 
-def moves_csv(text):
-    output = {}
+def moves_csv(text: object) -> dict[str, dict[str, Any]]:
+    output: dict[str, dict[str, Any]] = {}
     keys = {'Power': ('power', 0, 255), 'Accuracy': ('accuracy', 0, 100),
             'PP': ('pp', 1, 64), 'Priority': ('priority', -7, 7)}
     for entry in rows(text, {'Move', 'Power', 'PP'}):
         if not entry.get('Move'):
             continue
         id = number(entry['Move'], 1, 728, 'Move')
-        changes = {}
+        changes: dict[str, Any] = {}
         for col, (dest, lo, hi) in keys.items():
             if entry.get(col):
                 changes[dest] = number(entry[col], lo, hi, col)
@@ -196,8 +200,8 @@ def moves_csv(text):
     return output
 
 
-def stats_csv(text, catalog):
-    result = {}
+def stats_csv(text: object, catalog: Catalog) -> dict[str, dict[str, int]]:
+    result: dict[str, dict[str, int]] = {}
     known = {normalize(catalog.name('species', id)): id for id in range(1, 808)}
     for row in rows(text, {'Entry', 'Pokemon', 'HP', 'ATK', 'DEF', 'SPA', 'SPD', 'SPE'}):
         if not row.get('Entry') and not row.get('Pokemon'):
@@ -212,9 +216,9 @@ def stats_csv(text, catalog):
     return result
 
 
-def evolutions_csv(text, catalog=None):
+def evolutions_csv(text: object, catalog: Catalog | None = None) -> dict[str, list[dict[str, Any]]]:
     catalog = catalog or Catalog()
-    result = {}
+    result: dict[str, list[dict[str, Any]]] = {}
     for row in rows(text, {'Source', 'Target', 'Method', 'Level', 'Argument', 'Form'}):
         if not row.get('Source'):
             continue
@@ -252,7 +256,7 @@ def evolutions_csv(text, catalog=None):
                     description += f' · nivel {level}'
                 if item:
                     description += ' · ' + item
-        entry = {'target': target, 'method': description, 'raw_method': method,
+        entry: dict[str, Any] = {'target': target, 'method': description, 'raw_method': method,
                  'form': form, 'source': 'pk3DS Progressive'}
         if item:
             entry['item'] = item
@@ -262,11 +266,11 @@ def evolutions_csv(text, catalog=None):
 
 class TemplateManager:
     """Atomic validation, per-profile persistence, and evolution overlays."""
-    def __init__(self, path, catalog=None):
+    def __init__(self, path: str | os.PathLike[str], catalog: Catalog | None = None) -> None:
         self.path = Path(path)
         self.catalog = catalog or Catalog()
-        self.baseline = json.loads((Path(__file__).resolve().parent.parent/'data'/'Evolutions_Reference_Gen7.json').read_text(encoding='utf-8'))['evolutions']
-        self.data = {'moves': {}, 'stats': {}, 'evolutions': {}}
+        self.baseline: dict[str, list[dict[str, Any]]] = json.loads((Path(__file__).resolve().parent.parent/'data'/'Evolutions_Reference_Gen7.json').read_text(encoding='utf-8'))['evolutions']
+        self.data: dict[str, dict[str, Any]] = {'moves': {}, 'stats': {}, 'evolutions': {}}
         if self.path.is_file():
             try:
                 saved = json.loads(self.path.read_text(encoding='utf-8'))
@@ -275,17 +279,19 @@ class TemplateManager:
             except (ValueError, OSError, AttributeError):
                 pass
 
-    def status(self):
+    def status(self) -> dict[str, Any]:
         return {'counts': {key: len(value) for key, value in self.data.items()},
                 'loaded': any(self.data.values())}
 
-    def import_csv(self, content):
+    def import_csv(self, content: object) -> dict[str, Any]:
         if not isinstance(content, dict) or not content or not set(content).issubset({'moves', 'stats', 'evolutions'}):
             raise ValueError('Selecciona una o más plantillas compatibles.')
-        parsed = {}
+        parsed: dict[str, dict[str, Any]] = {}
+        parsers: dict[str, Callable[[object], dict[str, Any]]]
         for section, text in content.items():
-            parsed[section] = {'moves': moves_csv, 'stats': lambda x: stats_csv(x, self.catalog),
-                               'evolutions': lambda x: evolutions_csv(x, self.catalog)}[section](text)
+            parsers = {'moves': moves_csv, 'stats': lambda x: stats_csv(x, self.catalog),
+                       'evolutions': lambda x: evolutions_csv(x, self.catalog)}
+            parsed[section] = parsers[section](text)
         updated = dict(self.data)
         updated.update(parsed)
         raw = json.dumps({'schema_version': 1, **updated}, ensure_ascii=False, separators=(',', ':'))
@@ -298,14 +304,14 @@ class TemplateManager:
         self.data = updated
         return self.status()
 
-    def evolutions(self, species, form=0):
+    def evolutions(self, species: int | str, form: int | str | None = 0) -> list[dict[str, Any]]:
         source = str(species)
         original = self.baseline.get(source, [])
         # PokeAPI reference has alternate same-species regional evolutions, e.g.
         # regular Vulpix -> Ninetales (Fire Stone) and Alolan -> Alolan (Ice Stone).
         # Required Pokémon form 10205 is Alolan Vulpix. Never display both paths
         # for a single Vulpix form.
-        output = []
+        output: list[dict[str, Any]] = []
         for record in original:
             line = record.get('method', '')
             required = re.search(r'Forma requerida \(ID\): (\d+)', line)
@@ -324,7 +330,7 @@ class TemplateManager:
         # The CSV field Form represents the resulting species' form; -1
         # inherits the source form. Filter alternate same-target variants for
         # the current source form without conflating target form with source.
-        grouped = {}
+        grouped: dict[int, list[dict[str, Any]]] = {}
         for row in mods:
             result_form = source_form if row['form'] == -1 else row['form']
             if source_form in (0, 1) and int(species) in (27, 37, 50, 52, 74, 75, 88) and result_form != source_form:
@@ -344,7 +350,7 @@ class TemplateManager:
         return self._distinct_visible_evolutions(output)
 
     @staticmethod
-    def _distinct_visible_evolutions(records):
+    def _distinct_visible_evolutions(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Deduplicate only evolutions that have identical *displayed* meaning.
 
         PokéAPI enumerates location IDs of multiple electric/magnetic areas
@@ -352,8 +358,8 @@ class TemplateManager:
         all of those as 'lugar especial'. Keep true branches (different levels,
         forms, items, methods and template-vs-reference sources) distinct.
         """
-        unique=[]
-        seen=set()
+        unique: list[dict[str, Any]] = []
+        seen: set[tuple[Any, ...]] = set()
         for row in records:
             signature=(row.get('target'),row.get('target_form',0),
                        row.get('method'),row.get('source'))

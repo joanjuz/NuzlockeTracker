@@ -52,21 +52,24 @@ def write_export(destination, payload):
 
 class DesktopExportApi:
     """Methods exposed only to the local pywebview JS bridge."""
-    def __init__(self, service, window=None):
+    def __init__(self, service, window=None, overlay=None):
         self.service = service
         self.window = window
+        self.overlay = overlay  # OBS configuration export (kind 'obs')
         self.lock = threading.Lock()
 
     def save_export(self, kind):
-        if kind not in ('session', 'diagnostic'):
+        if kind not in ('session', 'diagnostic', 'obs'):
             return {'error': 'Exportación no permitida'}
+        if kind == 'obs' and self.overlay is None:
+            return {'error': 'La configuración de OBS no está disponible'}
         if not self.lock.acquire(blocking=False):
             return {'error': 'Ya existe un diálogo de guardado abierto'}
         try:
             import webview
             if self.window is None:
                 return {'error': 'La ventana todavía no está lista'}
-            prefix = 'sesion' if kind == 'session' else 'diagnostico'
+            prefix = {'session': 'sesion', 'diagnostic': 'diagnostico', 'obs': 'configuracion_obs'}[kind]
             suggested = f'{prefix}_pokemon_{datetime.now():%Y%m%d_%H%M%S}.json'
             selected = self.window.create_file_dialog(
                 webview.FileDialog.SAVE, save_filename=suggested,
@@ -77,9 +80,12 @@ class DesktopExportApi:
             destination = selected[0] if isinstance(selected, (tuple, list)) else selected
             if not isinstance(destination, str) or not destination.strip():
                 return {'error': 'No se seleccionó un archivo válido'}
-            payload = export_payload(self.service, kind)
+            payload = self.overlay.export_bundle() if kind == 'obs' else export_payload(self.service, kind)
             output = write_export(destination, payload)
-            return {'saved': True, 'name': output.name}
+            result = {'saved': True, 'name': output.name}
+            if kind == 'obs' and payload.get('omitted'):
+                result['omitted'] = list(payload['omitted'])  # too large for the bundle
+            return result
         except (OSError, ValueError, TypeError) as exc:
             return {'error': str(exc)}
         finally:

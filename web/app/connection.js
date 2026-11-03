@@ -32,11 +32,76 @@ function showExportFeedback(message){
  const note=$('export-feedback');
  if(note){note.textContent=message;note.hidden=false;}
 }
-async function command(cmd){try{if(companionView)throw Error('La sesión del compañero es de solo lectura.');if(!token)throw Error('El servidor local aún no está disponible.');const response=await fetch('/api/command',{method:'POST',headers:{'Content-Type':'application/json','X-Tracker-Token':token},body:JSON.stringify(cmd)});const result=await response.json();if(!response.ok)throw Error(result.error||'No se pudo realizar la acción.')}catch(e){$('status').textContent=e.message}}
-$('connect').onclick=()=>command({action:'connect',game:$('game').value,mode:$('mode').value,pid:$('pid').value?Number($('pid').value):null,port:Number($('port').value)});$('disconnect').onclick=()=>command({action:'disconnect'});$('mode').onchange=()=>{$('port-label').hidden=$('mode').value!=='gdb'};
+async function command(cmd){
+  try{
+    if(companionView)throw Error('La sesión del compañero es de solo lectura.');
+    if(!token)throw Error('El servidor local aún no está disponible.');
+    const response=await fetch('/api/command',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Tracker-Token':token},
+      body:JSON.stringify(cmd)
+    });
+    const result=await response.json();
+    if(!response.ok)throw Error(result.error||'No se pudo realizar la acción.');
+  }catch(e){
+    $('status').textContent=e.message;
+  }
+}
+$('connect').onclick=()=>command({
+  action:'connect',
+  game:$('game').value,
+  mode:$('mode').value,
+  pid:$('pid').value?Number($('pid').value):null,
+  port:Number($('port').value)
+});
+$('disconnect').onclick=()=>command({action:'disconnect'});
+$('mode').onchange=()=>{$('port-label').hidden=$('mode').value!=='gdb'};
 const filesToImport=[['moves','template-moves'],['stats','template-stats'],['evolutions','template-evolutions']];
-async function templateStatus(){try{const r=await fetch('/api/templates');const j=await r.json();if(r.ok)$('template-status').textContent=`Plantillas guardadas: ${j.counts.moves} movimientos · ${j.counts.stats} especies · ${j.counts.evolutions} especies con evoluciones modificadas.`;}catch(e){$('template-status').textContent=e.message}}
-$('import-templates').onclick=async()=>{const button=$('import-templates');button.disabled=true;try{const files={};for(const [key,id] of filesToImport){const file=$(id).files?.[0];if(file){if(file.size>180000)throw Error('Plantilla demasiado grande: '+file.name);files[key]=await file.text();}}if(!Object.keys(files).length)throw Error('Selecciona al menos un archivo CSV.');const r=await fetch('/api/templates',{method:'POST',headers:{'Content-Type':'application/json','X-Tracker-Token':token},body:JSON.stringify({files})});const j=await r.json();if(!r.ok)throw Error(j.error||'No se pudo importar');$('template-status').textContent='Plantillas importadas y guardadas. Los datos de equipo y cajas se actualizarán.';for(const [,id] of filesToImport)$(id).value='';await templateStatus()}catch(e){$('template-status').textContent='Error: '+e.message}finally{button.disabled=false}};
+async function templateStatus(){
+  try{
+    const r=await fetch('/api/templates');
+    const j=await r.json();
+    if(r.ok){
+      $('template-status').textContent=`Plantillas guardadas: ${j.counts.moves} movimientos · ${j.counts.stats} especies · `
+        +`${j.counts.evolutions} especies con evoluciones modificadas.`;
+    }
+  }catch(e){
+    $('template-status').textContent=e.message;
+  }
+}
+// Reads the chosen CSV files keyed by template kind; rejects oversized files.
+async function readTemplateFiles(){
+  const files={};
+  for(const [key,id] of filesToImport){
+    const file=$(id).files?.[0];
+    if(!file)continue;
+    if(file.size>180000)throw Error('Plantilla demasiado grande: '+file.name);
+    files[key]=await file.text();
+  }
+  return files;
+}
+$('import-templates').onclick=async()=>{
+  const button=$('import-templates');
+  button.disabled=true;
+  try{
+    const files=await readTemplateFiles();
+    if(!Object.keys(files).length)throw Error('Selecciona al menos un archivo CSV.');
+    const r=await fetch('/api/templates',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Tracker-Token':token},
+      body:JSON.stringify({files})
+    });
+    const j=await r.json();
+    if(!r.ok)throw Error(j.error||'No se pudo importar');
+    $('template-status').textContent='Plantillas importadas y guardadas. Los datos de equipo y cajas se actualizarán.';
+    for(const [,id] of filesToImport)$(id).value='';
+    await templateStatus();
+  }catch(e){
+    $('template-status').textContent='Error: '+e.message;
+  }finally{
+    button.disabled=false;
+  }
+};
 templateStatus();
 
 // Process discovery only suggests candidates; it never silently changes a PID.

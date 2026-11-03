@@ -24,6 +24,7 @@ Rutas de conjuntos, iconos propios y cementerio:
 from __future__ import annotations
 
 import re
+from urllib.parse import parse_qs, urlsplit
 
 from tracker.custom_sprites import MEDIA_TYPES
 from tracker.overlay import DEFAULT
@@ -33,6 +34,8 @@ from .routing import exact, route
 from .static import file_routes
 
 IMAGE_LIMIT = 10850000   # sprite, barra de PS e icono del contador
+PRESET_LIMIT = 1024
+BUNDLE_LIMIT = 48_000_000  # configuración exportada: ajustes + PNG + fuentes
 FONT_LIMIT = 4300000
 SETTINGS_LIMIT = 8192
 SHARE_LIMIT = 256
@@ -67,15 +70,41 @@ def share_status(req, _match):
 
 
 def public_state(req, _match):
-    req.reply(200, req.ctx.overlay.public_state())
+    req.reply(200, req.ctx.overlay.public_state(_query(req, 'preset')))
+
+
+def _query(req, name):
+    values = parse_qs(urlsplit(req.path).query).get(name)
+    return values[0] if values else None
 
 
 def settings(req, _match):
-    overlay = req.ctx.overlay
-    config = overlay.get_settings()
-    config['hp_asset_versions'] = overlay.hp_asset_versions()
-    config['counter_icon_version'] = overlay.counter_icon_version()
+    """Current settings, or a saved preset's with ?preset=<nombre> (OBS sources can pin one)."""
+    config = req.ctx.overlay.public_settings(_query(req, 'preset'))
+    if config is None:
+        req.reply(404, {'error': 'Perfil de overlay desconocido'})
+        return
     req.reply(200, config)
+
+
+def presets(req, _match):
+    req.reply(200, req.ctx.overlay.presets_status())
+
+
+def export_config(req, _match):
+    req.reply(200, req.ctx.overlay.export_bundle())
+
+
+def death_image(req, _match):
+    image = req.ctx.overlay.death_image()
+    if image is None:
+        req.reply(404, {})
+    else:
+        req.reply(200, image[0], image[1])
+
+
+def slot_frame(req, _match):
+    _png_or_404(req, req.ctx.overlay.slot_frame_bytes())
 
 
 def defaults(req, _match):
@@ -179,6 +208,10 @@ ROUTES_GET = [
     route(r'/overlay/item/(.*)', item_icon, remote=True, needs_overlay=True),
     route(r'/overlay/media/pokemon_(.*)', pokemon_media, remote=True, needs_overlay=True),
     exact('/api/overlay/sprite-sets', sprite_sets, needs_overlay=True),
+    exact('/api/overlay/presets', presets, needs_overlay=True),
+    exact('/api/overlay/export', export_config, needs_overlay=True),
+    exact('/overlay/death-image', death_image, remote=True, needs_overlay=True),
+    exact('/overlay/slot-frame.png', slot_frame, remote=True, needs_overlay=True),
     route(r'/overlay/graveyard/([0-9a-f]{12})', graveyard_image, remote=True, needs_overlay=True),
     # Nuevas rutas GET de overlay aquí (ver docstring del módulo).
     *file_routes(OVERLAY_FILES, remote=REMOTE_OVERLAY_FILES, needs_overlay=True),
@@ -197,6 +230,12 @@ ROUTES_POST = [
     exact('/api/overlay/sprite', overlay_import(
         IMAGE_LIMIT, lambda overlay, obj: overlay.import_sprite(
             obj.get('name'), obj.get('data'), obj.get('sprite_set') or '')),
+        needs_overlay=True),
+    exact('/api/overlay/presets', overlay_import(
+        PRESET_LIMIT, lambda overlay, obj: overlay.preset_action(obj.get('action'), obj.get('name'))),
+        needs_overlay=True),
+    exact('/api/overlay/import', overlay_import(
+        BUNDLE_LIMIT, lambda overlay, obj: overlay.import_bundle(obj.get('bundle'))),
         needs_overlay=True),
     exact('/api/overlay/item-sprite', overlay_import(
         IMAGE_LIMIT, lambda overlay, obj: overlay.import_item_sprite(

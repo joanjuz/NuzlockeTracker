@@ -24,7 +24,7 @@ jobs:
         run: python -m pip install "ruff==0.17.3" "mypy==2.4.1"
       - name: Ruff (solo errores reales F y E9)
         run: python -m ruff check . --output-format github
-      - name: Mypy (tracker/process_memory.py)
+      - name: Mypy (módulos tipados en pyproject.toml)
         run: python -m mypy
 
   tests:

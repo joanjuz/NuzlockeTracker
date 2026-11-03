@@ -21,7 +21,8 @@ from .layout_export import CUSTOM_EXTENSIONS, normalize_custom_sprite, safe_spri
 
 SET_NAME = re.compile(r'[A-Za-z0-9][A-Za-z0-9 _-]{0,39}')
 ITEMS_FOLDER = 'objetos'
-RESERVED = {ITEMS_FOLDER}
+# Not sets: item icons and the shiny/female variant folders of the root.
+RESERVED = {ITEMS_FOLDER, 'shiny', 'female', 'hembra'}
 MAX_SETS = 64
 
 
@@ -136,6 +137,44 @@ def listing(folder: Path) -> dict[str, Path]:
             _listings.clear()
         _listings[key] = (stamp, now, available)
     return available
+
+
+# Variant subfolders inside a set (or the root), matched without case.
+SHINY_FOLDERS = ('shiny',)
+FEMALE_FOLDERS = ('female', 'hembra')
+
+
+def _child_dir(folder: Path, names: tuple[str, ...]) -> Path | None:
+    try:
+        for child in folder.iterdir():
+            if child.name.casefold() in names and child.is_dir() and not _is_link(child):
+                return child
+    except OSError:
+        return None
+    return None
+
+
+def sprite_dirs(root, sprite_set: str = '', mon: dict | None = None) -> list[Path]:
+    """Folders for a Pokémon sprite: shiny/female variant first, then the set, then root.
+
+    A shiny Pokémon uses `<conjunto>/shiny/025.png` when it exists; a female one
+    `<conjunto>/female/` or `<conjunto>/Hembra/`. Missing files fall back to the
+    plain set folder and finally to the root, so partial sets keep working.
+    """
+    variants: list[tuple[str, ...]] = []
+    if isinstance(mon, dict):
+        if mon.get('shiny') is True:
+            variants.append(SHINY_FOLDERS)
+        if mon.get('gender') == 1:
+            variants.append(FEMALE_FOLDERS)
+    result: list[Path] = []
+    for base in search_dirs(root, sprite_set):
+        for names in variants:
+            child = _child_dir(base, names)
+            if child is not None:
+                result.append(child)
+        result.append(base)
+    return result
 
 
 def find_file(dirs: Iterable[Path], names: Iterable[str]) -> Path | None:

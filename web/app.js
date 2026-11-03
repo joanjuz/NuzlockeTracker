@@ -55,6 +55,46 @@ async function exportWithDialog(kind){
  finally{button.disabled=false;}
 }
 $('save-session').onclick=()=>exportWithDialog('session');$('diagnostic').onclick=()=>exportWithDialog('diagnostic');
-function subscribe(){socket=new WebSocket(`ws://${location.host}/ws`);socket.onmessage=e=>{try{render(JSON.parse(e.data))}catch(error){console.error(error)}};socket.onclose=()=>{$('badge').textContent='Servidor local desconectado';$('badge').classList.remove('live');$('notice').hidden=false;$('notice').textContent='Mantén abierta la ventana del servidor. Intentando reconectar…';setTimeout(start,2000)};socket.onerror=()=>socket.close()}
-async function start(){try{const session=await getJSON('/api/session');token=session.token;scheduleUpdateCheck();if(typeof session.version==='string'&&/^\d+\.\d+\.\d+$/.test(session.version))setText($('app-version'),'Progressive '+session.version);await loadRunProfiles();document.title='Pokémon Tracker';const saved=session.saved_connection;if(saved){$('game').value=saved.game;$('mode').value=saved.mode;$('pid').value=saved.pid??'';$('port').value=saved.port??24689;$('port-label').hidden=saved.mode!=='gdb';$('saved-session-status').textContent='Sesión guardada · '+saved.game+' · conexión automática al iniciar'+(saved.pid?' · PID '+saved.pid:'');}analysisData=await getJSON('/api/analysis');render(await getJSON('/api/state'));subscribe()}catch(e){$('status').textContent='Esperando al servidor local…';setTimeout(start,2000)}}
+function subscribe(){
+  socket=new WebSocket(`ws://${location.host}/ws`);
+  socket.onmessage=e=>{
+    try{render(JSON.parse(e.data))}catch(error){console.error(error)}
+  };
+  socket.onclose=()=>{
+    $('badge').textContent='Servidor local desconectado';
+    $('badge').classList.remove('live');
+    $('notice').hidden=false;
+    $('notice').textContent='Mantén abierta la ventana del servidor. Intentando reconectar…';
+    setTimeout(start,2000);
+  };
+  socket.onerror=()=>socket.close();
+}
+// Restores the connection form from the session the server saved last time.
+function applySavedConnection(saved){
+  $('game').value=saved.game;
+  $('mode').value=saved.mode;
+  $('pid').value=saved.pid??'';
+  $('port').value=saved.port??24689;
+  $('port-label').hidden=saved.mode!=='gdb';
+  $('saved-session-status').textContent='Sesión guardada · '+saved.game+' · conexión automática al iniciar'
+    +(saved.pid?' · PID '+saved.pid:'');
+}
+async function start(){
+  try{
+    const session=await getJSON('/api/session');
+    token=session.token;
+    scheduleUpdateCheck();
+    if(typeof session.version==='string'&&/^\d+\.\d+\.\d+$/.test(session.version))setText($('app-version'),'Progressive '+session.version);
+    await loadRunProfiles();
+    document.title='Pokémon Tracker';
+    const saved=session.saved_connection;
+    if(saved)applySavedConnection(saved);
+    analysisData=await getJSON('/api/analysis');
+    render(await getJSON('/api/state'));
+    subscribe();
+  }catch(e){
+    $('status').textContent='Esperando al servidor local…';
+    setTimeout(start,2000);
+  }
+}
 start();
