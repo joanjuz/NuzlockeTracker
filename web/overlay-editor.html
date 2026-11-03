@@ -27,6 +27,9 @@
 <label>Margen de sprite (px)<input id="sprite_padding" type="number" min="0" max="64"></label>
 <label class="check">Sombra de sprite<input id="sprite_shadow" type="checkbox"></label>
 <label class="check">Mostrar ranuras vacías<input id="show_empty" type="checkbox"></label></div>
+<label class="wide-control">Conjunto de sprites<select id="sprite_set"><option value="">Carpeta principal</option></select></label>
+<label class="wide-control">Crear conjunto al importar (opcional)<input id="sprite-set-new" type="text" maxlength="40" placeholder="Ejemplo: HD o Pixel" autocomplete="off"></label>
+<p>Cada subcarpeta de <code>sprites_personalizados</code> es un conjunto. El overlay usa el conjunto elegido y, si falta un sprite, el de la carpeta principal. Las importaciones van al conjunto elegido o al que escribas arriba.</p>
 <label class="sprite-uploader">Importar sprites personalizados (selección múltiple)<input id="sprite-upload" type="file" accept=".png,.apng,.gif,.webp,.jpg,.jpeg,.bmp" multiple></label><p id="sprite-import-info">Se copian a tu carpeta local <code>sprites_personalizados</code> y se actualizan en OBS automáticamente.</p>
 <p>Formatos admitidos en <code>sprites_personalizados</code>: PNG, APNG, GIF, WebP (también animado), JPG y BMP. Nombres como <code>25.png</code>, <code>025.webp</code>, <code>pikachu.gif</code>, <code>37-alola.png</code> y <code>25-shiny.png</code>. Los archivos se actualizan automáticamente; las imágenes grandes no se reducen antes de mostrarse en OBS.</p>
 <p>Configura cada Fuente de navegador con las dimensiones recomendadas junto a su enlace. La escala aumenta el ancho y alto necesarios; no reduce los elementos para que quepan. El texto y las barras se renderizan directamente en Chromium a esa escala, no como pequeñas imágenes estiradas.</p></section>
@@ -52,7 +55,19 @@
 <label class="wide-control">Mostrar objeto como<select id="item_display"><option value="name">Nombre</option><option value="icon">Icono</option><option value="both">Icono y nombre</option></select></label>
 <label>Tamaño del icono (px)<input id="item_icon_size" type="number" min="12" max="128"></label>
 <label>Tamaño del texto (px)<input id="item_size" type="number" min="8" max="60"></label>
-<label>Color del objeto<input id="item_color" type="color"></label></div></section>
+<label>Color del objeto<input id="item_color" type="color"></label></div>
+<label class="sprite-uploader">Importar iconos de objetos propios (selección múltiple)<input id="item-sprite-upload" type="file" accept=".png,.apng,.gif,.webp,.jpg,.jpeg,.bmp" multiple></label>
+<p id="item-sprite-info">Se guardan en <code>objetos</code> dentro del conjunto elegido. Nombra cada archivo con el número del objeto, su nombre en inglés o en español: <code>234.png</code>, <code>leftovers.png</code> o <code>restos.png</code>. Tienen prioridad sobre los iconos descargados.</p></section>
+<section class="panel"><h2>Cementerio</h2><p>Muestra los Pokémon caídos de la partida activa en una cuadrícula, con su sprite en gris. Usa el enlace «Cementerio» como fuente aparte en OBS.</p><div class="controls">
+<label>Pokémon mostrados<input id="graveyard_max" type="number" min="1" max="60"></label>
+<label>Columnas<input id="graveyard_columns" type="number" min="1" max="12"></label>
+<label>Tamaño del sprite (px)<input id="graveyard_sprite_size" type="number" min="24" max="256"></label>
+<label class="wide-control">Orden<select id="graveyard_order"><option value="recent">Más recientes primero</option><option value="oldest">Más antiguos primero</option></select></label>
+<label class="check">Título con el total<input id="graveyard_title" type="checkbox"></label>
+<label class="check">Mote<input id="graveyard_show_name" type="checkbox"></label>
+<label class="check">Especie<input id="graveyard_show_species" type="checkbox"></label>
+<label class="check">Nivel<input id="graveyard_show_level" type="checkbox"></label>
+<label class="check">Ruta de captura<input id="graveyard_show_route" type="checkbox"></label></div></section>
 <section class="panel"><h2>Barras de vida</h2><div class="controls">
 <label>Estilo de barra<select id="hp_style"><option value="solid">Color sólido</option><option value="gradient">Degradado</option><option value="striped">Franjas</option></select></label>
 <label>Altura (px)<input id="hp_height" type="number" min="3" max="100"></label>

@@ -1,5 +1,18 @@
 # Portable single-file Windows EXE; keep legacy .bat and private runtime OUT of ZIP.
-param([string]$Python = 'python')
+#
+# -Stage All (por defecto): dependencias, PyInstaller, firma PFX opcional,
+#   smoke test y ZIP. Es el comportamiento de siempre para compilar en local.
+# -Stage Build: dependencias, PyInstaller y smoke test del EXE SIN firmar; no
+#   firma ni crea el ZIP. Lo usa release-windows.yml antes de enviar el EXE a
+#   SignPath (docs/FIRMA_CODIGO.md).
+# -Stage Package: parte de un dist\PokemonTracker.exe ya existente (por ejemplo
+#   el devuelto firmado por SignPath): smoke test sobre ese EXE y ZIP. No
+#   recompila, no instala dependencias ni firma.
+param(
+    [string]$Python = 'python',
+    [ValidateSet('All', 'Build', 'Package')]
+    [string]$Stage = 'All'
+)
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 Set-Location $root
@@ -85,58 +98,91 @@ function Invoke-OptionalSigning([string]$File) {
     return $true
 }
 
-# Versiones exactas verificadas por hash (tools/update_desktop_lock.py) para
-# que dos compilaciones del mismo commit usen las mismas dependencias.
-& $Python -m pip install --require-hashes -r requirements-desktop.lock
-if ($LASTEXITCODE -ne 0) { throw 'No se pudieron instalar dependencias de escritorio.' }
+function Invoke-Build {
+    # Versiones exactas verificadas por hash (tools/update_desktop_lock.py) para
+    # que dos compilaciones del mismo commit usen las mismas dependencias.
+    & $Python -m pip install --require-hashes -r requirements-desktop.lock
+    if ($LASTEXITCODE -ne 0) { throw 'No se pudieron instalar dependencias de escritorio.' }
 
-# --onefile prevents downloaded/extracted pythonnet DLLs from retaining the
-# Windows Mark-of-the-Web that can block Python.Runtime.Loader.Initialize.
-# Loading WebView2/WinForms is now part of the frozen smoke test.
-# The image was supplied by the project owner. Build a multi-resolution ICO
-# so Windows taskbar, Alt+Tab and Explorer show the same app emblem.
-$iconSource = Join-Path $root 'assets\app_icon.png'
-$iconFile = Join-Path $root 'build\PokemonTracker.ico'
-New-Item -ItemType Directory -Force (Split-Path $iconFile) | Out-Null
-& $Python -c "from PIL import Image; import sys; i=Image.open(sys.argv[1]).convert('RGBA'); i.save(sys.argv[2],format='ICO',sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])" $iconSource $iconFile
-if ($LASTEXITCODE -ne 0) { throw 'No se pudo convertir el icono del programa.' }
-$pyi = @('--noconfirm', '--clean', '--windowed', '--onefile', '--icon', $iconFile,
-    '--name', 'PokemonTracker', '--collect-all', 'webview',
-    '--hidden-import', 'clr', '--exclude-module', 'PyQt5',
-    '--exclude-module', 'PyQt6', '--exclude-module', 'PySide2',
-    '--exclude-module', 'PySide6',
-    '--add-data', 'web;web', '--add-data', 'data;data', 'desktop.py')
-& $Python -m PyInstaller @pyi
-if ($LASTEXITCODE -ne 0) { throw 'PyInstaller no pudo compilar PokemonTracker.exe.' }
+    # --onefile prevents downloaded/extracted pythonnet DLLs from retaining the
+    # Windows Mark-of-the-Web that can block Python.Runtime.Loader.Initialize.
+    # Loading WebView2/WinForms is now part of the frozen smoke test.
+    # The image was supplied by the project owner. Build a multi-resolution ICO
+    # so Windows taskbar, Alt+Tab and Explorer show the same app emblem.
+    $iconSource = Join-Path $root 'assets\app_icon.png'
+    $iconFile = Join-Path $root 'build\PokemonTracker.ico'
+    New-Item -ItemType Directory -Force (Split-Path $iconFile) | Out-Null
+    & $Python -c "from PIL import Image; import sys; i=Image.open(sys.argv[1]).convert('RGBA'); i.save(sys.argv[2],format='ICO',sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])" $iconSource $iconFile
+    if ($LASTEXITCODE -ne 0) { throw 'No se pudo convertir el icono del programa.' }
+    $pyi = @('--noconfirm', '--clean', '--windowed', '--onefile', '--icon', $iconFile,
+        '--name', 'PokemonTracker', '--collect-all', 'webview',
+        '--hidden-import', 'clr', '--exclude-module', 'PyQt5',
+        '--exclude-module', 'PyQt6', '--exclude-module', 'PySide2',
+        '--exclude-module', 'PySide6',
+        '--add-data', 'web;web', '--add-data', 'data;data', 'desktop.py')
+    & $Python -m PyInstaller @pyi
+    if ($LASTEXITCODE -ne 0) { throw 'PyInstaller no pudo compilar PokemonTracker.exe.' }
+}
+
+function Invoke-SmokeTest([string]$File) {
+    # Check packaged executable without opening the window, with isolated data.
+    $oldAppData = $env:LOCALAPPDATA
+    try {
+        $env:LOCALAPPDATA = Join-Path $root 'build\ci-appdata'
+        New-Item -ItemType Directory -Path $env:LOCALAPPDATA -Force | Out-Null
+        # Windowed EXEs are launched asynchronously by PowerShell; wait for the
+        # real process (and PyInstaller onefile child) before touching the EXE.
+        $probe = Start-Process -FilePath $File -ArgumentList @('--smoke-test', '--profile', 'principal') -WindowStyle Hidden -Wait -PassThru
+        if ($probe.ExitCode -ne 0) {
+            $logFile = Join-Path $env:LOCALAPPDATA 'PokemonTracker\desktop-error.log'
+            if (Test-Path $logFile) { Get-Content $logFile | Write-Host }
+            throw 'Falló la prueba del EXE: API o Python.NET / WinForms.'
+        }
+    } finally {
+        $env:LOCALAPPDATA = $oldAppData
+    }
+}
+
+function New-PortableZip([string]$Bundle, [string]$File) {
+    # The ZIP contains just the self-extracting EXE, the app license and the guide.
+    Copy-Item 'LICENSE.txt' (Join-Path $Bundle 'LICENSE.txt')
+    Copy-Item 'docs\INSTALACION_PORTABLE_WINDOWS.txt' (Join-Path $Bundle 'LEEME.txt')
+    New-Item -ItemType Directory -Force (Join-Path $root 'out') | Out-Null
+    $zip = Join-Path $root 'out\PokemonTracker-Windows-x64.zip'
+    if (Test-Path $zip) { Remove-Item $zip -Force }
+    Compress-Archive -Path @($File, (Join-Path $Bundle 'LICENSE.txt'), (Join-Path $Bundle 'LEEME.txt')) -DestinationPath $zip -CompressionLevel Optimal
+    Write-Host ("Paquete listo: " + $zip)
+}
 
 $bundle = Join-Path $root 'dist'
 $exe = Join-Path $bundle 'PokemonTracker.exe'
-if (-not (Test-Path $exe)) { throw 'No se encontró PokemonTracker.exe.' }
-# Firmar antes del smoke test (prueba el EXE firmado) y antes del ZIP.
-$null = Invoke-OptionalSigning $exe
-# The ZIP contains just the self-extracting EXE, the app license and the guide.
-Copy-Item 'LICENSE.txt' (Join-Path $bundle 'LICENSE.txt')
-Copy-Item 'docs\INSTALACION_PORTABLE_WINDOWS.txt' (Join-Path $bundle 'LEEME.txt')
+$staleZip = Join-Path $root 'out\PokemonTracker-Windows-x64.zip'
 
-# Check packaged executable without opening the window, with isolated data.
-$oldAppData = $env:LOCALAPPDATA
-try {
-    $env:LOCALAPPDATA = Join-Path $root 'build\ci-appdata'
-    New-Item -ItemType Directory -Path $env:LOCALAPPDATA -Force | Out-Null
-    # Windowed EXEs are launched asynchronously by PowerShell; wait for the
-    # real process (and PyInstaller onefile child) before touching the EXE.
-    $probe = Start-Process -FilePath $exe -ArgumentList @('--smoke-test', '--profile', 'principal') -WindowStyle Hidden -Wait -PassThru
-    if ($probe.ExitCode -ne 0) {
-        $logFile = Join-Path $env:LOCALAPPDATA 'PokemonTracker\desktop-error.log'
-        if (Test-Path $logFile) { Get-Content $logFile | Write-Host }
-        throw 'Falló la prueba del EXE: API o Python.NET / WinForms.'
-    }
-} finally {
-    $env:LOCALAPPDATA = $oldAppData
+if ($Stage -ne 'Package') {
+    Invoke-Build
+    if (-not (Test-Path $exe)) { throw 'No se encontró PokemonTracker.exe.' }
+}
+elseif (-not (Test-Path $exe)) {
+    throw 'Stage Package: falta dist\PokemonTracker.exe (compila antes o copia el EXE firmado).'
 }
 
-New-Item -ItemType Directory -Force (Join-Path $root 'out') | Out-Null
-$zip = Join-Path $root 'out\PokemonTracker-Windows-x64.zip'
-if (Test-Path $zip) { Remove-Item $zip -Force }
-Compress-Archive -Path @($exe, (Join-Path $bundle 'LICENSE.txt'), (Join-Path $bundle 'LEEME.txt')) -DestinationPath $zip -CompressionLevel Optimal
-Write-Host ("Paquete listo: " + $zip)
+switch ($Stage) {
+    'All' {
+        # Firmar antes del smoke test (prueba el EXE firmado) y antes del ZIP.
+        $null = Invoke-OptionalSigning $exe
+        Invoke-SmokeTest $exe
+        New-PortableZip $bundle $exe
+    }
+    'Build' {
+        # Sin firma ni ZIP: el EXE se firma fuera (SignPath) y se empaqueta
+        # despues con -Stage Package. Un ZIP anterior no debe confundirse con
+        # el de esta compilacion.
+        if (Test-Path $staleZip) { Remove-Item $staleZip -Force }
+        Invoke-SmokeTest $exe
+        Write-Host ('EXE sin firmar listo para firma externa: ' + $exe)
+    }
+    'Package' {
+        Invoke-SmokeTest $exe
+        New-PortableZip $bundle $exe
+    }
+}

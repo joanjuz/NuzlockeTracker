@@ -47,6 +47,13 @@ body{font-family:var(--font);color:var(--fg);padding:0}
 .overlay-slot.empty{visibility:hidden}
 .overlay-slot.stale{opacity:.82}
 
+.overlay-graveyard{display:flex;flex-direction:column;gap:6px;color:var(--fg);max-width:var(--overlay-viewport,100vw)}
+.grave-title{font-size:var(--name);font-weight:var(--weight);text-shadow:-1px -1px 0 var(--outline),1px -1px 0 var(--outline),-1px 1px 0 var(--outline),1px 1px 0 var(--outline)}
+.grave-grid{display:grid;grid-template-columns:repeat(var(--grave-cols,6),max(var(--slot),var(--grave-sprite,64px)));gap:var(--gap)}
+.grave-card{display:flex;flex-direction:column;align-items:center;text-align:center;min-width:0;line-height:1.15}
+.grave-sprite{max-width:100%;width:var(--grave-sprite,64px);height:var(--grave-sprite,64px);object-fit:contain;image-rendering:var(--sprite-render,pixelated);filter:grayscale(1) var(--sprite-shadow,);opacity:.85}
+.grave-name{font-size:calc(var(--name) * .8);font-weight:var(--weight);overflow-wrap:anywhere;text-shadow:-1px -1px 0 var(--outline),1px -1px 0 var(--outline),-1px 1px 0 var(--outline),1px 1px 0 var(--outline)}
+.grave-species,.grave-level,.grave-route{font-size:calc(var(--name) * .6);opacity:.9;overflow-wrap:anywhere;text-shadow:0 1px 2px var(--outline)}
 .overlay-counter{display:flex;align-items:center;gap:8px;flex-wrap:wrap;max-width:var(--overlay-viewport,100vw);color:var(--fg)}
 .overlay-counter[hidden]{display:none}
 .counter-number{font-size:var(--name);font-weight:var(--weight);font-variant-numeric:tabular-nums;text-shadow:0 1px 3px var(--outline);white-space:nowrap}

@@ -3,9 +3,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
-const app = fs.readFileSync(path.join(__dirname,'../web/app.js'),'utf8');
+const {scripts, source: app} = require('./ui_shared.js');
 const html = fs.readFileSync(path.join(__dirname,'../web/index.html'),'utf8');
-new vm.Script(app, {filename:'web/app.js'});
+for(const [file,code] of Object.entries(scripts))new vm.Script(code, {filename:'web/'+file});
 for(const id of ['template-moves','template-stats','template-evolutions','import-templates','save-session','template-status'])
   assert.match(html, new RegExp('id="'+id+'"'), 'Falta control '+id);
 assert.match(app, /\/api\/templates/);

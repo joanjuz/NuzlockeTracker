@@ -2,7 +2,7 @@
 /* Browser source reads six sanitized slots and a death total from the public API. */
 (() => {
   const args = new URLSearchParams(location.search);
-  const allowed = new Set(['all','sprites','names','hp','items','counter']);
+  const allowed = new Set(['all','sprites','names','hp','items','counter','graveyard']);
   const layer = allowed.has(args.get('layer')) ? args.get('layer') : 'all';
   const slotArg = Number(args.get('slot'));
   const slot = Number.isInteger(slotArg) && slotArg >= 1 && slotArg <= 6 ? slotArg : null;
@@ -35,6 +35,11 @@
         group.className = 'overlay-counter';
         group.setAttribute('aria-live','polite');
         nodes.counter = group;
+        continue;
+      }
+      if (type === 'graveyard') {
+        group.className = 'overlay-graveyard';
+        nodes.graveyard = group;
         continue;
       }
       for (const n of (slot ? [slot] : [1,2,3,4,5,6])) {
@@ -90,7 +95,9 @@
     // "grayscale(1) var(--sprite-shadow,)" and "grayscale(1) none" is invalid.
     css('--sprite-shadow',settings.sprite_shadow?'drop-shadow(0 4px 7px #000a)':'');
     css('--item-size',(settings.item_size||14)+'px');
-    css('--item-icon',(settings.item_icon_size||32)+'px');css('--item-color',settings.item_color||'#f2c15c');
+    css('--item-icon',(settings.item_icon_size||32)+'px');
+    css('--grave-cols',String(settings.graveyard_columns||6));
+    css('--grave-sprite',(settings.graveyard_sprite_size||64)+'px');css('--item-color',settings.item_color||'#f2c15c');
     css('--hp-speed',(settings.hp_animation_ms??250)+'ms');
     css('--slot',settings.slot_width+'px');css('--gap',settings.gap+'px');
     css('--sprite',settings.sprite_size+'px');
@@ -157,9 +164,58 @@
       }else icon.textContent='♥';
     }
   }
+  // Graveyard: rebuilt only when its contents or options change (no flicker).
+  // Images are requested by a stable id; a sprite still downloading is retried.
+  const GRAVE_RETRIES=6, GRAVE_RETRY_MS=5000;
+  const setQuery=()=>settings?.sprite_set?'?set='+encodeURIComponent(settings.sprite_set):'';
+  const withParam=(url,param)=>url+(url.includes('?')?'&':'?')+param;
+  function graveImage(record){
+    const img=mk('img','grave-sprite');
+    img.alt='';img.draggable=false;
+    const src='/overlay/graveyard/'+encodeURIComponent(record.image_rev)+setQuery();
+    let attempts=0;
+    img.addEventListener('error',()=>{
+      img.style.visibility='hidden';
+      if(++attempts>GRAVE_RETRIES)return;
+      setTimeout(()=>{img.src=withParam(src,'retry='+attempts);},GRAVE_RETRY_MS);
+    });
+    img.addEventListener('load',()=>{img.style.visibility='visible';});
+    img.src=src;
+    return img;
+  }
+  function drawGraveyard(state){
+    const group=nodes.graveyard;
+    if(!group)return;
+    const all=Array.isArray(state.graveyard)?state.graveyard:[];
+    const max=Math.max(1,Math.min(60,settings.graveyard_max||12));
+    // The server already sends the list in the chosen order.
+    const shown=all.slice(0,max);
+    const signature=JSON.stringify([settings.sprite_set||'',shown.map(g=>[g.image_rev,g.nickname,g.species,g.level,g.route]),
+      state.graveyard_total,settings.graveyard_title,settings.graveyard_show_name,settings.graveyard_show_species,
+      settings.graveyard_show_level,settings.graveyard_show_route]);
+    if(group.dataset.signature===signature)return;
+    group.dataset.signature=signature;
+    group.replaceChildren();
+    if(settings.graveyard_title){
+      const fallen=Number.isInteger(state.graveyard_total)?state.graveyard_total:all.length;
+      mk('div','grave-title',group).textContent='Cementerio · '+fallen;
+    }
+    const grid=mk('div','grave-grid',group);
+    for(const record of shown){
+      const card=mk('div','grave-card',grid);
+      card.append(graveImage(record));
+      if(settings.graveyard_show_name)mk('span','grave-name',card).textContent=record.nickname||record.species||'';
+      if(settings.graveyard_show_species&&record.species&&record.species!==record.nickname)
+        mk('span','grave-species',card).textContent=record.species;
+      if(settings.graveyard_show_level&&Number.isInteger(record.level))
+        mk('span','grave-level',card).textContent='Nv. '+record.level;
+      if(settings.graveyard_show_route&&record.route)mk('span','grave-route',card).textContent=record.route;
+    }
+  }
   function draw(state) {
     if(!settings||!state?.party)return;
     drawCounter(state);
+    drawGraveyard(state);
     for (const p of state.party) {
       for(const type of visibleLayers()) {
         const el=nodes[type+':'+p.slot]; if(!el)continue;
@@ -183,12 +239,12 @@
           const icon=el.firstElementChild,label=el.lastElementChild;
           const mode=['name','icon','both'].includes(settings.item_display)?settings.item_display:'name';
           const id=Number.isInteger(p.item_id)&&p.item_id>0&&p.present&&p.item?p.item_id:0;
-          const src=id?'/overlay/item/'+id+'.png':'';
+          const src=id?'/overlay/item/'+id+'.png'+setQuery():'';
           const wantIcon=mode!=='name'&&Boolean(src);
           if(wantIcon&&icon.dataset.src!==src){icon.dataset.src=src;icon.src=src;}
           // Offline when OBS started: retry a failed icon once a minute.
           if(wantIcon&&icon.dataset.failed===src&&Date.now()-Number(icon.dataset.failedAt||0)>ICON_RETRY_MS){
-            delete icon.dataset.failed;icon.src=src+'?retry='+Date.now();
+            delete icon.dataset.failed;icon.src=withParam(src,'retry='+Date.now());
           }
           const failed=wantIcon&&icon.dataset.failed===src;
           icon.hidden=!wantIcon||failed;

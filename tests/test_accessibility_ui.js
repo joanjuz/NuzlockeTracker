@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const read = file => fs.readFileSync(path.join(__dirname, '../web', file), 'utf8');
-const html = read('index.html'), css = read('style.css'), app = read('app.js');
+const html = read('index.html'), css = read('style.css'), app = require('./ui_shared.js').source;
 
 // Status texts are polite live regions; the alert stays reserved for real failures.
 for (const id of ['status', 'badge', 'notice']) {
@@ -46,7 +46,7 @@ assert.match(css, /input:not\(\[type="checkbox"\]\):not\(\[type="radio"\]\):not\
 
 // Compact view preference survives a storage that throws.
 const line = app.split(/\r?\n/).find(text => text.startsWith('let compact='));
-assert.ok(line && line.trimEnd().endsWith('start();'));
+assert.ok(line && line.trimEnd().endsWith('density()};'), 'La preferencia de densidad vive en una sola línea');
 const classes = new Set();
 const density = {textContent: '', onclick: null};
 const ctx = {
@@ -55,7 +55,7 @@ const ctx = {
   $: id => id === 'density' ? density : null,
 };
 vm.createContext(ctx);
-assert.doesNotThrow(() => vm.runInContext(line.trimEnd().slice(0, -'start();'.length), ctx));
+assert.doesNotThrow(() => vm.runInContext(line, ctx));
 assert.equal(density.textContent, 'Vista compacta');
 assert.doesNotThrow(() => density.onclick());
 assert.ok(classes.has('compact'));

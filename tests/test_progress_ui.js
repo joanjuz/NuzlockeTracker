@@ -1,6 +1,6 @@
 // Exercise the real history renderer and revive callback without a browser.
 const fs=require('fs'),vm=require('vm'),assert=require('assert');
-const source=fs.readFileSync(require('path').join(__dirname,'../web/app.js'),'utf8');
+const source=require('./ui_shared.js').scripts['app/dead.js'];
 class Element{
  constructor(tag){this.tag=tag;this.children=[];this.attributes={};this.innerHTML=''}
  append(...items){this.children.push(...items)}
@@ -13,7 +13,8 @@ const ctx={$,confirm:()=>false,document:{createElement:tag=>new Element(tag)},st
 vm.createContext(ctx);
 require('./ui_shared.js').loadShared(ctx,['num','spriteId']);
 for(const name of ['pokemonKey','isDead','renderDead','sprite']){
- const start=source.indexOf('function '+name+'('),end=source.indexOf('\nfunction ',start+1);
+ const start=source.indexOf('function '+name+'('),next=source.indexOf('\nfunction ',start+1),end=next<0?source.length:next;
+ assert(start>=0,name);
  vm.runInContext(source.slice(start,end),ctx);
 }
 (async()=>{

@@ -42,8 +42,14 @@ def fetch_item_png(slug: str) -> bytes:
 
 class ItemSprites:
     def __init__(self, cache_dir, downloader: Callable[[str], bytes] = fetch_item_png, data_path=DATA,
-                 allow_download: bool = True):
+                 allow_download: bool = True, custom_root=None,
+                 sprite_set: Callable[[], str] | None = None,
+                 name_lookup: Callable[[int], str | None] | None = None):
         self.directory = Path(cache_dir) / 'items'
+        # User icons in sprites_personalizados/[conjunto/]objetos/ win over PokeAPI.
+        self.custom_root = Path(custom_root) if custom_root is not None else None
+        self.sprite_set = sprite_set or (lambda: '')
+        self.name_lookup = name_lookup or (lambda item_id: None)
         self.downloader = downloader
         # The read-only VPN share serves cached icons only: a remote viewer
         # must not be able to make this computer download the whole table.
@@ -66,6 +72,32 @@ class ItemSprites:
         name = self.gen6_overrides.get(key) if generation == 6 else None
         name = name or self.mapping.get(key)
         return name if isinstance(name, str) and SLUG.fullmatch(name) else None
+
+    def custom_icon(self, item_id, generation: int = 7) -> tuple[bytes, str] | None:
+        if self.custom_root is None or type(item_id) is not int or not 0 < item_id <= MAX_ITEM_ID:
+            return None
+        from . import custom_sprites
+        try:
+            chosen = self.sprite_set() or ''
+            name = self.name_lookup(item_id)
+        except Exception:
+            chosen, name = '', None
+        dirs = custom_sprites.search_dirs(self.custom_root, chosen, custom_sprites.ITEMS_FOLDER)
+        found = custom_sprites.find_file(dirs, custom_sprites.item_icon_names(
+            item_id, self.slug(item_id, generation), name if isinstance(name, str) else None))
+        media = custom_sprites.load_media(found) if found is not None else None
+        if media is None:
+            return None
+        raw, kind = media
+        return raw, custom_sprites.MEDIA_TYPES.get(kind, 'image/png')
+
+    def icon(self, item_id, generation: int = 7) -> tuple[bytes, str] | None:
+        """(bytes, content type): custom icon first, then the cached/downloaded PokeAPI one."""
+        custom = self.custom_icon(item_id, generation)
+        if custom is not None:
+            return custom
+        raw = self.png(item_id, generation)
+        return (raw, 'image/png') if raw is not None else None
 
     def png(self, item_id, generation: int = 7) -> bytes | None:
         name = self.slug(item_id, generation)

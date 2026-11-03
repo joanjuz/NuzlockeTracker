@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const code = fs.readFileSync(require('node:path').join(__dirname, '../web/companion.js'), 'utf8');
-const app = fs.readFileSync(require('node:path').join(__dirname, '../web/app.js'), 'utf8');
+const app = require('./ui_shared.js').source;
 assert.match(app, /if\(companionView\)throw Error\('La sesión del compañero es de solo lectura/);
 assert.match(app, /function setCompanionView\(/);
 const controls = {};

@@ -5,13 +5,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const {loadShared, source} = require('./ui_shared.js');
+const {loadShared, slice: sliceFile, source} = require('./ui_shared.js');
 const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
-const slice = (from, to) => {
-  const start = source.indexOf(from), end = source.indexOf(to, start + 1);
-  assert.ok(start >= 0 && end > start, 'No se encontró ' + from);
-  return source.slice(start, end);
-};
 const HOSTILE = '<img src=x onerror=alert(1)>';
 const assertInert = (html, label) => {
   assert.ok(!html.includes('<img src=x'), label + ': HTML crudo insertado');
@@ -26,7 +21,8 @@ const ctx = {$, document: {activeElement: null}, detailPokemon: null, detailSign
 vm.createContext(ctx);
 loadShared(ctx);
 vm.runInContext(source.split(/\r?\n/).find(line => line.startsWith('const labels=')), ctx);
-vm.runInContext(slice('function portrait(', '\nfunction normalize('), ctx);
+vm.runInContext(sliceFile('app/team.js', 'function portrait(', '\n// Party cards repaint'), ctx);
+vm.runInContext(sliceFile('app/detail.js', 'function openDetail(', '\n// Keeps an open detail dialog'), ctx);
 
 const hostile = {
   species_id: HOSTILE, species: HOSTILE, nickname: HOSTILE, level: HOSTILE,
@@ -74,7 +70,7 @@ for (const broken of [{move_names: 'Placaje'}, {move_names: null}, {move_names: 
 const spriteCtx = {state: {progress: {deaths: {}}}};
 vm.createContext(spriteCtx);
 loadShared(spriteCtx);
-for (const name of ['pokemonKey', 'isDead', 'sprite']) vm.runInContext(slice('function ' + name + '(', '\nfunction '), spriteCtx);
+vm.runInContext(sliceFile('app/dead.js', 'function pokemonKey('), spriteCtx);
 const spriteHtml = spriteCtx.sprite(hostile);
 assertInert(spriteHtml, 'sprite');
 assert.match(spriteHtml, /#—<\/span>/);
@@ -90,7 +86,8 @@ const boxCtx = {$: id => nodes[id] ??= new Node(), state: null, boxSignature: ''
   sprite: () => '<span class="sprite"></span>', openDetail: () => {}, document: {createElement: () => new Node()}};
 vm.createContext(boxCtx);
 loadShared(boxCtx);
-vm.runInContext(slice('function normalize(', '\nfunction render(next)'), boxCtx);
+vm.runInContext(sliceFile('app/helpers.js', 'function normalize(', '\n'), boxCtx);
+vm.runInContext(sliceFile('app/boxes.js', 'function nationalDexLimit(', "\n$('box').onchange"), boxCtx);
 boxCtx.$('global').checked = true;
 boxCtx.state = {game: 'Ultra Moon 1.0', stale: true, connection: {status: 'disconnected'}, progress: {deaths: {}},
   boxes: {[HOSTILE]: [{species_id: 25, species: 'Pikachu', nickname: HOSTILE, move_names: HOSTILE}], 2: 'no es una caja'}};
@@ -103,8 +100,8 @@ assert.match(boxHtml, /Caja &lt;img src=x/);
 const moveCtx = {};
 vm.createContext(moveCtx);
 loadShared(moveCtx);
-vm.runInContext(slice('function normalize(', '\nfunction '), moveCtx);
-vm.runInContext(slice('function moveSheet(', "\n$('close-move')"), moveCtx);
+vm.runInContext(sliceFile('app/helpers.js', 'function normalize(', '\n'), moveCtx);
+vm.runInContext(sliceFile('app/detail.js', 'function moveSheet(', "\n$('close-move')"), moveCtx);
 const moveHtml = moveCtx.moveSheet({name: HOSTILE, type: HOSTILE, category: HOSTILE, power: HOSTILE, accuracy: HOSTILE,
   pp: 10, priority: HOSTILE, description: HOSTILE, source: HOSTILE, template_notes: HOSTILE, wikidex_url: HOSTILE}, HOSTILE, HOSTILE, 1);
 assertInert(moveHtml, 'moveSheet');
@@ -116,7 +113,7 @@ assert.match(moveHtml, /PP actuales: <strong>—<\/strong> · Máximo: 12/);
 const analysisCtx = {TypeAnalysis: require('../web/analysis.js')};
 vm.createContext(analysisCtx);
 loadShared(analysisCtx);
-vm.runInContext(slice('function multiplier(', "\nfor(const id of ['analysis-defense'"), analysisCtx);
+vm.runInContext(sliceFile('app/analysis-view.js', 'function multiplier(', "\nfor(const id of ['analysis-defense'"), analysisCtx);
 const analysisChart = JSON.parse(read('data/Analysis_USUM.json'));
 const hostileTeam = [{slot: 0, nickname: HOSTILE, species: HOSTILE, ability: HOSTILE, types: [HOSTILE],
   analysis_moves: [{name: HOSTILE, type: 'Fuego', category: 'Físico'}]}];

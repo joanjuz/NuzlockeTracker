@@ -1,7 +1,7 @@
 "use strict";
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
-const source=fs.readFileSync(path.join(__dirname,'../web/app.js'),'utf8');
-const status=source.slice(source.indexOf('function gen7ScanStatus('),source.indexOf('function render(next)'));
+const {slice}=require('./ui_shared.js');
+const status=slice('app/boxes.js','function gen7ScanStatus(','\nfunction gen6ScanStatus(');
 const c={};vm.createContext(c);vm.runInContext(status,c);
 const base={boxes:{1:[]},box_verified:false,scan:{active:false}};
 for(const [state,pattern] of [['pending',/Verificando/],['pending_empty',/PC vacío.*deposita un Pokémon/],['ambiguous',/varias ubicaciones/],['invalid',/No se pudieron validar/]]){
@@ -12,8 +12,8 @@ assert.match(c.gen7ScanStatus({...base,scan:{active:true,completed:15}}),/Lectur
 console.log('Gen7: estados de validación y cajas guardadas identificados OK');
 const nodes={};const $=id=>nodes[id]??={hidden:true,disabled:false};const scripts=[];
 const loader={window:{},$,document:{createElement:()=>({}),body:{append:s=>scripts.push(s)}}};
-vm.createContext(loader);vm.runInContext(source.slice(source.indexOf('// Optional Companion dependency')),loader);
-// Initial load is done by app.js (no inline onerror, CSP-friendly).
+vm.createContext(loader);vm.runInContext(slice('app/companion-loader.js','// Optional Companion dependency'),loader);
+// Initial load is done by app/companion-loader.js (no inline onerror, CSP-friendly).
 assert.equal(scripts.length,1);assert.equal(scripts[0].src,'/companion.js');
 scripts[0].onerror();assert.equal($('companion-load-error').hidden,false);
 $('companion-load-retry').onclick();$('companion-load-retry').onclick();assert.equal(scripts.length,2);

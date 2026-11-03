@@ -4,11 +4,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const source = fs.readFileSync(path.join(__dirname, '../web/app.js'), 'utf8');
+const {slice, source} = require('./ui_shared.js');
 
-const start = source.indexOf('function wikidexUrl(');
-const end = source.indexOf('\nfunction normalize(', start);
-assert.ok(start >= 0 && end > start, 'Pokemon detail renderer must be found');
+const detailCode = slice('app/detail.js', 'function wikidexUrl(', '\n// Keeps an open detail dialog');
 const elements = {};
 const $ = id => elements[id] ||= {innerHTML: '',contains:()=>false,querySelector:()=>null};
 const context = {
@@ -17,12 +15,10 @@ const context = {
 };
 vm.createContext(context);
 require('./ui_shared.js').loadShared(context, ['num', 'list', 'spriteId']);
-vm.runInContext(source.slice(start, end), context);
+vm.runInContext(detailCode, context);
+vm.runInContext(slice('app/team.js', 'function itemIcon(', '\n// Party cards repaint'), context);
 // The production delegated listener, extracted as-is.
-const fbStart = source.indexOf('const SPRITE_REMOTE=');
-const fbEnd = source.indexOf("document.addEventListener('error',spriteFallback,true);", fbStart);
-assert.ok(fbStart >= 0 && fbEnd > fbStart, 'Delegated sprite fallback must exist');
-vm.runInContext(source.slice(fbStart, fbEnd), context);
+vm.runInContext(slice('app/helpers.js', 'const SPRITE_REMOTE=', "document.addEventListener('error',spriteFallback,true);"), context);
 assert.match(source, /document\.addEventListener\('error',spriteFallback,true\)/);
 
 const p = {

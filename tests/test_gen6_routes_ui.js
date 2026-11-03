@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
-const script=fs.readFileSync(path.join(__dirname,'../web/app.js'),'utf8');
+const {slice,scripts}=require('./ui_shared.js'),script=scripts['app/routes.js'];
 const html=fs.readFileSync(path.join(__dirname,'../web/index.html'),'utf8');
 const xy=JSON.parse(fs.readFileSync(path.join(__dirname,'../data/Routes_XY.json'),'utf8')).routes;
 const oras=JSON.parse(fs.readFileSync(path.join(__dirname,'../data/Routes_ORAS.json'),'utf8')).routes;
@@ -28,10 +28,7 @@ const ctx={
 };
 vm.createContext(ctx);
 require('./ui_shared.js').loadShared(ctx,['list','GAME_FAMILIES','gameFamily']);
-const start=script.indexOf('const ORIGIN_TYPES=');
-const end=script.indexOf("\n$('route-search').oninput",start);
-assert.ok(start>=0&&end>start);
-vm.runInContext(script.slice(start,end),ctx);
+vm.runInContext(slice('app/routes.js','const ORIGIN_TYPES=',"\n$('route-search').oninput"),ctx);
 ctx.renderPlaces();
 let out=$('places').children[0].innerHTML;
 assert.match(out,/Ruta 1/);

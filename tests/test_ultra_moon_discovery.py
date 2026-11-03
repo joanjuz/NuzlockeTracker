@@ -16,7 +16,8 @@ class UltraMoonDiscoveryTests(unittest.TestCase):
             reader = SimpleNamespace(
                 party_address=PROFILES[game].party_address + 0x2400,
                 discovery_mode='dynamic', process=SimpleNamespace(discovery_report={}))
-            with patch('tracker.service.LimeProcessMemory', return_value=reader) as factory:
+            # Never look at the real machine: an open Lime3DS would be auto-selected.
+            with patch('tracker.service.list_emulator_instances', return_value=[]),                     patch('tracker.service.LimeProcessMemory', return_value=reader) as factory:
                 service.connect()
             return service.snapshot(), service.diagnostic, factory.call_args
 

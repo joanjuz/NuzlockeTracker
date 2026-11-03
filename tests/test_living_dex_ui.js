@@ -1,11 +1,8 @@
 'use strict';
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
-const src=fs.readFileSync(path.join(__dirname,'../web/app.js'),'utf8');
+const {slice,source:src}=require('./ui_shared.js');
 const html=fs.readFileSync(path.join(__dirname,'../web/index.html'),'utf8');
 const css=fs.readFileSync(path.join(__dirname,'../web/style.css'),'utf8');
-const begin=src.indexOf('function normalize(');
-const end=src.indexOf('\nfunction render(next)',begin);
-assert.ok(begin>0&&end>begin);
 class Node{
  constructor(tag){this.tag=tag;this.children=[];this.innerHTML='';this.textContent='';this.checked=false;this.value='';this.hidden=false}
  replaceChildren(){this.children=[]}
@@ -22,7 +19,8 @@ const ctx={$,
 };
 vm.createContext(ctx);
 require('./ui_shared.js').loadShared(ctx,['list','GAME_FAMILIES','GEN6_GAMES','gameFamily','spriteId']);
-vm.runInContext(src.slice(begin,end),ctx);
+vm.runInContext(slice('app/helpers.js','function normalize(','\n'),ctx);
+vm.runInContext(slice('app/boxes.js','function nationalDexLimit(',"\n$('box').onchange"),ctx);
 const mon=(id,name)=>({species_id:id,species:name,nickname:name,
  ability:'Estática',item:'—',met_location:'Ruta',move_names:[]});
 const boxes=n=>Object.fromEntries(Array.from({length:n},(_,i)=>[String(i+1),Array(30).fill(null)]));

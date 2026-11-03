@@ -1,7 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path');
-const app=fs.readFileSync(path.join(__dirname,'../web/app.js'),'utf8');
+const app=require('./ui_shared.js').source;
 const html=fs.readFileSync(path.join(__dirname,'../web/index.html'),'utf8');
 const process=fs.readFileSync(path.join(__dirname,'../tracker/process_memory.py'),'utf8');
 const service=fs.readFileSync(path.join(__dirname,'../tracker/service.py'),'utf8');

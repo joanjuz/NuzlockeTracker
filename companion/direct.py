@@ -150,6 +150,27 @@ class DirectHost:
             def setup(self):
                 super().setup()
                 self.connection.settimeout(2)
+                self.body_read = False
+
+            def finish(self):
+                # A rejected request still has its body in the socket. Closing
+                # with unread data makes Windows send RST, which can destroy the
+                # error reply before the peer reads it: half-close and drain a
+                # bounded amount first, so 403/413/415 always arrive intact.
+                if not self.body_read:
+                    try:
+                        self.wfile.flush()
+                        self.connection.shutdown(socket.SHUT_WR)
+                        self.connection.settimeout(0.2)
+                        drained = 0
+                        while drained < 256_000:
+                            chunk = self.connection.recv(65536)
+                            if not chunk:
+                                break
+                            drained += len(chunk)
+                    except OSError:
+                        pass
+                super().finish()
 
             def reply(self, code, value):
                 raw = json.dumps(value, ensure_ascii=False).encode('utf-8')
@@ -188,6 +209,7 @@ class DirectHost:
                             self.reply(415, {'error': 'JSON requerido'})
                             return
                         data = json.loads(self.rfile.read(size))
+                        self.body_read = True
                         if not isinstance(data, dict):
                             raise ValueError()
                         if self.path == '/v1/join':

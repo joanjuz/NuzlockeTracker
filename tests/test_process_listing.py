@@ -25,7 +25,7 @@ class ProcessListingTests(unittest.TestCase):
 
     def test_listing_preserves_title_game_and_process_identity(self):
         self.serve()
-        with patch('server.list_emulator_instances', return_value=[{
+        with patch('tracker.api.state.list_emulator_instances', return_value=[{
             'pid': 42, 'name': 'lime3ds.exe', 'title': 'Pokémon Ultra Moon',
             'game_hint': 'Ultra Moon 1.0', 'creation_id': 123456}]) as listing:
             code, data = self.request()
@@ -36,20 +36,20 @@ class ProcessListingTests(unittest.TestCase):
 
     def test_enumeration_failure_is_visible_and_manual_pid_remains_possible(self):
         self.serve()
-        with patch('server.list_emulator_instances', side_effect=OSError('Acceso denegado')):
+        with patch('tracker.api.state.list_emulator_instances', side_effect=OSError('Acceso denegado')):
             code, data = self.request()
         self.assertEqual(code, 200)
         self.assertEqual(data, {'processes': [], 'error': 'Acceso denegado'})
 
     def test_vpn_source_cannot_enumerate_private_processes(self):
         self.serve(remote=True)
-        with patch('server.list_emulator_instances') as listing:
+        with patch('tracker.api.state.list_emulator_instances') as listing:
             self.assertEqual(self.request()[0], 404)
         listing.assert_not_called()
 
     def test_foreign_origin_cannot_enumerate_private_processes(self):
         self.serve()
-        with patch('server.list_emulator_instances') as listing:
+        with patch('tracker.api.state.list_emulator_instances') as listing:
             self.assertEqual(self.request({'Origin': 'https://elsewhere.example'})[0], 403)
         listing.assert_not_called()
 

@@ -35,7 +35,7 @@ class ServerTests(unittest.TestCase):
    return status,data
   try:
    png=blank_sprite(24)
-   with patch('server.fetch_sprite',return_value=png) as fetch:
+   with patch('tracker.api.static.fetch_sprite',return_value=png) as fetch:
     result,raw=request('/soullink/sprite/10001.png')
     self.assertEqual(result,200)
     self.assertEqual(raw,png)

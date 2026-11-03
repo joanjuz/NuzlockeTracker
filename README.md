@@ -1,5 +1,12 @@
 # Progressive Tracker
 
+## v1.1.0: conjuntos de sprites, cementerio en OBS e iconos de objetos
+
+Cada subcarpeta de `sprites_personalizados` es un conjunto de sprites que eliges en
+el editor OBS. Hay una fuente nueva de cementerio con los Pokémon caídos, iconos de
+objetos propios y en la ventana principal, y la Partida principal ya se puede
+eliminar. Consulta las [notas de la versión](docs/releases/v1.1.0.md).
+
 ## v1.0.0: objetos en OBS, Soul Link más seguro y registro de diagnóstico
 
 OBS puede mostrar el objeto que lleva cada Pokémon (nombre, icono o ambos) y el
@@ -28,7 +35,7 @@ la distribución publicada se encuentra en GitHub Releases.
 
 **Progressive Tracker** (antes *Pokémon Tracker*) es una aplicación local para Windows que lee los datos de Pokémon desde la memoria del emulador, organiza aventuras Nuzlocke y Soul Link y genera fuentes visuales para OBS.
 
-> **Versión de descarga:** **v1.0.0**, con objetos en OBS, perfiles independientes, Soul Link directo, seis juegos y contadores OBS. La versión descargable es una aplicación **portable**: no hace falta instalar Python ni Node.js.
+> **Versión de descarga:** **v1.1.0**, con conjuntos de sprites, cementerio en OBS, objetos en OBS, perfiles independientes, Soul Link directo, seis juegos y contadores OBS. La versión descargable es una aplicación **portable**: no hace falta instalar Python ni Node.js.
 
 ## Descargar para Windows
 
@@ -66,7 +73,7 @@ Las funciones principales se han validado con **Lime3DS en Windows**. La compati
 
 ## OBS
 
-Desde el editor OBS de la aplicación puedes copiar URLs para **Fuentes de navegador** y personalizar sprites, texto y PS. Las URL son locales, normalmente en `127.0.0.1` con el puerto elegido por el tracker. Se admite compartir, de manera opcional y controlada, una vista de solo lectura por Radmin VPN.
+Desde el editor OBS de la aplicación puedes copiar URLs para **Fuentes de navegador** y personalizar sprites, texto y PS. Hay capas para sprites, motes, PS, objetos equipados (nombre o icono), contador de muertes o vidas y un **cementerio** con los Pokémon caídos. Cada subcarpeta de `sprites_personalizados` funciona como un conjunto de sprites que se elige en el editor, y en `objetos/` puedes poner iconos de objetos propios. Detalles en [OBS_OVERLAYS.md](docs/OBS_OVERLAYS.md). Las URL son locales, normalmente en `127.0.0.1` con el puerto elegido por el tracker. Se admite compartir, de manera opcional y controlada, una vista de solo lectura por Radmin VPN.
 
 Los gráficos OBS HD están cubiertos por pruebas automatizadas; se recomienda verificar el resultado visual real de cada escena, sobre todo las animaciones y el escalado.
 
@@ -87,6 +94,7 @@ Las compilaciones y pruebas se ejecutan en GitHub Actions. El flujo de release g
 ## Documentación
 
 - [Instalación de la versión portable](docs/INSTALACION_PORTABLE_WINDOWS.txt)
+- [Notas de la versión v1.1.0](docs/releases/v1.1.0.md)
 - [Notas de la versión v1.0.0](docs/releases/v1.0.0.md)
 - [Notas de la versión v0.25.0](docs/releases/v0.25.0.md)
 - [Notas de la versión v0.24.0](docs/releases/v0.24.0.md)
@@ -99,4 +107,13 @@ Las compilaciones y pruebas se ejecutan en GitHub Actions. El flujo de release g
 
 ## Seguridad y atribuciones
 
-El tracker **no escribe en la RAM del emulador** ni edita ROMs o partidas. Las credenciales Soul Link, sesiones privadas y demás archivos de `runtime` no se incluyen en las descargas. Consulta [LICENSE.txt](LICENSE.txt) y las atribuciones correspondientes de sprites, datos y fuentes incluidas en el repositorio.
+El tracker **no escribe en la RAM del emulador** ni edita ROMs o partidas.
+
+**Conexiones de red.** El tracker funciona en local y solo se conecta a Internet para:
+
+- Descargar sprites de Pokémon e iconos de objetos desde el repositorio público de PokeAPI en GitHub; se guardan en una caché local.
+- Comprobar una vez al día si hay una versión nueva, consultando la última release pública de este repositorio en GitHub. Solo muestra un aviso con el enlace; no descarga ni instala nada. Se desactiva con la variable de entorno `POKEMON_TRACKER_NO_UPDATE_CHECK=1`.
+- Soul Link, si lo activas: con tu compañero directamente (red local o VPN) o a través del Worker de Cloudflare, enviando solo el estado compartido de la partida.
+- La vista de OBS por VPN, si la activas, que sirve en solo lectura las fuentes del overlay.
+
+No envía telemetría, ni datos de la partida a terceros, ni el registro de diagnóstico, que se queda en tu equipo. Las credenciales Soul Link, sesiones privadas y demás archivos de `runtime` no se incluyen en las descargas. Consulta [LICENSE.txt](LICENSE.txt) y las atribuciones correspondientes de sprites, datos y fuentes incluidas en el repositorio.

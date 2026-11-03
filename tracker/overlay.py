@@ -17,7 +17,12 @@ from pathlib import Path
 from PIL import Image, UnidentifiedImageError
 
 from .progress import pokemon_key
+import hashlib
+import hmac
+import secrets
+
 from .layout_export import BLANK_PNG, png_to_gif, normalize_custom_sprite
+from . import custom_sprites
 
 PALETTE = {
     'high': '#5de09a', 'medium': '#f2c15c', 'low': '#ef5967',
@@ -44,6 +49,10 @@ DEFAULT = {
     'counter_icon_size': 36,
     'items_in_composition': False, 'item_size': 14, 'item_color': '#f2c15c',
     'item_display': 'name', 'item_icon_size': 32,
+    'sprite_set': '',
+    'graveyard_max': 12, 'graveyard_columns': 6, 'graveyard_sprite_size': 64,
+    'graveyard_order': 'recent', 'graveyard_title': True, 'graveyard_show_name': True,
+    'graveyard_show_species': False, 'graveyard_show_level': True, 'graveyard_show_route': True,
 }
 VALID_FONTS = ('ttf', 'otf', 'woff', 'woff2')
 ALLOWED = set(DEFAULT)
@@ -60,6 +69,12 @@ def validated_settings(candidate):
         elif name == 'counter_mode':
             if value not in ('off', 'deaths', 'lives'):
                 raise ValueError('Modo de contador desconocido')
+        elif name == 'sprite_set':
+            if not isinstance(value, str) or (value and not custom_sprites.valid_set_name(value)):
+                raise ValueError('Conjunto de sprites inválido')
+        elif name == 'graveyard_order':
+            if value not in ('recent', 'oldest'):
+                raise ValueError('Orden del cementerio desconocido')
         elif name == 'item_display':
             if value not in ('name', 'icon', 'both'):
                 raise ValueError('Forma de mostrar el objeto desconocida')
@@ -79,7 +94,9 @@ def validated_settings(candidate):
             if value not in ('pixelated','smooth'):
                 raise ValueError('Interpolación de sprites desconocida')
         elif name in ('hp_glow', 'hp_reverse', 'show_empty', 'hp_custom_fill', 'hp_custom_frame', 'sprite_shadow',
-                      'counter_in_composition', 'counter_custom_icon', 'items_in_composition'):
+                      'counter_in_composition', 'counter_custom_icon', 'items_in_composition',
+                      'graveyard_title', 'graveyard_show_name', 'graveyard_show_species',
+                      'graveyard_show_level', 'graveyard_show_route'):
             if type(value) is not bool:
                 raise ValueError('Opción incorrecta: ' + name)
         elif name == 'font':
@@ -102,6 +119,7 @@ def validated_settings(candidate):
                 'hp_animation_ms': (0, 1500),
                 'counter_total': (1, 100), 'counter_icon_size': (12, 256),
                 'item_size': (8, 60), 'item_icon_size': (12, 128),
+                'graveyard_max': (1, 60), 'graveyard_columns': (1, 12), 'graveyard_sprite_size': (24, 256),
             }
             if type(value) is not int or not ranges[name][0] <= value <= ranges[name][1]:
                 raise ValueError('Valor fuera de rango: ' + name)
@@ -131,6 +149,9 @@ class OverlayManager:
         self.hp_images = self.runtime / 'obs-hp-images'
         self.custom_dir = Path(custom_dir) if custom_dir is not None else self.layout.parent/'sprites_personalizados'
         self.lock = threading.RLock()
+        # Public graveyard ids are an HMAC with a per-process secret: stable
+        # while the app runs, but the encryption constant cannot be recovered.
+        self._rev_key = secrets.token_bytes(16)
         self.settings = copy.deepcopy(DEFAULT)
         if self.path.is_file():
             try:
@@ -147,6 +168,11 @@ class OverlayManager:
         clean = validated_settings(data)
         if clean['font_file'] and clean['font_file'] not in self.available_fonts():
             raise ValueError('Debes cargar primero esa fuente')
+        if clean['sprite_set']:
+            real = custom_sprites.canonical_set(self.custom_dir, clean['sprite_set'])
+            if real is None:
+                raise ValueError('Ese conjunto de sprites no existe en sprites_personalizados')
+            clean['sprite_set'] = real  # the folder's real spelling
         self.runtime.mkdir(parents=True, exist_ok=True)
         tmp = self.path.with_suffix('.tmp')
         with self.lock:
@@ -164,38 +190,140 @@ class OverlayManager:
         return sorted(p.name for p in self.fonts.iterdir()
                       if p.is_file() and re.fullmatch(r'[a-zA-Z0-9_-]{1,70}\.(?:ttf|otf|woff2?)', p.name))
 
-    def import_sprite(self,name,data):
+    def sprite_sets(self):
+        """Subfolders of sprites_personalizados usable as sprite sets."""
+        return {'sets': custom_sprites.list_sets(self.custom_dir),
+                'selected': self.get_settings().get('sprite_set', ''),
+                'path_hint': 'sprites_personalizados'}
+
+    def selected_sprite_set(self):
+        return self.get_settings().get('sprite_set', '')
+
+    def _decode_upload(self, data):
+        if not isinstance(data, str) or len(data) > 10_800_000:
+            raise ValueError('Imagen demasiado grande (máximo 8 MB)')
+        try:
+            raw = base64.b64decode(data, validate=True)
+        except (ValueError, base64.binascii.Error) as exc:
+            raise ValueError('Imagen Base64 inválida') from exc
+        if len(raw) > 8_000_000:
+            raise ValueError('Imagen demasiado grande')
+        return raw
+
+    def _upload_folder(self, sprite_set, sub=''):
+        """Root or a (possibly new) set folder; never outside sprites_personalizados."""
+        parts = [self.custom_dir]
+        if sprite_set:
+            if not custom_sprites.valid_set_name(sprite_set):
+                raise ValueError('Nombre de conjunto inválido: letras, números, espacios, - o _ (máx. 40)')
+            existing = custom_sprites.list_sets(self.custom_dir)
+            real = custom_sprites.canonical_set(self.custom_dir, sprite_set)
+            if real is None and len(existing) >= custom_sprites.MAX_SETS:
+                raise ValueError('Demasiados conjuntos de sprites')
+            parts.append(parts[-1] / (real or sprite_set))
+        if sub:
+            parts.append(parts[-1] / sub)
+        # Every level, including NTFS junctions (is_symlink() misses them).
+        for part in parts:
+            if part.exists() and (custom_sprites.is_link(part) or not part.is_dir()):
+                raise ValueError('La carpeta de destino no es válida')
+        return parts[-1]
+
+    def import_sprite(self, name, data, sprite_set=''):
         """Import a safely named custom image for live OBS replacement.
 
+        Goes to sprites_personalizados or one of its sets (created if needed).
         No arbitrary paths, SVG, compressed archives or unvalidated files.
         Never touches the original ROM, save or memory.
         """
-        if not isinstance(name,str) or not re.fullmatch(
-                r'[A-Za-z0-9_-]{1,80}\.(?:png|apng|gif|webp|jpe?g|bmp)',
-                name,re.IGNORECASE):
-            raise ValueError('Nombre de sprite inválido. Usa número o especie: 25.png / pikachu.webp')
-        if not isinstance(data,str) or len(data)>10_800_000:
-            raise ValueError('Sprite demasiado grande (máximo 8 MB)')
         try:
-            raw=base64.b64decode(data,validate=True)
-        except (ValueError,base64.binascii.Error) as exc:
-            raise ValueError('Sprite Base64 inválido') from exc
-        if len(raw)>8_000_000:
-            raise ValueError('Sprite demasiado grande')
-        suffix='.'+name.rsplit('.',1)[1].lower()
-        normalize_custom_sprite(raw,suffix)
-        safe=name.rsplit('.',1)[0]+suffix
-        self.custom_dir.mkdir(parents=True,exist_ok=True)
-        target=self.custom_dir/safe
-        if target.is_symlink():
-            raise ValueError('No se permite sobrescribir enlaces simbólicos')
-        tmp=self.custom_dir/('.'+safe+'.tmp')
+            stem, suffix = custom_sprites.safe_import_name(name)
+        except ValueError:
+            raise ValueError('Nombre de sprite inválido. Usa número o especie: 25.png / pikachu.webp') from None
+        raw = self._decode_upload(data)
+        normalize_custom_sprite(raw, suffix)
+        folder = self._upload_folder(sprite_set)
+        custom_sprites.write_atomic(folder / (stem + suffix), raw)
+        return {'name': stem + suffix, 'bytes': len(raw), 'path_hint': self._hint(folder)}
+
+    def import_item_sprite(self, name, data, sprite_set=''):
+        """Custom held-item icon: objetos/234.png, objetos/leftovers.png or objetos/restos.png."""
         try:
-            tmp.write_bytes(raw)
-            os.replace(tmp,target)
-        finally:
-            tmp.unlink(missing_ok=True)
-        return {'name':safe,'bytes':len(raw),'path_hint':'sprites_personalizados'}
+            stem, suffix = custom_sprites.safe_import_name(name)
+        except ValueError:
+            raise ValueError('Nombre de icono inválido. Usa el número o el nombre del objeto: '
+                             '234.png, leftovers.png o restos.png') from None
+        raw = self._decode_upload(data)
+        normalize_custom_sprite(raw, suffix)
+        folder = self._upload_folder(sprite_set, custom_sprites.ITEMS_FOLDER)
+        target = folder / (stem.lower() + suffix)
+        custom_sprites.write_atomic(target, raw)
+        return {'name': target.name, 'bytes': len(raw), 'path_hint': self._hint(folder)}
+
+    def _hint(self, folder):
+        """Folder shown to the user, with the real spelling of the set."""
+        relative = Path(folder).relative_to(self.custom_dir).as_posix()
+        return 'sprites_personalizados' + ('' if relative == '.' else '/' + relative)
+
+    @staticmethod
+    def _graveyard_records(progress, order='recent', limit=60):
+        """Deaths in display order (max `limit`), with the original record for sprites."""
+        deaths = (progress or {}).get('deaths') or {}
+        records = []
+        for key, entry in deaths.items():
+            if not isinstance(entry, dict) or not isinstance(entry.get('pokemon'), dict):
+                continue
+            mon = entry['pokemon']
+            if type(mon.get('species_id')) is not int:
+                continue
+            records.append((str(entry.get('recorded_at') or ''), str(key), mon))
+        records.sort(key=lambda r: (r[0], r[1]), reverse=order != 'oldest')
+        return records[:limit] if limit else records
+
+    def graveyard_entry(self, index):
+        """Pokémon record shown at position `index` of the public graveyard."""
+        if type(index) is not int or not 0 <= index < 60:
+            return None
+        if hasattr(self.service, 'condition') and hasattr(self.service, 'state'):
+            with self.service.condition:
+                records = self._graveyard_records(self.service.state.get('progress'))
+                record = records[index] if index < len(records) else None
+                return copy.deepcopy(record[2]) if record else None
+        records = self._graveyard_records(self.service.snapshot().get('progress'))
+        return copy.deepcopy(records[index][2]) if index < len(records) else None
+
+    def graveyard_entry_for(self, rev):
+        """Record whose public image_rev matches; stable while new deaths shift positions."""
+        if not isinstance(rev, str) or not re.fullmatch(r'[0-9a-f]{12}', rev):
+            return None
+        if hasattr(self.service, 'condition') and hasattr(self.service, 'state'):
+            with self.service.condition:
+                records = self._graveyard_records(self.service.state.get('progress'), limit=0)
+        else:
+            records = self._graveyard_records(self.service.snapshot().get('progress'), limit=0)
+        for _, key, mon in records:
+            if self._grave_rev(key) == rev:
+                return copy.deepcopy(mon)
+        return None
+
+    def _grave_rev(self, key):
+        return hmac.new(self._rev_key, key.encode('utf-8'), hashlib.sha256).hexdigest()[:12]
+
+    def _graveyard_public(self, records):
+        result = []
+        for index, (recorded, key, mon) in enumerate(records):
+            level = mon.get('level')
+            result.append({
+                'n': index,
+                'species_id': mon['species_id'],
+                'nickname': str(mon.get('nickname') or mon.get('species') or '')[:40],
+                'species': str(mon.get('species') or '')[:40],
+                'level': level if type(level) is int and 1 <= level <= 100 else None,
+                'route': str(mon.get('met_location') or '')[:60],
+                # Stable per death without exposing the encryption constant.
+                'image_rev': self._grave_rev(key),
+            })
+        return result
 
     def import_font(self, name, data):
         if not isinstance(name, str) or not re.fullmatch(r'[a-zA-Z0-9_-]{1,60}\.(?:ttf|otf|woff2?)', name, re.I):
@@ -315,6 +443,8 @@ class OverlayManager:
         if hasattr(self.service, 'condition') and hasattr(self.service, 'state'):
             with self.service.condition:
                 original = self.service.state
+                graveyard = self._graveyard_public(self._graveyard_records(
+                    original.get('progress'), self.settings.get('graveyard_order', 'recent')))
                 state = {
                     'party': copy.deepcopy(original.get('party') or []),
                     'progress': {
@@ -327,6 +457,8 @@ class OverlayManager:
                 }
         else:
             state = self.service.snapshot()
+            graveyard = self._graveyard_public(self._graveyard_records(
+                state.get('progress'), self.settings.get('graveyard_order', 'recent')))
         deaths = (state.get('progress') or {}).get('deaths') or {}
         count = (state.get('progress') or {}).get('death_count')
         count = count if type(count) is int and count >= 0 else len(deaths)
@@ -366,4 +498,6 @@ class OverlayManager:
             })
         return {'revision':state.get('revision',0), 'game':state.get('game'),
                 'stale':bool(state.get('stale', True)), 'party':result,
-                'death_count': count}
+                'death_count': count, 'graveyard': graveyard,
+                # Fallen right now (revived ones excluded), unlike the cumulative counter.
+                'graveyard_total': len(deaths)}

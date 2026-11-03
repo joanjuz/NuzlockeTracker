@@ -1,3 +1,13 @@
+# 1.1.0 — Conjuntos de sprites, cementerio en OBS e iconos de objetos
+
+- Conjuntos de sprites por subcarpeta, elegibles en el editor OBS, con respaldo en la carpeta principal.
+- Fuente OBS de cementerio con los Pokémon caídos en gris.
+- Iconos de objetos propios y en la ventana principal.
+- La Partida principal se puede eliminar.
+- Aviso de nueva versión y reorganización interna del servidor y la interfaz.
+
+[Notas completas de v1.1.0](releases/v1.1.0.md).
+
 # 1.0.0 — Objetos en OBS, Soul Link más seguro y registro de diagnóstico
 
 - Capa OBS de objetos equipados con nombre, icono o ambos.

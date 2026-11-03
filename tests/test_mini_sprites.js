@@ -6,12 +6,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const source = fs.readFileSync(path.join(__dirname, '../web/app.js'), 'utf8');
-// renderMini and its button helper, up to the next unrelated function.
-const miniStart = source.indexOf('function renderMini(){');
-const miniEnd = source.indexOf('\nfunction pokemonKey(', miniStart);
-assert.ok(miniStart >= 0 && miniEnd > miniStart, 'renderMini debe existir en web/app.js');
-const code = source.slice(miniStart, miniEnd);
+const {slice} = require('./ui_shared.js');
+// renderMini and its button helper close web/app/team.js.
+const code = slice('app/team.js', 'function renderMini(){');
 
 class Element {
   constructor(tag) { this.tag = tag; this.children = []; this.innerHTML = ''; this.attributes = {}; }
@@ -37,10 +34,7 @@ const ctx = {
 vm.createContext(ctx);
 require('./ui_shared.js').loadShared(ctx, ['spriteId']);
 vm.runInContext(code, ctx);
-const fbStart = source.indexOf('const SPRITE_REMOTE=');
-const fbEnd = source.indexOf("document.addEventListener('error',spriteFallback,true);", fbStart);
-assert.ok(fbStart >= 0 && fbEnd > fbStart, 'Delegated sprite fallback must exist');
-vm.runInContext(source.slice(fbStart, fbEnd), ctx);
+vm.runInContext(slice('app/helpers.js', 'const SPRITE_REMOTE=', "document.addEventListener('error',spriteFallback,true);"), ctx);
 ctx.renderMini();
 assert.equal($('mini-team').children.length, 6);
 assert.equal($('party-count').textContent, 2);

@@ -300,8 +300,11 @@ def layout_directory(home, profile='principal', executable=None, frozen=None):
 
 
 class PartyLayoutExporter:
-    def __init__(self, service, directory, cache_dir=None, downloader=fetch_sprite, bundled=None, custom_dir=None):
+    def __init__(self, service, directory, cache_dir=None, downloader=fetch_sprite, bundled=None, custom_dir=None,
+                 sprite_set=None):
         self.service = service
+        # Callable returning the selected sprite set (subfolder) or ''.
+        self.sprite_set = sprite_set if callable(sprite_set) else (lambda: '')
         self.directory = Path(directory)
         self.cache = Path(cache_dir or self.directory.parent / 'sprite-cache')
         self.custom = Path(custom_dir or self.directory.parent / 'sprites_personalizados')
@@ -312,6 +315,8 @@ class PartyLayoutExporter:
         self.pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix='layout-sprite')
         self.futures = {}
         self.retry_after = {}
+        # futures/retry_after are shared with HTTP threads (sprite_for).
+        self.futures_lock = threading.Lock()
         self.slots = [None] * 6
         self.contents = [None] * 6
         self.gif_contents = [None] * 6
@@ -416,17 +421,24 @@ class PartyLayoutExporter:
         return None
 
     def custom_media(self,mon,ident):
+        from .custom_sprites import search_dirs
         if not self.custom.is_dir():return None
-        # Resolve case-insensitively, including names such as Pikachu.PNG.
-        # Only files directly in the known sprites_personalizados directory.
-        available={}
         try:
-            for child in self.custom.iterdir():
-                if child.is_file() and not child.is_symlink():
-                    available.setdefault(child.name.casefold(),child)
-        except OSError:
-            return None
-        for name in custom_media_names(mon,ident):
+            chosen=self.sprite_set() or ''
+        except Exception:
+            chosen=''
+        # Resolve case-insensitively, including names such as Pikachu.PNG.
+        # Selected set first, then the root folder; files never leave them.
+        names=custom_media_names(mon,ident)
+        for folder in search_dirs(self.custom,chosen):
+            media=self._custom_media_in(folder,names)
+            if media is not None:return media
+        return None
+
+    def _custom_media_in(self,folder,names):
+        from .custom_sprites import listing
+        available=listing(folder)  # cached until the folder changes
+        for name in names:
             candidate=available.get(name.casefold())
             if candidate is None:continue
             try:
@@ -448,6 +460,39 @@ class PartyLayoutExporter:
                 if media is not None:return media
             except OSError:
                 self.custom_cache.pop(candidate,None)
+        return None
+
+    def sprite_for(self, mon, download=True):
+        """Media for any Pokémon (e.g. the OBS graveyard) without blocking.
+
+        Returns (bytes, kind) from the custom set, cache or bundled sprites;
+        otherwise schedules a download and returns None until it finishes.
+        """
+        ident = sprite_id(mon)
+        if ident is None:
+            return None
+        custom = self.custom_media(mon, ident)
+        if custom is not None:
+            return custom
+        local = self.local_sprite(ident)
+        if local is not None:
+            return local, 'png'
+        now = time.monotonic()
+        with self.futures_lock:
+            future = self.futures.get(ident)
+            if future is None and not download:
+                return None  # read-only VPN viewers never trigger downloads
+            if future is None and now >= self.retry_after.get(ident, 0):
+                self.futures[ident] = self.pool.submit(self.download_and_store, ident)
+                return None
+            if future is None or not future.done():
+                return None
+            del self.futures[ident]
+        try:
+            return future.result(), 'png'
+        except Exception:
+            with self.futures_lock:
+                self.retry_after[ident] = now + 30
         return None
 
     def render_sprite(self, data, dead):
@@ -532,17 +577,23 @@ class PartyLayoutExporter:
         if self.slots[i] != ident:
             self.slots[i] = ident
             self.clear_slot(i)
-        future = self.futures.get(ident)
-        if future and future.done():
-            del self.futures[ident]
+        with self.futures_lock:
+            future = self.futures.get(ident)
+            if future and future.done():
+                del self.futures[ident]
+            elif future is None and now >= self.retry_after.get(ident, 0):
+                self.futures[ident] = self.pool.submit(self.download_and_store, ident)
+                future = None
+            else:
+                future = None
+        if future is not None:
             try:
                 # Only use the downloaded sprite for the species currently
                 # occupying this slot; keep custom priority intact.
                 self.publish(i, ident, future.result(), dead=dead)
             except Exception:
-                self.retry_after[ident] = now + 30
-        elif future is None and now >= self.retry_after.get(ident, 0):
-            self.futures[ident] = self.pool.submit(self.download_and_store, ident)
+                with self.futures_lock:
+                    self.retry_after[ident] = now + 30
 
     def run(self):
         while not self.stop.is_set():

@@ -5,14 +5,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const {loadShared, source} = require('./ui_shared.js');
+const {loadShared, slice: sliceFile, source} = require('./ui_shared.js');
 const companion = fs.readFileSync(path.join(__dirname, '../web/companion.js'), 'utf8');
 const settle = () => new Promise(resolve => setImmediate(resolve));
-const slice = (from, to) => {
-  const start = source.indexOf(from), end = source.indexOf(to, start + 1);
-  assert.ok(start >= 0 && end > start, 'No se encontró ' + from);
-  return source.slice(start, end);
-};
 
 // Startup asks for /api/routes only through the per-game cache (no double fetch).
 const startFn = source.split(/\r?\n/).find(line => line.startsWith('async function start(){'));
@@ -38,8 +33,8 @@ function harness(responses) {
   };
   vm.createContext(ctx);
   loadShared(ctx, ['list']);
-  vm.runInContext(slice('async function getJSON(', '\n// One delegated fallback'), ctx);
-  vm.runInContext(slice('// Route catalogs are cached per game', 'async function exportWithDialog('), ctx);
+  vm.runInContext(sliceFile('app/helpers.js', 'async function getJSON(', '\n// One delegated fallback'), ctx);
+  vm.runInContext(sliceFile('app/routes.js', '// Route catalogs are cached per game', '\nconst ORIGIN_TYPES='), ctx);
   return {ctx, requests, rendered};
 }
 

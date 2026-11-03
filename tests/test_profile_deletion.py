@@ -22,7 +22,7 @@ class ProfileDeletionStoreTests(unittest.TestCase):
             self.assertFalse(store.directory(first['id']).exists())
             self.assertEqual(keep.read_text(), 'keep')
             self.assertNotIn(first, RunProfileStore(store.runtime).profiles())
-            for unsafe in ('principal', '../outside', 'unknown', None):
+            for unsafe in ('../outside', 'unknown', None):
                 with self.subTest(unsafe=unsafe), self.assertRaises(ValueError):
                     store.delete(unsafe)
 
@@ -140,6 +140,20 @@ class ProfileDeletionHTTPTests(unittest.TestCase):
         self.assertNotIn(created, [p['id'] for p in result['profiles']])
         self.assertFalse(self.backend.profiles.directory(created).exists())
         self.assertFalse(self.backend.service.stop.is_set())
+
+    def test_delete_principal_over_http_from_another_run(self):
+        created = self.post({'action': 'create', 'name': 'Nueva principal'})['created']
+        (self.backend.runtime / 'state-progress.json').write_text('{}')
+        with self.assertRaises(HTTPError):
+            self.post({'action': 'delete', 'id': 'principal'})  # still the open run
+        self.backend.switch_profile(created)
+        service = self.backend.service
+        result = self.post({'action': 'delete', 'id': 'principal'})
+        self.assertEqual(result['active'], created)
+        self.assertNotIn('principal', [p['id'] for p in result['profiles']])
+        self.assertFalse((self.root / 'runtime' / 'state-progress.json').exists())
+        self.assertIs(self.backend.service, service, 'la partida abierta no se reinicia')
+        self.assertFalse(service.stop.is_set())
 
 if __name__ == '__main__':
     unittest.main()
