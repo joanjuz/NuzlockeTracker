@@ -119,8 +119,10 @@ class CustomItemIconTests(unittest.TestCase):
         self.assertEqual(self.icons.icon(234), (RED, 'image/png'))
         (self.custom / 'objetos' / '234.png').unlink()
         (self.custom / 'objetos' / 'Leftovers.PNG').write_bytes(BLUE)
+        custom_sprites.clear_listing_cache()  # as LISTING_TTL would
         self.assertEqual(self.icons.icon(234)[0], BLUE)
         (self.custom / 'objetos' / 'panuelo-eleccion.png').write_bytes(GREEN)
+        custom_sprites.clear_listing_cache()  # as LISTING_TTL would
         self.assertEqual(self.icons.icon(287)[0], GREEN)
         self.assertEqual(self.downloads, [])
 
@@ -344,6 +346,29 @@ class ReviewFixesTests(unittest.TestCase):
 
 
 class LargeSetListingTests(unittest.TestCase):
+    def test_listing_expires_even_if_the_folder_mtime_does_not_change(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp)
+            (folder / '001.png').write_bytes(b'x')
+            with patch('tracker.custom_sprites.time.monotonic', return_value=1000.0):
+                self.assertNotIn('002.png', custom_sprites.listing(folder))
+            stamp = folder.stat().st_mtime_ns
+            (folder / '002.png').write_bytes(b'x')
+            import os
+            os.utime(folder, ns=(stamp, stamp))  # simulate NTFS not bumping the mtime
+            with patch('tracker.custom_sprites.time.monotonic', return_value=1001.0):
+                self.assertNotIn('002.png', custom_sprites.listing(folder))  # still cached
+            with patch('tracker.custom_sprites.time.monotonic', return_value=1003.0):
+                self.assertIn('002.png', custom_sprites.listing(folder))  # TTL expired
+
+    def test_import_is_visible_immediately(self):
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp)
+            custom_sprites.listing(folder)
+            custom_sprites.write_atomic(folder / '025.png', b'x')
+            self.assertIn('025.png', custom_sprites.listing(folder))
+
     def test_listing_is_cached_until_the_folder_changes(self):
         import os
         from unittest.mock import patch

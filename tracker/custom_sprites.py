@@ -13,6 +13,7 @@ from __future__ import annotations
 import os
 import re
 import threading
+import time
 from pathlib import Path
 from typing import Iterable
 
@@ -91,7 +92,18 @@ def search_dirs(root, sprite_set: str = '', sub: str = '') -> list[Path]:
 
 
 _listing_lock = threading.Lock()
-_listings: dict[str, tuple[int, dict[str, Path]]] = {}
+_listings: dict[str, tuple[int, float, dict[str, Path]]] = {}
+# NTFS does not always bump a folder's mtime between two quick writes, so a
+# cached listing also expires after a short time (re-reading costs ~2 ms).
+LISTING_TTL = 2.0
+
+
+def clear_listing_cache(folder: Path | None = None) -> None:
+    with _listing_lock:
+        if folder is None:
+            _listings.clear()
+        else:
+            _listings.pop(str(folder), None)
 
 
 def listing(folder: Path) -> dict[str, Path]:
@@ -99,17 +111,18 @@ def listing(folder: Path) -> dict[str, Path]:
 
     Sprite sets can hold thousands of files and are looked up several times a
     second, so the listing is cached until the folder's modification time
-    changes (adding, removing or renaming a file updates it).
+    changes or LISTING_TTL seconds pass, whichever comes first.
     """
     try:
         stamp = folder.stat().st_mtime_ns
     except OSError:
         return {}
     key = str(folder)
+    now = time.monotonic()
     with _listing_lock:
         cached = _listings.get(key)
-        if cached and cached[0] == stamp:
-            return cached[1]
+        if cached and cached[0] == stamp and now - cached[1] < LISTING_TTL:
+            return cached[2]
     available: dict[str, Path] = {}
     try:
         with os.scandir(folder) as entries:
@@ -121,7 +134,7 @@ def listing(folder: Path) -> dict[str, Path]:
     with _listing_lock:
         if len(_listings) > 64:
             _listings.clear()
-        _listings[key] = (stamp, available)
+        _listings[key] = (stamp, now, available)
     return available
 
 
@@ -180,3 +193,4 @@ def write_atomic(target: Path, raw: bytes) -> None:
         os.replace(tmp, target)
     finally:
         tmp.unlink(missing_ok=True)
+    clear_listing_cache(target.parent)  # an import is visible immediately
