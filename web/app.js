@@ -13,7 +13,9 @@ $('route-intro').textContent='Sin menús desplegables. Marca «Fósil» junto a 
   +' cajas; «Intercambiado» queda bajo MISS en rutas vacías.';
 $('analysis-source-note').textContent=gen6?
   'Análisis aproximado con referencias USUM: confirmar habilidades, movimientos y formas en Gen6 antes de usarlo para decisiones.':
+  state.game_data?.active?'Definitive Game Data y referencias USUM · Los registros ausentes usan CSV o referencia; no se simulan parches de combate.':
   'Referencia USUM · Puede variar con el randomizer.';
+if(!companionView&&state.game_data)renderGameDataStatus(state.game_data);
 $('box').disabled=$('living-dex').checked;
 $('global').disabled=$('living-dex').checked;
 $('living-dex-sprites').disabled=!$('living-dex').checked;

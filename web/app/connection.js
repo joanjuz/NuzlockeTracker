@@ -104,6 +104,78 @@ $('import-templates').onclick=async()=>{
 };
 templateStatus();
 
+// DGD is a two-step local import: selecting/previewing never writes a profile.
+let gameDataPreview=null,gameDataRequest=0;
+function cancelGameDataPreview(){
+  gameDataRequest++;gameDataPreview=null;
+  if($('game-data-preview'))$('game-data-preview').hidden=true;
+  if($('game-data-ack'))$('game-data-ack').checked=false;
+}
+function renderGameDataStatus(status){
+  const note=$('game-data-status');if(!note)return;
+  $('remove-game-data').hidden=!status.loaded;
+  note.textContent=status.error||(!status.loaded?'Sin datos DGD importados. Se usan las referencias y los CSV existentes.':
+    `${status.game} · ${status.counts.species} especies/formas · ${status.counts.moves} movimientos · `
+    +(status.active?'DGD activo para esta partida.':'Se activará solo al seleccionar y conectar el juego compatible.')
+    +` Revisión: ${status.revision||'desconocida'}. ${status.warning||''}`);
+}
+async function gameDataStatus(){
+  if(!$('game-data-status'))return;
+  try{const response=await fetch('/api/game-data'),result=await response.json();if(!response.ok)throw Error(result.error);renderGameDataStatus(result);}
+  catch(error){$('game-data-status').textContent=error.message;}
+}
+async function gameDataPost(action,data){
+  if(companionView)throw Error('La sesión del compañero es de solo lectura.');
+  const response=await fetch('/api/game-data/'+action,{method:'POST',
+    headers:{'Content-Type':'application/json','X-Tracker-Token':token},body:JSON.stringify(data)});
+  const result=await response.json();if(!response.ok)throw Error(result.error||'No se pudo completar la importación DGD.');return result;
+}
+async function previewGameData(){
+  cancelGameDataPreview();
+  const request=gameDataRequest,button=$('preview-game-data'),game=$('game').value;
+  button.disabled=true;
+  try{
+    const file=$('game-data-file').files?.[0];if(!file)throw Error('Selecciona el JSON exportado por Definitive Randomizer.');
+    if(file.size>5000000)throw Error('El archivo DGD supera 5 MB.');
+    const content=await file.text();
+    if(request!==gameDataRequest)return;
+    const result=await gameDataPost('preview',{content,game});
+    if(request!==gameDataRequest||game!==$('game').value)return;
+    gameDataPreview={...result,selectedGame:game};
+    $('game-data-summary').textContent=`${result.game} · ${result.counts.species} especies/formas · ${result.counts.moves} movimientos · ${result.counts.evolutions} listas de evoluciones. `
+      +(result.replacesExisting?'Reemplazará la importación anterior de esta partida.':'Se guardará en esta partida.');
+    $('game-data-differences').textContent=result.differences.length?result.differences.map(d=>`${d.record} · ${d.field}\nActual: ${JSON.stringify(d.before)}\nImportado: ${JSON.stringify(d.after)}`).join('\n\n'):'No se detectaron diferencias en la muestra comparada.';
+    $('game-data-warning').textContent=result.warning;
+    $('game-data-ack-label').hidden=!result.requiresRevisionAcknowledgement;
+    $('apply-game-data').disabled=false;
+    $('game-data-preview').hidden=false;
+  }catch(error){if(request===gameDataRequest)$('game-data-status').textContent='Error: '+error.message;}
+  finally{button.disabled=false;}
+}
+async function applyGameData(){
+  const pending=gameDataPreview,button=$('apply-game-data');if(!pending)return;
+  if(pending.selectedGame!==$('game').value){cancelGameDataPreview();return;}
+  if(pending.requiresRevisionAcknowledgement&&!$('game-data-ack').checked){$('game-data-status').textContent='Confirma el aviso de revisión desconocida antes de importar.';return;}
+  button.disabled=true;
+  try{
+    const result=await gameDataPost('apply',{previewToken:pending.previewToken,game:pending.selectedGame,acknowledgeUnknownRevision:$('game-data-ack').checked});
+    cancelGameDataPreview();$('game-data-file').value='';renderGameDataStatus(result);
+  }catch(error){$('game-data-status').textContent='Error: '+error.message;}
+  finally{button.disabled=false;}
+}
+if($('preview-game-data')){
+  $('preview-game-data').onclick=previewGameData;
+  $('apply-game-data').onclick=applyGameData;
+  $('cancel-game-data').onclick=cancelGameDataPreview;
+  $('game-data-file').onchange=cancelGameDataPreview;
+  $('remove-game-data').onclick=async()=>{
+    if(!confirm('¿Retirar los datos DGD de esta partida y volver a las referencias y los CSV existentes?'))return;
+    try{renderGameDataStatus(await gameDataPost('remove',{}));cancelGameDataPreview();}
+    catch(error){$('game-data-status').textContent='Error: '+error.message;}
+  };
+  $('game-data-settings').ontoggle=()=>{if($('game-data-settings').open)gameDataStatus();};
+}
+
 // Process discovery only suggests candidates; it never silently changes a PID.
 let processCandidates=[],processRequest=0;
 function showProcessCandidates(){
@@ -138,5 +210,5 @@ if($('process-picker'))$('process-picker').onchange=()=>{
   if(!item||(item.game&&item.game!==$('game').value))return;
   $('pid').value=String(item.pid);$('process-status').textContent='Seleccionado PID '+item.pid+' · '+(item.title||item.name)+'.';
 };
-$('game').onchange=showProcessCandidates;
+$('game').onchange=()=>{showProcessCandidates();cancelGameDataPreview();};
 $('demo-scenario').onchange=()=>command({action:'demo',scenario:$('demo-scenario').value});
