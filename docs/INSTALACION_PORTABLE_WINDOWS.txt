@@ -1,4 +1,7 @@
-PROGRESSIVE TRACKER v1.2.0 - GUIA DE INICIO (WINDOWS)
+PROGRESSIVE TRACKER v1.3.0 - GUIA DE INICIO (WINDOWS)
+
+CANDIDATO LOCAL: pendiente de autorizacion de publicacion. No se ha creado
+una release ni una etiqueta definitiva como parte de esta preparacion.
 
 DESCARGAR
 1. Descarga PokemonTracker-Windows-x64.zip desde:
@@ -27,6 +30,15 @@ OBS
    el editor, o utilizar la carpeta sprites_personalizados.
 5. Ajusta escala, fuentes y barras, y verifica el resultado en OBS.
    Mantiene abierto el tracker mientras transmites.
+
+DATOS DE DEFINITIVE RANDOMIZER (ULTRA SOL / ULTRA LUNA)
+1. Guarda los cambios en Randomizer y exporta datos para Progressive Tracker.
+2. Abre la partida correcta del Tracker y selecciona el juego en Conexion.
+3. Selecciona el JSON en Datos de Definitive Randomizer y previsualiza.
+4. Revisa diferencias; confirma el aviso si la revision es desconocida.
+5. Confirma la importacion. Se conserva al cerrar y reabrir esa partida.
+6. Reemplazar o retirar la importacion no modifica ROM, guardado ni RAM.
+   Los valores vivos siguen viniendo del emulador. No incluye DS/Switch.
 
 PERFILES, RESPALDOS Y ACTUALIZACIONES
 - Tu progreso y preferencias se guardan normalmente en:
