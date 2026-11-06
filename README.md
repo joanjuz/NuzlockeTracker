@@ -1,5 +1,12 @@
 # Progressive Tracker
 
+## v1.3.0: datos de Definitive Randomizer por partida
+
+Importa Definitive Game Data v1 de Ultra Sol o Ultra Luna, revisa diferencias y
+conserva el catálogo en la partida seleccionada. Puedes reemplazarlo o retirarlo
+sin cambiar ROMs ni memoria del emulador. Consulta las
+[notas de la versión candidata](docs/releases/v1.3.0.md).
+
 ## v1.2.0: perfiles de estilo para OBS, lápidas y datos del Pokémon
 
 Guarda varios estilos de overlay y fija uno por fuente de OBS, elige cómo se ve un
@@ -42,7 +49,7 @@ la distribución publicada se encuentra en GitHub Releases.
 
 **Progressive Tracker** (antes *Pokémon Tracker*) es una aplicación local para Windows que lee los datos de Pokémon desde la memoria del emulador, organiza aventuras Nuzlocke y Soul Link y genera fuentes visuales para OBS.
 
-> **Versión de descarga:** **v1.2.0**, con perfiles de estilo para OBS, conjuntos de sprites, cementerio en OBS, objetos en OBS, perfiles independientes, Soul Link directo, seis juegos y contadores OBS. La versión descargable es una aplicación **portable**: no hace falta instalar Python ni Node.js.
+> **Versión candidata:** **v1.3.0**, con Definitive Game Data v1 y las funciones de v1.2.0. Pendiente de autorización de publicación; la descarga oficial sigue en GitHub Releases. Es una aplicación **portable**: no hace falta instalar Python ni Node.js.
 
 ## Descargar para Windows
 
