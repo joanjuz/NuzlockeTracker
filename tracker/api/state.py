@@ -14,6 +14,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from tracker import __version__
 from tracker.process_memory import list_emulator_instances
+from tracker.game_data import MAX_BYTES as GAME_DATA_LIMIT
 
 from .routing import exact, route
 
@@ -144,11 +145,38 @@ def import_templates(req, _match):
         req.reply(400, {'error': str(error)})
 
 
+def game_data_status(req, _match):
+    service=req.ctx.service
+    manager=getattr(service,'game_data',None)
+    if manager is None:
+        req.reply(200,{'loaded':False,'active':False,'error':'DGD está disponible en partidas locales, fuera de la demo.'})
+        return
+    req.reply(200,manager.status(service.snapshot_fields('game')['game']))
+
+
+def game_data_action(req, match):
+    service=req.ctx.service
+    try:
+        if getattr(service,'game_data',None) is None:
+            raise ValueError('DGD está disponible en partidas locales, fuera de la demo.')
+        data=req.read_json(GAME_DATA_LIMIT+100000,'Archivo DGD demasiado grande','Solicitud DGD inválida')
+        action=match[1]
+        if action=='preview':result=service.preview_game_data(data.get('content'),data.get('game'))
+        elif action=='apply':result=service.apply_game_data(data.get('previewToken'),data.get('game'),data.get('acknowledgeUnknownRevision'))
+        else:result=service.remove_game_data()
+        req.reply(200,result)
+    except (ValueError,TypeError,UnicodeError,KeyError) as exc:
+        req.reply(400,{'error':str(exc)})
+    except OSError:
+        req.reply(500,{'error':'No se pudo guardar o retirar DGD. Se conserva la importación anterior.'})
+
+
 ROUTES_GET = [
     exact('/api/session', session),
     exact('/api/processes', processes),
     exact('/api/state', state),
     exact('/api/templates', templates_status),
+    exact('/api/game-data', game_data_status),
     exact('/api/analysis', analysis),
     exact('/api/routes', routes),
     route(r'/api/move/(.*)', move),
@@ -159,4 +187,5 @@ ROUTES_GET = [
 ROUTES_POST = [
     exact('/api/diagnostic/save', save_diagnostic),
     exact('/api/templates', import_templates),
+    route(r'/api/game-data/(preview|apply|remove)', game_data_action),
 ]

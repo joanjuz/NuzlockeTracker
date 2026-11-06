@@ -13,6 +13,8 @@ ROUTE_PROFILES={
 class ReferenceData:
     def __init__(self):self.analysis=json.loads((DATA/'Analysis_USUM.json').read_text(encoding='utf-8'));self.moves=json.loads((DATA/'MoveDetails_USUM.json').read_text(encoding='utf-8'))['moves']
     template_moves = None
+    game_data = None
+    game_provider = None
     def move(self,id,catalog):
         result=copy.deepcopy(self.moves.get(str(id)))
         if result is None:raise ValueError('Movimiento fuera del catálogo USUM.')
@@ -25,6 +27,9 @@ class ReferenceData:
             result.update(copy.deepcopy(template))
             result['source']='Plantilla pk3DS Progressive (datos importados)'
             result['rom_override']=True
+        if self.game_data is not None and self.game_provider is not None:
+            imported=self.game_data.move(id,self.game_provider())
+            if imported is not None:result.update(imported)
         return result
     def routes(self,game):
         if game not in ROUTE_PROFILES:return {'schema_version':1,'game':game,'routes':[]}
@@ -35,4 +40,8 @@ class ReferenceData:
         return result
 
     def pokemon_types(self,species,form):
+        if self.game_data is not None and self.game_provider is not None:
+            from .game_data import TYPE_NAMES
+            row=self.game_data.species(species,form,self.game_provider())
+            if row is not None:return list(dict.fromkeys(TYPE_NAMES[i] for i in row['types']))
         return self.analysis['pokemon'].get(f'{species}:{form}',self.analysis['pokemon'].get(f'{species}:0',[]))

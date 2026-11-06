@@ -20,6 +20,7 @@ from .gen6_pc import Gen6BoxProbe
 from .gen7_pc import Gen7BoxProbe
 from .gen6_memory_scan import search_pc_memory
 from .templates import TemplateManager
+from .game_data import GameDataManager, TYPE_NAMES, STAT_KEYS, SOURCE as GAME_DATA_SOURCE
 from . import diaglog
 
 LOG=diaglog.get('service')
@@ -32,6 +33,9 @@ class TrackerService:
         self.output=Path(output);self.catalog=Catalog();self.reference=ReferenceData();self.factory=connector_factory
         self.templates=TemplateManager(self.output.with_name('pk3ds-templates.json'),self.catalog)
         self.reference.template_moves=self.templates.data['moves']
+        self.game_data=GameDataManager(self.output.with_name('definitive-game-data.json'))
+        self.reference.game_data=self.game_data
+        self.reference.game_provider=lambda:self.state['game']
         self.session_path=self.output.with_name('session-profile.json')
         self.condition=threading.Condition();self.commands=queue.Queue();self.stop=threading.Event();self.connection_generation=0;self.connection_lock=threading.Lock()
         # Disk problems are reported as a non-fatal warning and retried; they
@@ -79,6 +83,7 @@ class TrackerService:
                 pass
         self.state['session_saved']=self.session_path.is_file() and self.config is not None
         self.state['templates']=self.templates.status()
+        self.state['game_data']=self.game_data.status(self.state['game'])
         self.state['party']=[self.refresh_template(p) for p in self.state['party']]
         self.state['boxes']={k:[self.refresh_template(p) for p in box] for k,box in self.state['boxes'].items()}
         self.refresh_persist_warning()
@@ -123,13 +128,35 @@ class TrackerService:
         if not isinstance(p,dict):return p
         data=dict(p)
         species=p.get('species_id')
+        game=self.state['game']
+        imported=self.game_data.species(species,p.get('form',0),game)
+        data.pop('game_data_source',None)
+        data.pop('species_abilities',None)
+        data['base_stats_source']='pk3DS Progressive'
         data['base_stats']=self.templates.data['stats'].get(str(species))
+        if type(species) is int:
+            data['types']=self.catalog.metadata('species',species).get('types',self.reference.pokemon_types(species,p.get('form',0)))
+            data['type_source']='Catálogo ROM' if self.catalog.metadata('species',species).get('types') else 'Referencia USUM'
+            data['species']=self.catalog.name('species',species)
+        if 'ability_id' in p:data['ability']=self.catalog.name('abilities',p['ability_id'])
+        if imported is not None:
+            data['types']=list(dict.fromkeys(TYPE_NAMES[i] for i in imported['types']))
+            data['type_source']=GAME_DATA_SOURCE
+            data['species']=imported['name']
+            data['base_stats']={label:imported['baseStats'][key] for key,label in STAT_KEYS.items()}
+            data['base_stats_source']=GAME_DATA_SOURCE
+            data['species_abilities']=[{'id':i,'name':self.game_data.ability_name(i,game) or self.catalog.name('abilities',i)} for i in imported['abilities']]
+            data['game_data_source']=GAME_DATA_SOURCE
+        if 'ability_id' in p:
+            data['ability']=self.game_data.ability_name(p['ability_id'],game) or data['ability']
         evolutions=[]
-        for evo in self.templates.evolutions(species,p.get('form',0)):
+        imported_evolutions=self.game_data.evolutions(species,p.get('form',0),game,self.catalog)
+        for evo in imported_evolutions if imported_evolutions is not None else self.templates.evolutions(species,p.get('form',0)):
             target=evo['target']
             result_form=evo.get('target_form',0)
-            name=self.catalog.name('species',target)
-            if result_form==1 and target in (20,26,28,38,51,53,75,76,89,103,105):
+            target_record=self.game_data.species(target,result_form,game)
+            name=target_record['name'] if target_record is not None else self.catalog.name('species',target)
+            if target_record is None and result_form==1 and target in (20,26,28,38,51,53,75,76,89,103,105):
                 name+=' de Alola'
             # PokeAPI maintains regional forms under distinct Pokémon IDs.
             regional_sprites={20:10092,26:10100,28:10102,38:10104,51:10106,53:10108,75:10110,76:10111,89:10113,103:10114,105:10115}
@@ -139,7 +166,55 @@ class TrackerService:
         moves=p.get('moves')
         if isinstance(moves,list) and len(moves)==4:
             data['analysis_moves']=[self.reference.move(i,self.catalog) if i else None for i in moves]
+            data['move_names']=[(self.game_data.move(i,game) or {}).get('name',self.catalog.name('moves',i)) if i else '—' for i in moves]
         return data
+
+    def preview_game_data(self,content,game):
+        with self.condition:
+            def compare(doc):
+                differences=[]
+                for row in doc['species']:
+                    if len(differences)>=8:break
+                    current=self.refresh_template({'species_id':row['speciesId'],'form':row['formId']})
+                    after=list(dict.fromkeys(TYPE_NAMES[i] for i in row['types']))
+                    if current.get('types')!=after:
+                        differences.append({'record':f"Pokémon {row['speciesId']} · forma {row['formId']}",'field':'Tipos','before':current.get('types'),'after':after})
+                    stats={label:row['baseStats'][key] for key,label in STAT_KEYS.items()}
+                    if current.get('base_stats')!=stats:
+                        differences.append({'record':f"Pokémon {row['speciesId']} · forma {row['formId']}",'field':'Estadísticas base','before':current.get('base_stats') or 'Sin estadísticas base importadas','after':stats})
+                for row in doc['moves']:
+                    if len(differences)>=14:break
+                    if row['id']==0:continue
+                    old=self.reference.move(row['id'],self.catalog)
+                    after={k:row[k] for k in ('power','accuracy','pp','priority')}
+                    after.update(type=TYPE_NAMES[row['typeId']],category=['Estado','Físico','Especial'][row['category']])
+                    before={k:old.get(k) for k in after}
+                    if before!=after:differences.append({'record':f"Movimiento {row['id']}",'field':'Propiedades','before':before,'after':after})
+                for row in doc['evolutions']:
+                    if len(differences)>=20:break
+                    current=self.refresh_template({'species_id':row['speciesId'],'form':row['formId']})
+                    before=[r['target'] for r in current['evolutions']]
+                    differences.append({'record':f"Pokémon {row['speciesId']} · forma {row['formId']}",'field':'Rutas de evolución (incluye métodos y niveles del JSON)','before':before,'after':copy.deepcopy(row['routes'])})
+                return differences
+            return self.game_data.preview(content,game,compare)
+
+    def _refresh_game_data(self):
+        state=self.snapshot()
+        self.update(party=[self.refresh_template(p) for p in state['party']],
+                    boxes={k:[self.refresh_template(p) for p in members] for k,members in state['boxes'].items()},
+                    game_data=self.game_data.status(state['game']))
+
+    def apply_game_data(self,preview_token,game,acknowledge_unknown=False):
+        with self.condition:
+            self.game_data.apply(preview_token,game,acknowledge_unknown)
+            self._refresh_game_data()
+            return self.game_data.status(self.state['game'])
+
+    def remove_game_data(self):
+        with self.condition:
+            self.game_data.remove(self.state['game'])
+            self._refresh_game_data()
+            return self.game_data.status(self.state['game'])
 
     def import_templates(self, files):
         result=self.templates.import_csv(files)
@@ -378,6 +453,7 @@ class TrackerService:
             suffix=self.progress_suffix(profile.name)
             self.progress=RunProgress(self.output.with_name(self.output.stem+suffix+'-progress.json'))
             self.update(game=profile.name,party=[None]*6,boxes={},stale=True)
+            self._refresh_game_data()
         self.profile=profile;self.sun_box_base=None;self.gen7_probe=None
         self.scan_next=None;self.scan_verified=set();self.gen6_pending_boxes={};self.gen6_box_failed=False;self.gen6_probe=None;self.gen6_research_done=False
         self.update(connection={'status':'connecting','message':'Localizando RAM…'},stale=True,scan={'active':False,'completed':0})
