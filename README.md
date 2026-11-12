@@ -1,5 +1,14 @@
 # Progressive Tracker
 
+## v1.4.0: límites de nivel manuales
+
+Define las etapas de tu aventura con su nivel máximo, sigue tu avance en la nueva
+sección **Progreso** y recibe avisos cuando un Pokémon del equipo supera el límite
+vigente. Puedes exportar tus etapas a un archivo JSON y reutilizarlas en otra partida.
+Los avisos son informativos y el Tracker no incluye límites oficiales. Consulta las
+[notas de la versión candidata](docs/releases/v1.4.0.md) y los
+[límites de nivel](docs/LIMITES_NIVEL.md).
+
 ## v1.3.0: datos de Definitive Randomizer por partida
 
 Importa Definitive Game Data v1 de Ultra Sol o Ultra Luna, revisa diferencias y
@@ -50,7 +59,7 @@ la distribución publicada se encuentra en GitHub Releases.
 
 **Progressive Tracker** (antes *Pokémon Tracker*) es una aplicación local para Windows que lee los datos de Pokémon desde la memoria del emulador, organiza aventuras Nuzlocke y Soul Link y genera fuentes visuales para OBS.
 
-> **Versión candidata:** **v1.3.0**, con Definitive Game Data v1 y las funciones de v1.2.0. Pendiente de autorización de publicación; la descarga oficial sigue en GitHub Releases. Es una aplicación **portable**: no hace falta instalar Python ni Node.js.
+> **Versión candidata:** **v1.4.0**, con límites de nivel manuales y las funciones de v1.3.0. Pendiente de autorización de publicación; la descarga oficial sigue en GitHub Releases. Es una aplicación **portable**: no hace falta instalar Python ni Node.js.
 
 ## Descargar para Windows
 

@@ -1,4 +1,4 @@
-PROGRESSIVE TRACKER v1.3.0 - GUIA DE INICIO (WINDOWS)
+PROGRESSIVE TRACKER v1.4.0 - GUIA DE INICIO (WINDOWS)
 
 CANDIDATO LOCAL: pendiente de autorizacion de publicacion. No se ha creado
 una release ni una etiqueta definitiva como parte de esta preparacion.
@@ -39,6 +39,16 @@ DATOS DE DEFINITIVE RANDOMIZER (ULTRA SOL / ULTRA LUNA)
 5. Confirma la importacion. Se conserva al cerrar y reabrir esa partida.
 6. Reemplazar o retirar la importacion no modifica ROM, guardado ni RAM.
    Los valores vivos siguen viniendo del emulador. No incluye DS/Switch.
+
+LIMITES DE NIVEL Y LISTAS DE ETAPAS
+1. Abre Progreso y anade las etapas de tu aventura con su nivel maximo.
+   Pulsa Guardar cambios para aplicarlas; Descartar deja la lista como estaba.
+2. Elige la etapa vigente. El Tracker avisa cuando un Pokemon del equipo
+   supera el limite; es solo informativo y no incluye limites oficiales.
+3. Exportar lista guarda las etapas en un JSON (solo nombres, niveles y orden)
+   y Importar lista carga uno con vista previa. Al reemplazar una lista
+   existente se pide confirmacion y no se elige ninguna etapa vigente.
+4. Cada partida y cada juego guardan sus propias etapas.
 
 PERFILES, RESPALDOS Y ACTUALIZACIONES
 - Tu progreso y preferencias se guardan normalmente en:
