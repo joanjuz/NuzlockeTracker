@@ -1,8 +1,5 @@
 PROGRESSIVE TRACKER v1.4.0 - GUIA DE INICIO (WINDOWS)
 
-CANDIDATO LOCAL: pendiente de autorizacion de publicacion. No se ha creado
-una release ni una etiqueta definitiva como parte de esta preparacion.
-
 DESCARGAR
 1. Descarga PokemonTracker-Windows-x64.zip desde:
    https://github.com/joanjuz/NuzlockeTracker/releases/latest
