@@ -31,6 +31,7 @@ routeCatalog=routeCatalogFor(state.game);
 $('eyebrow').textContent=companionView?'AVENTURA DE TU COMPAÑERO':state.demo?'MODO DEMO':'';
 $('eyebrow').hidden=!companionView&&!state.demo;
 renderMini();
+renderLevelCapIndicators(state);
 $('dead-count').textContent=Object.keys(state.progress?.deaths||{}).length;
 renderActiveView();
 $('demo-tools').hidden=!state.demo;

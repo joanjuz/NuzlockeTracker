@@ -1,6 +1,16 @@
-# Límites de nivel por partida (datos y órdenes)
+# Límites de nivel por partida
 
-Los límites de nivel son **manuales**: el jugador define cada etapa y su nivel máximo. El tracker no incluye límites oficiales ni predeterminados de ningún juego, romhack o desafío, y no los deduce de la RAM. Todavía no hay controles en la interfaz: esta parte define cómo se guardan y qué órdenes los modifican.
+Los límites de nivel son **manuales**: el jugador define cada etapa y su nivel máximo. El tracker no incluye límites oficiales ni predeterminados de ningún juego, romhack o desafío, y no los deduce de la RAM. Los avisos son informativos: no impiden subir de nivel ni cambian nada en la partida.
+
+## En la interfaz
+
+- **Progreso** (barra de secciones): la etapa vigente con su límite, «Etapa N de M» y una barra de avance; «Etapa anterior» y «Siguiente etapa»; un selector para elegir la etapa vigente (o ninguna); la casilla «Mostrar el límite en la cabecera y en las fichas», y el equipo comparado con el límite.
+- **Etapas**: tabla para añadir, renombrar, cambiar el nivel, reordenar (↑ ↓) y eliminar. Los cambios son un borrador hasta pulsar «Guardar cambios», que aplica la lista entera de una vez; «Descartar» la deja como estaba. Cada error aparece junto a su fila. Un límite más bajo que el de la etapa anterior se avisa, pero se puede guardar.
+- **Cabecera**: un indicador «Límite Nv. N · etapa», con «· X por encima» si algún Pokémon del equipo lo supera; «Sin etapa vigente» si hay etapas pero ninguna elegida. Al pulsarlo se abre Progreso. No aparece si la partida no tiene etapas o si se ocultan los límites.
+- **Fichas del equipo**: «+N sobre el límite» en los Pokémon que lo superan (los huevos no cuentan).
+- Si se elimina la etapa vigente, la partida queda «Sin etapa vigente» y Progreso indica cuál se eliminó; hay que elegir otra explícitamente.
+- Cambiar de sección conserva el borrador (la pestaña muestra «sin guardar»). Cambiar o crear una partida, recargar o cerrar la ventana con cambios sin guardar pide confirmación antes de descartarlos.
+- En la vista del compañero de Soul Link, Progreso no está disponible: los límites son de tu partida y no se comparten.
 
 ## Dónde se guardan
 

@@ -43,6 +43,7 @@ se publican tras validar las 32 con lecturas repetidas: un PC vacío sin confirm
 se mantiene pendiente y conserva la última lectura guardada.
 
 Consulta [partidas independientes](docs/PERFILES_PARTIDAS.md),
+[límites de nivel](docs/LIMITES_NIVEL.md),
 [contadores OBS](docs/CONTADORES_OBS.md) y
 [conexión Soul Link directa](docs/SOULLINK_DIRECTO.md). El ejecutable local se genera con `tools/build_windows.ps1`;
 la distribución publicada se encuentra en GitHub Releases.

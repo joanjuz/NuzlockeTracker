@@ -48,6 +48,7 @@ function cardTraits(p){
 function card(p,i){
   if(!p)return `<strong>0${i+1}</strong><p>Sin Pokémon</p>`;
   return `<div class="card-top"><span>EQUIPO / 0${i+1}</span><span>${p.hp===0?'DEBILITADO':`NIVEL ${num(p.level)}`}</span></div>`
+    +(typeof overCapLabel==='function'?overCapLabel(p):'')
     +portrait(p)
     +`<div class="hp-label"><span>PS</span><span>${num(p.hp)} / ${num(p.max_hp)}</span></div>`
     +`<div class="hp-track"><span style="width:${hpPercent(p)}%"></span></div>`
@@ -65,7 +66,7 @@ function itemIcon(p){
 // Party cards repaint only when their Pokémon changes.
 function renderPartyCards(snapshot){
   nodes.forEach((node,i)=>{
-    const p=snapshot.party[i],sig=JSON.stringify(p)+(companionView?'|compañero':'');
+    const p=snapshot.party[i],sig=JSON.stringify(p)+(companionView?'|compañero':'')+(typeof levelCapSignature==='function'?'|cap:'+levelCapSignature():'');
     node.setAttribute('aria-label',p?'Abrir ficha de '+(p.nickname||p.species):'Espacio '+(i+1)+' vacío');
     node.setAttribute('aria-disabled',String(!p));
     node.tabIndex=p?0:-1;

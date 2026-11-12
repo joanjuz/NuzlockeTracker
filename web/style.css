@@ -271,3 +271,39 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),select{borde
 .update-notice p{margin:0;overflow-wrap:anywhere}
 .update-notice a{color:var(--accent);font-weight:700;text-underline-offset:3px}
 .update-notice button{font-size:12px;padding:6px 12px}
+/* Manual level caps: header chip, card label and the Progreso view (informative only). */
+.level-cap-chip{font-size:10px;padding:5px 9px;border-radius:7px;line-height:1.1;flex-shrink:1;min-width:0;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:transparent;border:1px solid var(--border);color:var(--text)}
+.level-cap-chip[data-kind="neutral"]{color:var(--muted);border-style:dashed}
+.level-cap-chip[data-kind="warn"]{color:var(--accent);border-color:var(--red-45,var(--accent));background:var(--weak-bg)}
+.level-cap-chip:hover{background:var(--soft)}
+.over-cap{display:inline-block;margin-top:8px;padding:3px 8px;border-radius:999px;font-size:10px;font-weight:600;color:var(--accent);background:var(--weak-bg);border:1px solid var(--red-45,var(--accent))}
+.progress-unsaved{color:var(--accent)!important}
+.caps-current{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px;margin:18px 0 28px}
+.caps-current-card,.caps-team,.caps-empty{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;display:grid;gap:12px;align-content:start}
+.caps-empty{grid-column:1/-1;justify-items:start}.caps-empty p{margin:0}
+.caps-kicker{font-size:10px;letter-spacing:1.5px;color:var(--muted)}
+.caps-level{font-size:34px;line-height:1}.caps-level.caps-none{font-size:20px;color:var(--muted)}
+.caps-stage-name{font-size:16px;margin:0;overflow-wrap:anywhere}.caps-position{font-size:12px;color:var(--muted);margin:0}
+.caps-track{height:8px;background:var(--soft);border-radius:8px;overflow:hidden}.caps-track span{display:block;height:100%;background:var(--accent)}
+.caps-nav{display:flex;gap:10px;flex-wrap:wrap}.caps-nav button:disabled{opacity:.45;cursor:default}
+.caps-show{display:flex;gap:9px;align-items:center;font-size:12px;color:var(--text);padding-bottom:0}.caps-show input{width:auto}
+.caps-note{font-size:12px;color:var(--muted);line-height:1.6;margin:0}
+.caps-removed{color:var(--accent);background:var(--weak-bg);border-radius:9px;padding:10px 12px}
+.caps-team h3{font-size:14px;margin:0}.caps-team ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.caps-team li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;font-size:12px;padding:8px 10px;border-radius:8px;background:var(--soft)}
+.caps-team li span:first-child{overflow-wrap:anywhere}.caps-team li strong{font-size:11px;color:var(--muted);font-weight:600}.caps-team li.over strong{color:var(--accent)}
+.caps-editor{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;display:grid;gap:14px}
+.caps-table{display:grid;gap:6px}
+.caps-row{display:grid;grid-template-columns:52px minmax(0,1fr) 120px auto;gap:10px;align-items:center;padding:6px 4px;border-radius:9px}
+.caps-row.invalid{background:var(--weak-bg)}
+.caps-head{font-size:11px;color:var(--muted);letter-spacing:.4px}
+.caps-index{font-size:13px;color:var(--muted);display:grid;gap:3px}.caps-current-mark{font-size:9px;color:var(--accent);letter-spacing:.5px}
+.caps-row input{padding:8px 10px}.caps-row input[aria-invalid="true"]{border-color:var(--accent)}
+.caps-row-actions{display:flex;gap:6px}.caps-row-actions button{padding:7px 10px;font-size:12px}.caps-row-actions button:disabled{opacity:.4;cursor:default}
+.caps-row-note{grid-column:2/-1;margin:0;font-size:11px;color:var(--muted);min-height:0}.caps-row.invalid .caps-row-note{color:var(--accent)}.caps-row-note:empty{display:none}
+.caps-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.caps-actions .caps-limit{font-size:11px;color:var(--muted);margin-right:auto}
+.caps-actions button:disabled{opacity:.45;cursor:default}
+.caps-status{font-size:12px;color:var(--muted);margin:0;min-height:18px}
+.caps-dialog-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:18px}
+@media(max-width:900px){.caps-current{grid-template-columns:1fr}}
+@media(max-width:640px){.caps-head{display:none}.caps-row{grid-template-columns:40px minmax(0,1fr);border:1px solid var(--soft)}.caps-row>span:nth-child(3){grid-column:2}.caps-row-actions{grid-column:1/-1;justify-content:flex-end}.caps-row-note{grid-column:1/-1}.level-cap-chip{max-width:170px}}
