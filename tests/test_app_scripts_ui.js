@@ -11,7 +11,7 @@ const HOSTILE = '<img src=x onerror=alert(1)>';
 
 // --- Load order and CSP: only external scripts, analysis.js before the tracker, app.js last.
 assert.deepEqual(APP_SCRIPTS, ['app/helpers.js', 'app/profiles.js', 'app/team.js', 'app/detail.js', 'app/boxes.js',
-  'app/dead.js', 'app/routes.js', 'app/analysis-view.js', 'app/connection.js', 'app/shell.js',
+  'app/dead.js', 'app/routes.js', 'app/progress.js', 'app/analysis-view.js', 'app/connection.js', 'app/shell.js',
   'app/companion-loader.js', 'app/update-notice.js', 'app.js']);
 const tags = html.match(/<script\b[^>]*>/g);
 assert.ok(tags.every(tag => /\ssrc="\/[\w/.-]+\.js"/.test(tag)), 'Sin scripts en línea (CSP script-src self)');

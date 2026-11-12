@@ -26,8 +26,13 @@ async function loadRunProfiles(known){
     select.value=result.active;select.dataset.active=result.active;
     $('run-profile-controls').hidden=false;
     configureProfileDeletion(result);
-    select.onchange=()=>selectRunProfile(select.value).catch(()=>{});
-    $('new-run-profile').onclick=()=>{
+    // Unsaved level-cap stages are never discarded by switching runs without asking.
+    select.onchange=async()=>{
+      if(typeof confirmLevelCapsLeave==='function'&&!(await confirmLevelCapsLeave())){select.value=select.dataset.active;return;}
+      selectRunProfile(select.value).catch(()=>{});
+    };
+    $('new-run-profile').onclick=async()=>{
+      if(typeof confirmLevelCapsLeave==='function'&&!(await confirmLevelCapsLeave()))return;
       $('run-profile-feedback').textContent='';
       $('run-profile-name').value='';
       $('run-profile-dialog').showModal();$('run-profile-name').focus();

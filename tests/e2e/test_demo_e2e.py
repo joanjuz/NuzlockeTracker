@@ -47,6 +47,7 @@ TABS = {
     'party': ('Equipo actual', 'party-view'),
     'boxes': ('Tus cajas', 'boxes-view'),
     'places': ('Rutas', 'places-view'),
+    'progress': ('Progreso', 'progress-view'),
     'dead': ('Muertos', 'dead-view'),
     'analysis': ('Análisis del equipo', 'analysis-view'),
     'overlay': ('Diseñar overlay para OBS', 'overlay-view'),
@@ -298,6 +299,106 @@ class DemoBrowserTests(unittest.TestCase):
         while time.monotonic() < deadline and not self.page.evaluate(
                 "[...document.querySelectorAll('img.overlay-image')].every(i => i.complete)"):
             self.page.wait_for_timeout(200)
+        self.assert_clean()
+
+
+    def post_command(self, payload: str) -> int:
+        """POST /api/command from the page, with the session token the UI already holds."""
+        return self.page.evaluate("""async payload => (await fetch('/api/command', {method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-Tracker-Token': token}, body: payload})).status""", payload)
+
+    def reset_level_caps(self) -> None:
+        # The demo keeps its progress in runtime/: leave no stages behind for other runs.
+        self.page.wait_for_function('typeof token === "string" && token.length > 0')
+        self.assertEqual(self.post_command('{"action":"level_caps_set","stages":[]}'), 202)
+        self.assertEqual(self.post_command('{"action":"level_caps_show","show":true}'), 202)
+
+    def test_level_caps_progress_view_editor_and_indicators(self) -> None:
+        self.open_tracker()
+        self.reset_level_caps()
+        chip = self.page.locator('#level-cap-chip')
+        self.open_tab('progress')
+        expect(self.page.locator('#caps-current')).to_contain_text('Esta partida no tiene etapas')
+        expect(chip).to_be_hidden()
+
+        # First stage from the empty state, a second one by keyboard, both validated next to the row.
+        self.page.get_by_role('button', name='Añadir la primera etapa').click()
+        expect(self.page.locator(':focus')).to_have_attribute('aria-label', 'Nombre de la etapa 1')
+        self.page.get_by_role('button', name='Guardar cambios').click()
+        expect(self.page.locator('#caps-error-nueva-1')).to_have_text('Escribe un nombre.')
+        expect(self.page.get_by_label('Nombre de la etapa 1')).to_have_attribute('aria-invalid', 'true')
+        self.page.get_by_label('Nombre de la etapa 1').fill('Primer gimnasio')
+        self.page.get_by_label('Nivel máximo de la etapa 1').fill('20')
+        self.page.get_by_role('button', name='Añadir etapa').focus()
+        self.page.keyboard.press('Enter')
+        expect(self.page.locator(':focus')).to_have_attribute('aria-label', 'Nombre de la etapa 2')
+        self.page.keyboard.type('Liga')
+        self.page.get_by_label('Nivel máximo de la etapa 2').fill('15')
+        expect(self.page.locator('#caps-editor')).to_contain_text('Nivel inferior al de la etapa anterior')
+        expect(self.page.locator('#progress-unsaved')).to_be_visible()
+        # Changing tabs keeps the draft.
+        self.open_tab('party')
+        self.open_tab('progress')
+        expect(self.page.get_by_label('Nombre de la etapa 2')).to_have_value('Liga')
+        self.page.get_by_role('button', name='Guardar cambios').click()
+        expect(self.page.locator('#caps-select option')).to_have_count(3)
+        expect(self.page.locator('#progress-unsaved')).to_be_hidden()
+
+        # Stages without a current one: neutral chip, no card labels.
+        expect(chip).to_have_text('Sin etapa vigente')
+        expect(self.page.locator('#party .over-cap')).to_have_count(0)
+        self.page.locator('#caps-select').select_option(label='1. Primer gimnasio · Nv. 20')
+        # The demo team is level 100: all six are over the cap (informative only).
+        expect(chip).to_have_text('Límite Nv. 20 · Primer gimnasio · 6 por encima')
+        expect(self.page.locator('#caps-current')).to_contain_text('Etapa 1 de 2')
+        self.page.get_by_role('button', name='Siguiente etapa').click()
+        expect(chip).to_have_text('Límite Nv. 15 · Liga · 6 por encima')
+        self.page.get_by_role('button', name='Etapa anterior').click()
+        expect(chip).to_have_text('Límite Nv. 20 · Primer gimnasio · 6 por encima')
+        self.open_tab('party')
+        expect(self.page.locator('#party .over-cap')).to_have_count(6)
+        expect(self.page.locator('#party .over-cap').first).to_have_text('+80 sobre el límite')
+
+        # Reorder keeps the current stage by id; removing it leaves no current stage.
+        self.open_tab('progress')
+        self.page.get_by_role('button', name='Bajar la etapa 1').click()
+        self.page.get_by_role('button', name='Guardar cambios').click()
+        expect(self.page.locator('#caps-current')).to_contain_text('Etapa 2 de 2')
+        expect(chip).to_have_text('Límite Nv. 20 · Primer gimnasio · 6 por encima')
+        self.page.get_by_role('button', name='Eliminar la etapa 2').click()
+        expect(self.page.locator('#caps-editor-status')).to_contain_text('quedará sin etapa vigente')
+        self.page.get_by_role('button', name='Guardar cambios').click()
+        expect(self.page.locator('#caps-current')).to_contain_text('Se eliminó la etapa vigente «Primer gimnasio»')
+        expect(chip).to_have_text('Sin etapa vigente')
+
+        # Hiding the caps keeps them; the setting survives a reload.
+        self.page.locator('#caps-select').select_option(label='1. Liga · Nv. 15')
+        expect(chip).to_have_text('Límite Nv. 15 · Liga · 6 por encima')
+        self.page.get_by_label('Mostrar el límite en la cabecera y en las fichas').uncheck()
+        expect(chip).to_be_hidden()
+        self.page.reload(wait_until='domcontentloaded')
+        expect(self.page.locator('#party > article.card')).to_have_count(6)
+        expect(chip).to_be_hidden()
+        expect(self.page.locator('#party .over-cap')).to_have_count(0)
+        self.open_tab('progress')
+        expect(self.page.get_by_label('Mostrar el límite en la cabecera y en las fichas')).not_to_be_checked()
+        expect(self.page.locator('#caps-current')).to_contain_text('Etapa 1 de 1')
+
+        # Editing a saved row (no new or moved rows) enables Guardar/Descartar without rebuilding the table.
+        save = self.page.get_by_role('button', name='Guardar cambios')
+        expect(save).to_be_disabled()
+        self.page.get_by_label('Nombre de la etapa 1').fill('Liga renombrada')
+        expect(self.page.get_by_label('Nombre de la etapa 1')).to_be_focused()
+        expect(save).to_be_enabled()
+        self.page.get_by_role('button', name='Descartar').click()
+        expect(self.page.get_by_label('Nombre de la etapa 1')).to_have_value('Liga')
+        expect(save).to_be_disabled()
+
+        # Narrow window: no horizontal page scroll.
+        self.page.set_viewport_size({'width': 390, 'height': 844})
+        expect(self.page.get_by_label('Nombre de la etapa 1')).to_be_visible()
+        self.assertLessEqual(self.page.evaluate('document.documentElement.scrollWidth - window.innerWidth'), 1)
+        self.reset_level_caps()
         self.assert_clean()
 
 

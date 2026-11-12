@@ -1,8 +1,8 @@
 'use strict';
 // Tabs, navigation strip, companion view switch and display preferences.
-const views={dead:['Muertos',''],party:['Equipo actual',''],boxes:['Tus cajas',''],places:['Rutas',''],analysis:['Análisis del equipo',''],overlay:['Diseñar overlay para OBS',''],connection:['Conexión','']};
+const views={dead:['Muertos',''],party:['Equipo actual',''],boxes:['Tus cajas',''],places:['Rutas',''],progress:['Progreso',''],analysis:['Análisis del equipo',''],overlay:['Diseñar overlay para OBS',''],connection:['Conexión','']};
 function switchTab(tab){
-  if(companionView&&tab==='connection')return;
+  if(companionView&&(tab==='connection'||tab==='progress'))return;
   if(tab==='overlay'){
     // The overlay editor iframe loads lazily on its first visit.
     const frame=$('overlay-editor-frame');
@@ -25,6 +25,7 @@ function renderActiveView(){
   if(!state)return;
   if(!$('boxes-view').hidden)renderBoxes();
   if(!$('places-view').hidden)renderPlaces();
+  if(!$('progress-view').hidden)renderProgress();
   if(!$('dead-view').hidden)renderDead();
   if(!$('analysis-view').hidden)renderAnalysis();
 }
@@ -62,8 +63,10 @@ function setCompanionView(enabled,remote){
   miniSignature='';boxSignature='';placeSignature='';deadSignature='';analysisSignature='';analysisTeamSignature='';detailSignature='';
   $('box').value='1';
   document.querySelector('nav button[data-tab="connection"]').disabled=companionView;
+  // Level caps are local to this run: a partner's view has none. A local draft is kept, not discarded.
+  const progressTab=document.querySelector('nav button[data-tab="progress"]');if(progressTab)progressTab.disabled=companionView;
   renderScreen(companionView?remote:localState);
-  if(companionView&&document.querySelector('nav button.active')?.dataset.tab==='connection')switchTab('party');
+  if(companionView&&['connection','progress'].includes(document.querySelector('nav button.active')?.dataset.tab))switchTab('party');
 }
 window.setCompanionView=setCompanionView;
 $('theme').value=document.documentElement.dataset.theme||'dark';$('theme').onchange=()=>{document.documentElement.dataset.theme=$('theme').value;try{localStorage.setItem('progressive-theme',$('theme').value)}catch(e){}};
