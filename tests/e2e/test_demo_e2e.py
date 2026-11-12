@@ -13,10 +13,13 @@ E2E_ARTIFACTS (default build/e2e-artifacts, ignored by git).
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
+import shutil
 import signal
+import struct
 import subprocess
 import sys
 import tempfile
@@ -68,14 +71,14 @@ document.addEventListener('securitypolicyviolation', event => {
 class DemoServer:
     """`python -u server.py --demo --no-browser` on a port chosen by the OS."""
 
-    def __init__(self, log_path: Path):
+    def __init__(self, log_path: Path, profile: str | None = None):
         self.log_path = log_path
         self.lines: list[str] = []
         self.url: str | None = None
         self._ready = threading.Event()
         env = dict(os.environ, PYTHONIOENCODING='utf-8', PYTHONUTF8='1')
         self.process = subprocess.Popen(
-            [sys.executable, '-u', 'server.py', '--demo', '--no-browser'],
+            [sys.executable, '-u', 'server.py', '--demo', '--no-browser', *(['--profile', profile] if profile else [])],
             cwd=ROOT, env=env, stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         self._reader = threading.Thread(target=self._drain, daemon=True)
@@ -525,6 +528,229 @@ class DemoBrowserTests(unittest.TestCase):
         expect(self.page.locator('#caps-select option')).to_have_count(2)
         expect(self.page.get_by_label('Mostrar el límite en la cabecera y en las fichas')).to_be_checked()
         self.reset_level_caps()
+        self.assert_clean()
+
+
+# Level caps proposed by Definitive Randomizer. The imported game data belongs to a run folder, so this
+# class starts its own demo in a throwaway profile: the files of the default folder are never touched.
+PROPOSAL_PROFILE = 'e2e-propuesta-limites'
+PROPOSAL_FIXTURE = ROOT / 'tests' / 'fixtures' / 'definitive-game-data-v1.player-level-caps.synthetic.json'
+
+
+@unittest.skipUnless(ENABLED, SKIP_REASON)
+class LevelCapsProposalBrowserTests(unittest.TestCase):
+    server: DemoServer
+    base_url: str
+    setUp = DemoBrowserTests.setUp
+    tearDown = DemoBrowserTests.tearDown
+    _known = staticmethod(DemoBrowserTests._known)
+    _on_console = DemoBrowserTests._on_console
+    _on_response = DemoBrowserTests._on_response
+    assert_clean = DemoBrowserTests.assert_clean
+    open_tracker = DemoBrowserTests.open_tracker
+    open_tab = DemoBrowserTests.open_tab
+    post_command = DemoBrowserTests.post_command
+    stage_ids = DemoBrowserTests.stage_ids
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        ARTIFACTS.mkdir(parents=True, exist_ok=True)
+        cls.folder = ROOT / 'runtime' / 'profiles' / PROPOSAL_PROFILE
+        shutil.rmtree(cls.folder, ignore_errors=True)
+        cls.server = DemoServer(ARTIFACTS / 'server-propuesta.log', profile=PROPOSAL_PROFILE)
+        try:
+            cls.base_url = cls.server.wait_ready(SERVER_START_TIMEOUT)
+            expect.set_options(timeout=UI_TIMEOUT_MS)
+            cls.playwright = sync_playwright().start()
+            cls.browser = cls.playwright.chromium.launch()
+        except BaseException:
+            cls.server.stop()
+            if getattr(cls, 'playwright', None):
+                cls.playwright.stop()
+            shutil.rmtree(cls.folder, ignore_errors=True)
+            raise
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        try:
+            cls.browser.close()
+            cls.playwright.stop()
+        finally:
+            cls.server.stop()
+            shutil.rmtree(cls.folder, ignore_errors=True)
+
+    def import_game_data(self, document: dict) -> None:
+        """The real import flow of Conexión: choose the file, preview, acknowledge and confirm."""
+        path = Path(tempfile.mkdtemp(prefix='dgd-e2e-')) / 'datos.json'
+        path.write_text(json.dumps(document, ensure_ascii=False), encoding='utf-8')
+        self.open_tab('connection')
+        self.page.evaluate("document.getElementById('game-data-settings').open = true")
+        self.page.locator('#game-data-file').set_input_files(str(path))
+        self.page.locator('#preview-game-data').click()
+        expect(self.page.locator('#game-data-preview')).to_be_visible()
+        self.page.locator('#game-data-ack').check()
+        self.page.locator('#apply-game-data').click()
+        expect(self.page.locator('#game-data-status')).to_contain_text('DGD activo para esta partida')
+
+    def level_caps(self) -> dict:
+        return self.page.evaluate('({total: state.level_caps.total, current: state.level_caps.current, show: state.level_caps.show,'
+                                  ' caps: state.level_caps.stages.map(s => s.cap), names: state.level_caps.stages.map(s => s.name)})')
+
+    def test_randomizer_proposal_review_accept_replace_dismiss_and_withdraw(self) -> None:
+        document = json.loads(PROPOSAL_FIXTURE.read_text(encoding='utf-8'))
+        document['game'].update(id='ultra-moon', titleId='00040000001B5100')  # the demo run is Ultra Moon
+        self.page.on('dialog', lambda dialog: dialog.accept())
+        self.open_tracker()
+        self.page.wait_for_function('typeof token === "string" && token.length > 0')
+        card = self.page.locator('#caps-proposal')
+        dialog = self.page.locator('#level-caps-proposal-dialog')
+        apply = self.page.locator('#level-caps-proposal-apply')
+        self.open_tab('progress')
+        expect(card).to_be_hidden()
+
+        # Importing the data never changes the caps of the run: it only offers a proposal.
+        self.import_game_data(document)
+        expect(self.page.locator('#game-data-status')).to_contain_text('propuesta de límites de nivel')
+        self.open_tab('progress')
+        expect(card).to_be_visible()
+        expect(card).to_contain_text('Propuesta de Definitive Randomizer')
+        expect(card).to_contain_text('6 puntos de Player Level Caps, de Nv. 15 a Nv. 70')
+        expect(card).to_contain_text('no etapas de tu desafío')
+        self.assertEqual(self.stage_ids(), [])
+        expect(self.page.locator('#level-cap-chip')).to_be_hidden()
+
+        # Review: preview, comparison and technical data. Keeping the current caps changes nothing.
+        card.get_by_role('button', name='Revisar propuesta…').click()
+        expect(dialog).to_be_visible()
+        expect(dialog).to_contain_text('restricciones mecánicas del juego')
+        expect(dialog.locator('tbody tr')).to_have_count(6)
+        expect(dialog).to_contain_text('Sin nombre en el catálogo · Event Flag · byte 0x0150, máscara 0x04')
+        expect(dialog).to_contain_text('Ninguna etapa quedará vigente')
+        expect(self.page.locator('#level-caps-proposal-final')).not_to_be_checked()
+        expect(self.page.locator('#level-caps-proposal-confirm')).to_have_count(0)
+        dialog.locator('summary').click()
+        expect(dialog).to_contain_text('Hash de la tabla del parche')
+        self.assertEqual(self.stage_ids(), [], 'La revisión no modifica la partida')
+        self.page.get_by_role('button', name='Conservar los límites actuales').click()
+        expect(dialog).to_be_hidden()
+        expect(card).to_contain_text('Se conservan los límites actuales: no se cambió nada')
+        self.assertEqual(self.stage_ids(), [])
+        card.get_by_role('button', name='Revisar propuesta…').click()
+        self.page.keyboard.press('Escape')
+        expect(dialog).to_be_hidden()
+        self.assertEqual(self.stage_ids(), [])
+
+        # Accept into a run without stages: six stages, no current one, the display option untouched.
+        card.get_by_role('button', name='Revisar propuesta…').click()
+        expect(apply).to_have_text('Aceptar la propuesta')
+        apply.click()
+        expect(dialog).to_be_hidden()
+        expect(self.page.locator('#caps-select option')).to_have_count(7)
+        expect(card).to_contain_text('Propuesta aceptada: 6 etapas')
+        expect(card).to_contain_text('Propuesta de Definitive Randomizer en uso')
+        caps = self.level_caps()
+        self.assertEqual((caps['caps'], caps['current'], caps['show']), ([15, 20, 45, 50, 60, 70], None, True))
+        expect(self.page.locator('#level-cap-chip')).to_have_text('Sin etapa vigente')
+        expect(self.page.locator('#caps-current')).to_contain_text('Sin etapa vigente')
+
+        # The player chooses the current stage; accepting again replaces only with an explicit confirmation.
+        self.page.locator('#caps-select').select_option(label='2. Defeat Kahuna Hala · Nv. 20')
+        expect(self.page.locator('#level-cap-chip')).to_contain_text('Límite Nv. 20')
+        first_ids = self.stage_ids()
+        card.get_by_role('button', name='Ver la propuesta…').click()
+        expect(dialog).to_contain_text('ya tiene 6 etapas')
+        expect(dialog).to_contain_text('la vigente es «Defeat Kahuna Hala»')
+        expect(apply).to_be_disabled()
+        expect(apply).to_have_text('Aceptar y reemplazar las etapas')
+        self.page.locator('#level-caps-proposal-confirm').check()
+        expect(apply).to_be_enabled()
+        # The optional final stage changes the list under review: the confirmation is asked again.
+        self.page.locator('#level-caps-proposal-final').check()
+        expect(dialog.locator('tbody tr')).to_have_count(7)
+        expect(dialog).to_contain_text('Después del último punto (techo del parche)')
+        expect(self.page.locator('#level-caps-proposal-confirm')).not_to_be_checked()
+        expect(apply).to_be_disabled()
+        self.assertEqual(self.stage_ids(), first_ids, 'Aún no se ha reemplazado nada')
+        self.page.locator('#level-caps-proposal-confirm').check()
+        apply.click()
+        expect(dialog).to_be_hidden()
+        expect(self.page.locator('#caps-select option')).to_have_count(8)
+        caps = self.level_caps()
+        self.assertEqual((caps['caps'][-1], caps['names'][-1], caps['current']), (100, 'Después del último punto (techo del parche)', None))
+        self.assertTrue(set(self.stage_ids()).isdisjoint(first_ids), 'IDs nuevos')
+        expect(self.page.locator('#caps-current')).to_contain_text('Se eliminó la etapa vigente «Defeat Kahuna Hala»')
+        expect(self.page.locator('#level-cap-chip')).to_have_text('Sin etapa vigente')
+
+        # An unsaved draft blocks the review instead of being discarded.
+        self.page.get_by_label('Nombre de la etapa 1').fill('Borrador sin guardar')
+        expect(card.get_by_role('button', name='Ver la propuesta…')).to_be_disabled()
+        expect(card).to_contain_text('cambios sin guardar en las etapas')
+        self.page.get_by_role('button', name='Descartar', exact=True).click()
+        expect(card.get_by_role('button', name='Ver la propuesta…')).to_be_enabled()
+
+        # Editing by hand keeps the origin and offers the proposal again; it can be set aside and brought back.
+        self.page.get_by_label('Nivel máximo de la etapa 1').fill('16')
+        self.page.get_by_role('button', name='Guardar cambios').click()
+        expect(card).to_contain_text('Después se editaron a mano')
+        card.get_by_role('button', name='Descartar propuesta').click()
+        expect(card).to_contain_text('Propuesta de Definitive Randomizer descartada')
+        self.assertEqual(self.level_caps()['caps'][0], 16, 'Descartar conserva las etapas')
+        card.get_by_role('button', name='Volver a mostrarla').click()
+        expect(card.get_by_role('button', name='Descartar propuesta')).to_be_visible()
+
+        # Reload: stages, origin and proposal are still there and nothing became current.
+        self.page.reload(wait_until='domcontentloaded')
+        expect(self.page.locator('#party > article.card')).to_have_count(6)
+        self.open_tab('progress')
+        expect(self.page.locator('#caps-select option')).to_have_count(8)
+        expect(card).to_contain_text('Después se editaron a mano')
+        self.assertIsNone(self.level_caps()['current'])
+
+        # Withdrawing the imported data keeps the accepted stages and their origin.
+        self.open_tab('connection')
+        self.page.evaluate("document.getElementById('game-data-settings').open = true")
+        self.page.locator('#remove-game-data').click()
+        expect(self.page.locator('#game-data-status')).to_contain_text('Sin datos DGD importados')
+        self.open_tab('progress')
+        expect(card).to_contain_text('Origen de las etapas')
+        expect(card).to_contain_text('las etapas se conservan')
+        expect(card.get_by_role('button')).to_have_count(0)
+        self.assertEqual(self.level_caps()['total'], 7)
+        self.assert_clean()
+
+    def test_states_without_a_usable_list_only_inform(self) -> None:
+        document = json.loads(PROPOSAL_FIXTURE.read_text(encoding='utf-8'))
+        document['game'].update(id='ultra-moon', titleId='00040000001B5100')
+        self.open_tracker()
+        self.page.wait_for_function('typeof token === "string" && token.length > 0')
+        self.assertEqual(self.post_command('{"action":"level_caps_set","stages":[]}'), 202)
+        card = self.page.locator('#caps-proposal')
+        cases = [({'version': 1, 'status': 'not-detected', 'hooks': {'battleCro': 'stock', 'codeBin': 'stock'},
+                   'source': {'fingerprintAlgorithm': 'SHA-256', 'scope': 'battle.cro,code.bin', 'fingerprint': 'B' * 64}},
+                  'no tiene instalado el parche Player Level Caps'),
+                 ({'version': 1, 'status': 'inconsistent', 'hooks': {'battleCro': 'applied', 'codeBin': 'stock'},
+                   'source': {'fingerprintAlgorithm': 'SHA-256', 'scope': 'battle.cro,code.bin', 'fingerprint': 'B' * 64},
+                   'detail': 'Battle.cro tiene el parche y code.bin conserva el código original.'}, 'no coinciden'),
+                 ({'version': 2, 'anything': True}, 'formato más nuevo'),
+                 ({**document['playerLevelCaps'], 'source': {**document['playerLevelCaps']['source'], 'tableSha256': '0' * 64}},
+                  'no son válidos y se ignoran')]
+        for block, message in cases:
+            self.import_game_data({**document, 'playerLevelCaps': block})
+            self.open_tab('progress')
+            expect(card).to_contain_text(message)
+            expect(card.get_by_role('button')).to_have_count(0)
+            self.assertEqual(self.stage_ids(), [])
+        # 65 points: a valid patch table that a run cannot hold. It is refused whole, never truncated.
+        points = [{'order': i + 1, 'cap': min(100, 10 + i), 'condition': {'kind': 'event-flag-set', 'byte': i, 'mask': 1}} for i in range(65)]
+        table = b''.join(struct.pack('<BBHH', 0, p['cap'], p['condition']['byte'], 1) for p in points) + bytes((0xFF, 100, 0, 0, 0, 0))
+        block = {**document['playerLevelCaps'], 'checkpoints': points,
+                 'source': {**document['playerLevelCaps']['source'], 'tableSha256': hashlib.sha256(table).hexdigest().upper()}}
+        self.import_game_data({**document, 'playerLevelCaps': block})
+        self.open_tab('progress')
+        expect(card).to_contain_text('65 puntos')
+        expect(card).to_contain_text('no se recorta')
+        expect(card.get_by_role('button')).to_have_count(0)
+        self.assertEqual(self.stage_ids(), [])
         self.assert_clean()
 
 

@@ -117,7 +117,8 @@ function renderGameDataStatus(status){
   note.textContent=status.error||(!status.loaded?'Sin datos DGD importados. Se usan las referencias y los CSV existentes.':
     `${status.game} · ${status.counts.species} especies/formas · ${status.counts.moves} movimientos · `
     +(status.active?'DGD activo para esta partida.':'Se activará solo al seleccionar y conectar el juego compatible.')
-    +` Revisión: ${status.revision||'desconocida'}. ${status.warning||''}`);
+    +` Revisión: ${status.revision||'desconocida'}. ${status.warning||''}`
+    +(status.active&&status.levelCaps?.state==='proposal'?' Incluye una propuesta de límites de nivel del Randomizer: revísala en Progreso; no se aplica sola.':''));
 }
 async function gameDataStatus(){
   if(!$('game-data-status'))return;

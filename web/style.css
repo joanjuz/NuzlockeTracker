@@ -307,6 +307,22 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),select{borde
 .caps-dialog-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:18px}
 .caps-lists{margin-top:18px}.caps-lists .caps-status:empty{display:none}.caps-lists .caps-actions{margin-top:2px}
 .caps-lists-error{color:var(--accent)}
+.caps-proposal{margin-top:18px}.caps-proposal[data-kind="proposal"]{border-color:var(--accent)}.caps-proposal .caps-status:empty,.caps-proposal .caps-note:empty{display:none}
+.caps-proposal-detail{overflow-wrap:anywhere}
+#level-caps-proposal-dialog{max-width:min(760px,calc(100vw - 32px))}
+.caps-proposal-scroll{max-height:min(340px,42vh);overflow:auto;margin:12px 0;border:1px solid var(--border);border-radius:9px}
+.caps-proposal-table{width:100%;border-collapse:collapse;font-size:13px}.caps-proposal-table caption{text-align:left;font-size:11px;color:var(--muted);padding:8px 10px}
+.caps-proposal-table th,.caps-proposal-table td{text-align:left;vertical-align:top;padding:8px 10px;border-top:1px solid var(--soft)}
+.caps-proposal-table thead th{font-size:11px;color:var(--muted);font-weight:600;position:sticky;top:0;background:var(--surface)}
+.caps-proposal-table tbody th{color:var(--muted);font-weight:400;width:32px}.caps-proposal-table td{width:50%}
+.caps-proposal-table small{display:block;font-size:11px;color:var(--muted);margin-top:3px;overflow-wrap:anywhere}
+.caps-proposal-line{display:flex;gap:10px;justify-content:space-between;align-items:baseline}.caps-proposal-line strong{white-space:nowrap}
+.caps-proposal-name{overflow-wrap:anywhere}.caps-proposal-none{color:var(--muted)}.caps-proposal-table tr.same td{color:var(--muted)}
+.caps-proposal-final{display:flex;gap:9px;align-items:flex-start;font-size:12px;margin:0 0 12px}.caps-proposal-final input{width:auto;margin-top:2px}
+.caps-proposal-technical{font-size:12px;margin:0 0 12px}.caps-proposal-technical summary{cursor:pointer}
+.caps-proposal-technical dl{display:grid;gap:6px;margin:10px 0}.caps-proposal-technical dl div{display:grid;grid-template-columns:minmax(0,220px) minmax(0,1fr);gap:10px}
+.caps-proposal-technical dt{color:var(--muted)}.caps-proposal-technical dd{margin:0;overflow-wrap:anywhere}
+@media(max-width:640px){.caps-proposal-technical dl div{grid-template-columns:1fr;gap:2px}}
 #level-caps-import-dialog{max-width:min(560px,calc(100vw - 32px))}
 .caps-import-list{list-style:none;margin:12px 0;padding:0;display:grid;gap:6px;max-height:min(320px,45vh);overflow:auto}
 .caps-import-list li{display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:10px;align-items:center;font-size:13px;padding:8px 10px;border-radius:8px;background:var(--soft)}

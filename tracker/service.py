@@ -13,7 +13,8 @@ from .boxes import read_box,decode_box
 from .catalog import Catalog
 from .locations import location_name
 from .reference import ReferenceData
-from .progress import KEEP_CURRENT, LEVEL_CAP_ACTIONS, RunProgress, level_caps_view, stage_list_export
+from .progress import KEEP_CURRENT, LEVEL_CAP_ACTIONS, MAX_STAGES, RunProgress, level_caps_view, stage_list_export
+from .level_caps_source import LevelCapsSource
 from .battle import apply_battle_hp
 from .battle_gen6 import apply_gen6_battle_hp
 from .gen6_pc import Gen6BoxProbe
@@ -24,6 +25,8 @@ from .game_data import GameDataManager, TYPE_NAMES, STAT_KEYS, SOURCE as GAME_DA
 from . import diaglog
 
 LOG=diaglog.get('service')
+# Optional last stage offered with a Randomizer proposal: the ceiling of the patch, not one of its checkpoints.
+FINAL_STAGE_NAME='Después del último punto (techo del parche)'
 
 # Six decoded party slots (None = empty slot), as produced by decode_party().
 Party=list[dict[str,Any]|None]
@@ -67,9 +70,10 @@ class TrackerService:
             except (OSError,ValueError,TypeError):
                 pass
         suffix=self.progress_suffix(self.state['game'])
-        self.progress=RunProgress(self.output.with_name(self.output.stem+suffix+'-progress.json'))
+        self.open_progress(suffix)
         self.state['progress']=copy.deepcopy(self.progress.data)
         self.state['level_caps']=level_caps_view(self.progress.data)
+        self.state['level_caps_source']=self.level_caps_source.view(self.state['level_caps']['revision'])
         self.profile=PROFILES[self.state['game']]
         self.reader=None;self.config=None;self.retry_at=0;self.scan_next=None;self.scan_verified=set();self.gen6_pending_boxes={};self.gen6_box_failed=False;self.gen6_probe=None;self.gen6_research_done=False;self.diagnostic=None;self.sun_box_base=None
         self.next_box_refresh_at=0.0;self.gen7_probe=None
@@ -88,6 +92,10 @@ class TrackerService:
         self.state['party']=[self.refresh_template(p) for p in self.state['party']]
         self.state['boxes']={k:[self.refresh_template(p) for p in box] for k,box in self.state['boxes'].items()}
         self.refresh_persist_warning()
+    def open_progress(self,suffix):
+        """Adventure record of one run and game, and the separate record of where its level caps came from."""
+        self.progress=RunProgress(self.output.with_name(self.output.stem+suffix+'-progress.json'))
+        self.level_caps_source=LevelCapsSource(self.output.with_name(self.output.stem+suffix+'-level-caps-source.json'))
     @staticmethod
     def progress_suffix(game):
         if game=='Ultra Moon 1.0':return ''
@@ -374,6 +382,7 @@ class TrackerService:
             changes['progress']=copy.deepcopy(self.progress.data)
             # Derived, read-only summary of the manual caps; RAM reading never uses it.
             changes['level_caps']=level_caps_view(self.progress.data)
+            changes['level_caps_source']=self.level_caps_source.view(changes['level_caps']['revision'])
             changed=not all(self.state.get(k)==v for k,v in changes.items())
             if changed:
                 self.log_transitions(changes)
@@ -460,7 +469,7 @@ class TrackerService:
         if profile.name!=self.profile.name:
             self.profile=profile
             suffix=self.progress_suffix(profile.name)
-            self.progress=RunProgress(self.output.with_name(self.output.stem+suffix+'-progress.json'))
+            self.open_progress(suffix)
             self.update(game=profile.name,party=[None]*6,boxes={},stale=True)
             self._refresh_game_data()
         self.profile=profile;self.sun_box_base=None;self.gen7_probe=None
@@ -900,13 +909,74 @@ class TrackerService:
         elif action=='level_caps_show':
             if type(cmd.get('show')) is not bool:raise ValueError('Opción de mostrar los límites inválida.')
             self.progress.check_level_caps_editable()
+        elif action=='level_caps_accept_proposal':
+            self.level_caps_proposal_stages(cmd)
+        elif action=='level_caps_dismiss_proposal':
+            if type(cmd.get('dismissed')) is not bool:raise ValueError('Indica si la propuesta se descarta o se recupera.')
+            self.level_caps_proposal(cmd)
+            self.level_caps_source.check_writable()
         else:
             raise ValueError('Acción de límites de nivel inválida')
+    def level_caps_proposal(self,cmd):
+        """The Randomizer proposal the command refers to; ValueError when it is not the one loaded now.
+
+        The command names the game, the imported data and the patch table it was reviewed against, so a
+        confirmation given for another run, game or file can never be applied to this one.
+        """
+        game=self.state['game']
+        manager=getattr(self,'game_data',None)
+        proposal=manager.level_caps(game) if manager is not None else None
+        if not proposal or proposal['state']!='proposal':
+            raise ValueError('No hay una propuesta de límites de Definitive Randomizer para esta partida y juego.')
+        if (cmd.get('game')!=game or cmd.get('dataFingerprint')!=manager.status(game)['fingerprint']
+                or cmd.get('capsFingerprint')!=proposal['fingerprint'] or cmd.get('tableSha256')!=proposal['tableSha256']):
+            raise ValueError('La propuesta que revisaste ya no es la vigente: cambió la partida, el juego o los datos importados. Vuelve a revisarla.')
+        return proposal
+    def level_caps_proposal_stages(self,cmd):
+        """Stages an accepted proposal would save, checked against the list that was reviewed. Changes nothing."""
+        proposal=self.level_caps_proposal(cmd)
+        if type(cmd.get('finalStage')) is not bool:raise ValueError('Indica si se añade la etapa final de nivel 100.')
+        self.progress.check_level_caps_editable()
+        view=level_caps_view(self.progress.data)
+        if cmd.get('listRevision')!=view['revision']:
+            raise ValueError('Las etapas de la partida cambiaron mientras revisabas la propuesta. Vuelve a revisarla.')
+        if view['stages'] and cmd.get('replace') is not True:
+            raise ValueError('Confirma que quieres reemplazar las etapas actuales de la partida.')
+        stages=[dict(stage) for stage in proposal['stages']]
+        if cmd['finalStage']:
+            # Derived from the ceiling of the patch, never one of its checkpoints; only on request.
+            stages.append({'name':FINAL_STAGE_NAME,'cap':proposal['ceiling']})
+        if len(stages)>MAX_STAGES:
+            raise ValueError(f'La propuesta con la etapa final tendría {len(stages)} etapas; el máximo es {MAX_STAGES}. No se recorta.')
+        self.progress.check_level_caps(stages)
+        self.level_caps_source.check_writable()
+        return proposal,stages
+    def accept_level_caps_proposal(self,cmd):
+        proposal,stages=self.level_caps_proposal_stages(cmd)
+        status=self.game_data.status(self.state['game'])
+        # No current stage is chosen: every stage is new, so the previous current one (if any) is only reported.
+        self.progress.set_level_caps(stages)
+        view=level_caps_view(self.progress.data)
+        try:
+            self.level_caps_source.record_accept({'source':'definitive-game-data','blockVersion':1,
+                'producer':{'id':status['producer']['id'],'version':status['producer']['version']},
+                'game':self.state['game'],'dataFingerprint':status['fingerprint'],'capsFingerprint':proposal['fingerprint'],
+                'tableSha256':proposal['tableSha256'],'checkpoints':proposal['count'],'finalStage':cmd['finalStage'],
+                'listRevision':view['revision']})
+        except OSError as exc:
+            self.update()
+            raise ValueError('Las etapas se reemplazaron, pero no se pudo guardar su procedencia: '+str(exc)[:160]) from exc
+        return True
     def apply_level_caps(self,cmd):
         # Validated again here: the run may have changed since the HTTP check.
         self.validate_level_caps(cmd)
         action=cmd['action']
-        if action=='level_caps_set':
+        if action=='level_caps_accept_proposal':
+            changed=self.accept_level_caps_proposal(cmd)
+        elif action=='level_caps_dismiss_proposal':
+            proposal=self.level_caps_proposal(cmd)
+            changed=self.level_caps_source.record_dismiss(proposal['fingerprint'],proposal['tableSha256'] if cmd['dismissed'] else None)
+        elif action=='level_caps_set':
             changed=self.progress.set_level_caps(cmd['stages'],cmd['current'] if 'current' in cmd else KEEP_CURRENT)
         elif action=='level_caps_current':
             changed=self.progress.set_current_stage(cmd['stage'])

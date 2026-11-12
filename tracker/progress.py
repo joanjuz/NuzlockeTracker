@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import os
 import re
@@ -28,7 +29,8 @@ ENCOUNTER_FIELDS = ('species_id', 'species', 'nickname', 'origin_version',
 # Manual level caps of one run and game. The player defines every stage: the
 # tracker ships no official or default caps for any game, romhack or challenge.
 LEVEL_CAPS_VERSION = 1
-LEVEL_CAP_ACTIONS = ('level_caps_set', 'level_caps_current', 'level_caps_show')
+LEVEL_CAP_ACTIONS = ('level_caps_set', 'level_caps_current', 'level_caps_show',
+                     'level_caps_accept_proposal', 'level_caps_dismiss_proposal')
 MAX_STAGES = 64
 MAX_STAGE_NAME = 60
 STAGE_ID_PATTERN = re.compile(r'[A-Za-z0-9_-]{1,32}\Z')
@@ -137,12 +139,21 @@ def decreasing_stage_ids(stages: list[JSONDict]) -> list[str]:
     return [stage['id'] for previous, stage in zip(stages, stages[1:]) if stage['cap'] < previous['cap']]
 
 
+def stages_revision(stages: list[JSONDict]) -> str:
+    """Short fingerprint of a saved stage list (ids, names, caps and order).
+
+    It lets a confirmation refer to the exact list that was reviewed; it is derived, never stored in the block.
+    """
+    raw = json.dumps([[s['id'], s['name'], s['cap']] for s in stages], ensure_ascii=False, separators=(',', ':'))
+    return hashlib.sha256(raw.encode('utf-8')).hexdigest()[:16]
+
+
 def level_caps_view(data: Mapping[str, Any]) -> JSONDict:
     """Read-only summary for the interface. Never feeds RAM reading, deaths or encounters."""
     block = data.get('level_caps')
     view: JSONDict = {'status': 'none', 'configured': False, 'show': False, 'stages': [], 'current': None,
                       'current_index': None, 'current_cap': None, 'current_name': None, 'total': 0,
-                      'decreasing': [], 'removed_current': None,
+                      'decreasing': [], 'removed_current': None, 'revision': stages_revision([]),
                       'rejected_kept': isinstance(data.get('level_caps_rejected'), dict)}
     if block is None:
         return view
@@ -155,7 +166,7 @@ def level_caps_view(data: Mapping[str, Any]) -> JSONDict:
                  'stages': copy.deepcopy(stages), 'current': block['current'], 'current_index': index,
                  'current_cap': None if index is None else stages[index]['cap'],
                  'current_name': None if index is None else stages[index]['name'], 'total': len(stages),
-                 'decreasing': decreasing_stage_ids(stages),
+                 'decreasing': decreasing_stage_ids(stages), 'revision': stages_revision(stages),
                  'removed_current': copy.deepcopy(block.get('removed_current'))})
     return view
 
