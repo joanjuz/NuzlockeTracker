@@ -13,7 +13,7 @@ from .boxes import read_box,decode_box
 from .catalog import Catalog
 from .locations import location_name
 from .reference import ReferenceData
-from .progress import RunProgress
+from .progress import KEEP_CURRENT, LEVEL_CAP_ACTIONS, RunProgress, level_caps_view
 from .battle import apply_battle_hp
 from .battle_gen6 import apply_gen6_battle_hp
 from .gen6_pc import Gen6BoxProbe
@@ -69,6 +69,7 @@ class TrackerService:
         suffix=self.progress_suffix(self.state['game'])
         self.progress=RunProgress(self.output.with_name(self.output.stem+suffix+'-progress.json'))
         self.state['progress']=copy.deepcopy(self.progress.data)
+        self.state['level_caps']=level_caps_view(self.progress.data)
         self.profile=PROFILES[self.state['game']]
         self.reader=None;self.config=None;self.retry_at=0;self.scan_next=None;self.scan_verified=set();self.gen6_pending_boxes={};self.gen6_box_failed=False;self.gen6_probe=None;self.gen6_research_done=False;self.diagnostic=None;self.sun_box_base=None
         self.next_box_refresh_at=0.0;self.gen7_probe=None
@@ -287,6 +288,8 @@ class TrackerService:
             parts.append('El registro de la aventura estaba dañado; se restauró la copia .bak y el archivo dañado se conservó como .corrupt.')
         elif recovered=='empty':
             parts.append('El registro de la aventura estaba dañado y no había copia válida; se empezó un registro vacío. El archivo dañado se conservó como .corrupt.')
+        if getattr(self.progress,'level_caps_isolated',False):
+            parts.append('Los límites de nivel guardados de esta partida estaban dañados: se apartaron sin modificarlos y el resto del registro se cargó normalmente.')
         if getattr(self.progress,'dirty',False):
             parts.append('No se pudo guardar el progreso de la aventura: '+str(self.progress.last_save_error)+'. Se reintentará automáticamente.')
         if self.state_save_error:
@@ -365,6 +368,8 @@ class TrackerService:
                                                 changes.get('boxes',self.state['boxes']),
                                                 box_count=box_count)
             changes['progress']=copy.deepcopy(self.progress.data)
+            # Derived, read-only summary of the manual caps; RAM reading never uses it.
+            changes['level_caps']=level_caps_view(self.progress.data)
             changed=not all(self.state.get(k)==v for k,v in changes.items())
             if changed:
                 self.log_transitions(changes)
@@ -750,6 +755,8 @@ class TrackerService:
             self.mark_route(cmd)
         elif action=='clear_route_mark':
             self.clear_route_mark(cmd)
+        elif action in LEVEL_CAP_ACTIONS:
+            self.apply_level_caps(cmd)
         elif action=='connect':self.config=cmd;self.retry_at=0;self.scan_next=None;self.connect()
         elif action=='disconnect':
             self.gen7_probe=None
@@ -878,6 +885,31 @@ class TrackerService:
         if self.progress.set_traded_route(cmd['route'],cmd['traded']):
             self.update()
 
+    def validate_level_caps(self,cmd):
+        """Check a level-caps command against the current run without changing anything."""
+        action=cmd.get('action')
+        if action=='level_caps_set':
+            self.progress.check_level_caps(cmd.get('stages'),cmd['current'] if 'current' in cmd else KEEP_CURRENT)
+        elif action=='level_caps_current':
+            if 'stage' not in cmd:raise ValueError('Falta la etapa vigente.')
+            self.progress.check_current_stage(cmd['stage'])
+        elif action=='level_caps_show':
+            if type(cmd.get('show')) is not bool:raise ValueError('Opción de mostrar los límites inválida.')
+            self.progress.check_level_caps_editable()
+        else:
+            raise ValueError('Acción de límites de nivel inválida')
+    def apply_level_caps(self,cmd):
+        # Validated again here: the run may have changed since the HTTP check.
+        self.validate_level_caps(cmd)
+        action=cmd['action']
+        if action=='level_caps_set':
+            changed=self.progress.set_level_caps(cmd['stages'],cmd['current'] if 'current' in cmd else KEEP_CURRENT)
+        elif action=='level_caps_current':
+            changed=self.progress.set_current_stage(cmd['stage'])
+        else:
+            changed=self.progress.set_level_caps_shown(cmd['show'])
+        if changed:
+            self.update()
     def validate_route_miss(self,cmd):
         ids={str(r['id']) for r in self.reference.routes(self.state['game'])['routes']}
         if cmd.get('route') not in ids or type(cmd.get('missed')) is not bool:

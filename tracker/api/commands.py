@@ -7,12 +7,16 @@ from __future__ import annotations
 
 import json
 
+from tracker.progress import LEVEL_CAP_ACTIONS
+
 from .routing import exact
 
 COMMAND_LIMIT = 4096
+# Only a full level-caps list (up to 64 stages) may be larger than COMMAND_LIMIT.
+LEVEL_CAPS_LIMIT = 32768
 ACTIONS = ('connect', 'disconnect', 'box', 'scan', 'cancel', 'demo', 'route_miss', 'revive',
            'mark_dead', 'set_origin', 'mark_route', 'clear_route_mark', 'route_trade',
-           'save_session')
+           'save_session', *LEVEL_CAP_ACTIONS)
 DEMO_SCENARIOS = ('normal', 'damage', 'empty', 'stale', 'long')
 
 
@@ -33,6 +37,8 @@ def validate_command(service, cmd):
         service.validate_set_origin(cmd)
     if action == 'mark_route':
         service.validate_route_mark(cmd)
+    if action in LEVEL_CAP_ACTIONS:
+        service.validate_level_caps(cmd)
     if action == 'clear_route_mark':
         service.validate_route_mark(cmd, undo=True)
     if action == 'demo' and (not service.snapshot().get('demo') or cmd.get('scenario') not in DEMO_SCENARIOS):
@@ -58,7 +64,10 @@ def command(req, _match):
     try:
         # Sin comprobación de «objeto JSON»: un JSON que no es objeto falla
         # en cmd.get() con AttributeError -> 400, como siempre.
-        cmd = json.loads(req.read_body(COMMAND_LIMIT, 'Tamaño inválido'))
+        body = req.read_body(LEVEL_CAPS_LIMIT, 'Tamaño inválido')
+        cmd = json.loads(body)
+        if len(body) > COMMAND_LIMIT and cmd.get('action') != 'level_caps_set':
+            raise ValueError('Tamaño inválido')
         action = validate_command(service, cmd)
         if action in ('connect', 'disconnect'):
             cmd['_connection_generation'] = service.request_connection_change()

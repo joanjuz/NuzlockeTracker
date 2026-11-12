@@ -5,6 +5,7 @@ import copy
 import json
 import os
 import re
+import secrets
 import shutil
 from collections import Counter
 from datetime import datetime, timezone
@@ -23,6 +24,140 @@ JSONDict = dict[str, Any]
 ENCOUNTER_FIELDS = ('species_id', 'species', 'nickname', 'origin_version',
                     'encryption_constant', 'met_location_id', 'met_location',
                     'egg_location_id', 'egg')
+
+# Manual level caps of one run and game. The player defines every stage: the
+# tracker ships no official or default caps for any game, romhack or challenge.
+LEVEL_CAPS_VERSION = 1
+LEVEL_CAP_ACTIONS = ('level_caps_set', 'level_caps_current', 'level_caps_show')
+MAX_STAGES = 64
+MAX_STAGE_NAME = 60
+STAGE_ID_PATTERN = re.compile(r'[A-Za-z0-9_-]{1,32}\Z')
+# In-memory marker set while loading when a damaged block was moved aside; never written to disk.
+_LEVEL_CAPS_ISOLATED = '_level_caps_isolated_now'
+_CONTROL_CHARACTERS = re.compile(r'[\x00-\x1f\x7f-\x9f  ]')
+
+
+class _Keep:
+    """Sentinel: keep the current stage (by id) when replacing the stage list."""
+
+    def __repr__(self) -> str:
+        return 'KEEP_CURRENT'
+
+
+KEEP_CURRENT: Any = _Keep()
+
+
+def _stage_name(value: Any) -> str:
+    if not isinstance(value, str):
+        raise ValueError('El nombre de la etapa debe ser texto.')
+    name = value.strip()
+    if not 1 <= len(name) <= MAX_STAGE_NAME:
+        raise ValueError(f'El nombre de la etapa debe tener entre 1 y {MAX_STAGE_NAME} caracteres.')
+    if _CONTROL_CHARACTERS.search(name):
+        raise ValueError('El nombre de la etapa contiene caracteres de control.')
+    return name
+
+
+def _stage_cap(value: Any) -> int:
+    # bool is an int subclass: True must not become level 1.
+    if type(value) is not int or not 1 <= value <= 100:
+        raise ValueError('El límite de nivel debe ser un entero entre 1 y 100.')
+    return value
+
+
+def _stage_id(value: Any) -> str:
+    if not isinstance(value, str) or STAGE_ID_PATTERN.fullmatch(value) is None:
+        raise ValueError('Identificador de etapa inválido.')
+    return value
+
+
+def normalized_stages(stages: Any, allow_new: bool) -> list[JSONDict]:
+    """Validated copy of a stage list, in the given order; raises ValueError.
+
+    With ``allow_new`` a stage without ``id`` is accepted (a command creating
+    it); it receives an id in :meth:`RunProgress.set_level_caps`. Stored
+    stages always carry their id.
+    """
+    if not isinstance(stages, list):
+        raise ValueError('Las etapas deben ser una lista.')
+    if len(stages) > MAX_STAGES:
+        raise ValueError(f'Como máximo {MAX_STAGES} etapas por partida y juego.')
+    result: list[JSONDict] = []
+    seen: set[str] = set()
+    for stage in stages:
+        if not isinstance(stage, dict) or set(stage) - {'id', 'name', 'cap'}:
+            raise ValueError('Etapa con un formato inválido.')
+        item: JSONDict = {'name': _stage_name(stage.get('name')), 'cap': _stage_cap(stage.get('cap'))}
+        if 'id' in stage or not allow_new:
+            stage_id = _stage_id(stage.get('id'))
+            if stage_id in seen:
+                raise ValueError('Hay etapas con el mismo identificador.')
+            seen.add(stage_id)
+            item = {'id': stage_id, **item}
+        result.append(item)
+    return result
+
+
+def validated_level_caps(block: Any) -> JSONDict:
+    """Stored level-caps block, normalized; raises ValueError when damaged.
+
+    A block written by a newer tracker (higher ``version``) is kept untouched:
+    it is neither validated nor rewritten, and it cannot be edited here.
+    """
+    if not isinstance(block, dict):
+        raise ValueError('Bloque de límites de nivel inválido.')
+    version = block.get('version')
+    if type(version) is not int or version < 1:
+        raise ValueError('Versión de límites de nivel inválida.')
+    if version > LEVEL_CAPS_VERSION:
+        return block
+    if set(block) - {'version', 'stages', 'current', 'show', 'updated_at', 'removed_current'}:
+        raise ValueError('Bloque de límites de nivel con campos desconocidos.')
+    stages = normalized_stages(block.get('stages'), allow_new=False)
+    current = block.get('current')
+    if current is not None and current not in {s['id'] for s in stages}:
+        raise ValueError('La etapa vigente no existe.')
+    if type(block.get('show')) is not bool:
+        raise ValueError('Opción de mostrar los límites inválida.')
+    updated = block.get('updated_at')
+    if updated is not None and (not isinstance(updated, str) or len(updated) > 40):
+        raise ValueError('Fecha de los límites de nivel inválida.')
+    removed = block.get('removed_current')
+    if removed is not None:
+        if not isinstance(removed, dict) or set(removed) != {'id', 'name', 'cap'}:
+            raise ValueError('Etapa vigente eliminada inválida.')
+        removed = {'id': _stage_id(removed['id']), 'name': _stage_name(removed['name']),
+                   'cap': _stage_cap(removed['cap'])}
+    return {'version': LEVEL_CAPS_VERSION, 'stages': stages, 'current': current, 'show': block['show'],
+            'updated_at': updated, 'removed_current': removed}
+
+
+def decreasing_stage_ids(stages: list[JSONDict]) -> list[str]:
+    """Stages whose cap is lower than the previous stage: allowed, only reported."""
+    return [stage['id'] for previous, stage in zip(stages, stages[1:]) if stage['cap'] < previous['cap']]
+
+
+def level_caps_view(data: Mapping[str, Any]) -> JSONDict:
+    """Read-only summary for the interface. Never feeds RAM reading, deaths or encounters."""
+    block = data.get('level_caps')
+    view: JSONDict = {'status': 'none', 'configured': False, 'show': False, 'stages': [], 'current': None,
+                      'current_index': None, 'current_cap': None, 'current_name': None, 'total': 0,
+                      'decreasing': [], 'removed_current': None,
+                      'rejected_kept': isinstance(data.get('level_caps_rejected'), dict)}
+    if block is None:
+        return view
+    if not isinstance(block, dict) or block.get('version') != LEVEL_CAPS_VERSION:
+        view['status'] = 'unsupported'
+        return view
+    stages: list[JSONDict] = block['stages']
+    index = next((i for i, s in enumerate(stages) if s['id'] == block['current']), None)
+    view.update({'status': 'ok', 'configured': bool(stages), 'show': block['show'],
+                 'stages': copy.deepcopy(stages), 'current': block['current'], 'current_index': index,
+                 'current_cap': None if index is None else stages[index]['cap'],
+                 'current_name': None if index is None else stages[index]['name'], 'total': len(stages),
+                 'decreasing': decreasing_stage_ids(stages),
+                 'removed_current': copy.deepcopy(block.get('removed_current'))})
+    return view
 
 
 def origin_category(pokemon: Pokemon, overrides: Mapping[str | None, str] | None = None) -> str:
@@ -61,6 +196,8 @@ class RunProgress:
         self.last_save_error: str | None = None
         # Only a file this instance loaded or wrote may become the .bak copy.
         self.disk_verified = False
+        # True when this load moved a damaged level-caps block aside (the rest loaded normally).
+        self.level_caps_isolated = False
         self.data: JSONDict = self.empty_data()
         if self.path.exists():
             # OSError while reading (locked file) propagates on purpose:
@@ -74,9 +211,11 @@ class RunProgress:
                 backup = self.load_backup()
                 self.recovered_from = 'empty' if backup is None else 'backup'
                 self.data = self.validated(self.empty_data()) if backup is None else backup
+                self.level_caps_isolated = bool(self.data.pop(_LEVEL_CAPS_ISOLATED, False))
                 self.persist()
         else:
             self.data = self.validated(self.data)
+        self.level_caps_isolated = bool(self.data.pop(_LEVEL_CAPS_ISOLATED, False)) or self.level_caps_isolated
 
     @staticmethod
     def empty_data() -> JSONDict:
@@ -152,8 +291,117 @@ class RunProgress:
             raise ValueError('Lectura histórica de cajas inválida')
         data.setdefault('revived_pending', [])
         data.setdefault('death_count', len(data['deaths']))
+        RunProgress.isolate_level_caps(data)
         result: JSONDict = data
         return result
+
+    @staticmethod
+    def isolate_level_caps(data: JSONDict) -> None:
+        """A damaged level-caps block never quarantines deaths, encounters or routes.
+
+        It is moved aside unchanged (``level_caps_rejected``) for manual
+        inspection and the rest of the history loads normally.
+        """
+        if 'level_caps' not in data:
+            return
+        if data['level_caps'] is None:
+            del data['level_caps']
+            return
+        try:
+            data['level_caps'] = validated_level_caps(data['level_caps'])
+        except (ValueError, TypeError, KeyError, AttributeError):
+            data['level_caps_rejected'] = {'rejected_at': datetime.now(timezone.utc).isoformat(),
+                                           'data': data.pop('level_caps')}
+            data[_LEVEL_CAPS_ISOLATED] = True
+
+    # ---- manual level caps ------------------------------------------------------------------------------------------
+    def _level_caps_block(self) -> JSONDict:
+        block = self.data.get('level_caps')
+        if block is None:
+            return {'version': LEVEL_CAPS_VERSION, 'stages': [], 'current': None, 'show': True,
+                    'updated_at': None, 'removed_current': None}
+        if block.get('version') != LEVEL_CAPS_VERSION:
+            raise ValueError('Los límites de nivel de esta partida los creó una versión más nueva del tracker; '
+                             'no se modifican aquí.')
+        return copy.deepcopy(block)
+
+    def check_level_caps_editable(self) -> None:
+        """Raise ValueError when the stored block belongs to a newer tracker (read-only here)."""
+        self._level_caps_block()
+
+    def _commit_level_caps(self, before: JSONDict, after: JSONDict) -> bool:
+        same = {k: v for k, v in before.items() if k != 'updated_at'} == {k: v for k, v in after.items() if k != 'updated_at'}
+        if same and 'level_caps' in self.data:
+            return False
+        after['updated_at'] = datetime.now(timezone.utc).isoformat()
+        self.data['level_caps'] = after
+        self.persist()
+        return True
+
+    def check_level_caps(self, stages: Any, current: Any = KEEP_CURRENT) -> list[JSONDict]:
+        """Validate a full replacement without changing anything; raises ValueError."""
+        self._level_caps_block()  # refuses a block written by a newer tracker
+        result = normalized_stages(stages, allow_new=True)
+        if current is not KEEP_CURRENT and current is not None and current not in {s.get('id') for s in result}:
+            raise ValueError('La etapa vigente debe ser una de las etapas existentes de la lista.')
+        return result
+
+    def set_level_caps(self, stages: Any, current: Any = KEEP_CURRENT) -> bool:
+        """Replace the stage list atomically (order, names, caps, added and removed stages).
+
+        The current stage follows its stable id, not its position. When the
+        current stage is removed, there is no current stage afterwards (never a
+        neighbour picked silently) and the removed one is kept in
+        ``removed_current`` until another stage is chosen.
+        """
+        before = self._level_caps_block()
+        stages = self.check_level_caps(stages, current)
+        taken = {s['id'] for s in stages if 'id' in s} | {s['id'] for s in before['stages']}
+        if before.get('removed_current'):
+            taken.add(before['removed_current']['id'])
+        for stage in stages:
+            if 'id' not in stage:
+                new_id = secrets.token_hex(6)
+                while new_id in taken:
+                    new_id = secrets.token_hex(6)
+                taken.add(new_id)
+                stage['id'] = new_id
+        stages = [{'id': s['id'], 'name': s['name'], 'cap': s['cap']} for s in stages]
+        ids = {s['id'] for s in stages}
+        after = copy.deepcopy(before)
+        after['stages'] = stages
+        previous = before['current']
+        if current is KEEP_CURRENT:
+            after['current'] = previous if previous in ids else None
+        else:
+            after['current'] = current
+            after['removed_current'] = None
+        if previous is not None and previous not in ids:
+            old = next(s for s in before['stages'] if s['id'] == previous)
+            after['removed_current'] = None if after['current'] is not None else copy.deepcopy(old)
+        return self._commit_level_caps(before, after)
+
+    def check_current_stage(self, stage_id: Any) -> None:
+        block = self._level_caps_block()
+        if stage_id is not None and stage_id not in {s['id'] for s in block['stages']}:
+            raise ValueError('Esa etapa no existe en esta partida.')
+
+    def set_current_stage(self, stage_id: Any) -> bool:
+        """Choose the current stage by id, or none. Clears the notice of a removed current stage."""
+        self.check_current_stage(stage_id)
+        before = self._level_caps_block()
+        after = copy.deepcopy(before)
+        after['current'] = stage_id
+        after['removed_current'] = None
+        return self._commit_level_caps(before, after)
+
+    def set_level_caps_shown(self, show: Any) -> bool:
+        if type(show) is not bool:
+            raise ValueError('Opción de mostrar los límites inválida.')
+        before = self._level_caps_block()
+        after = copy.deepcopy(before)
+        after['show'] = show
+        return self._commit_level_caps(before, after)
 
     @staticmethod
     def encounter_record(p: Any) -> JSONDict | None:
