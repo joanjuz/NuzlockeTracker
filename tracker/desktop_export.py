@@ -19,6 +19,8 @@ def export_payload(service, kind):
         return service.session_export()
     if kind == 'diagnostic':
         return service.diagnostic_export()
+    if kind == 'level_caps':
+        return service.level_caps_export()
     raise ValueError('Tipo de exportación inválido')
 
 
@@ -59,7 +61,7 @@ class DesktopExportApi:
         self.lock = threading.Lock()
 
     def save_export(self, kind):
-        if kind not in ('session', 'diagnostic', 'obs'):
+        if kind not in ('session', 'diagnostic', 'obs', 'level_caps'):
             return {'error': 'Exportación no permitida'}
         if kind == 'obs' and self.overlay is None:
             return {'error': 'La configuración de OBS no está disponible'}
@@ -69,8 +71,10 @@ class DesktopExportApi:
             import webview
             if self.window is None:
                 return {'error': 'La ventana todavía no está lista'}
-            prefix = {'session': 'sesion', 'diagnostic': 'diagnostico', 'obs': 'configuracion_obs'}[kind]
-            suggested = f'{prefix}_pokemon_{datetime.now():%Y%m%d_%H%M%S}.json'
+            prefix = {'session': 'sesion', 'diagnostic': 'diagnostico', 'obs': 'configuracion_obs'}.get(kind)
+            # The stage list gets a fixed, neutral name: no run name, no date.
+            suggested = ('limites-de-nivel.json' if kind == 'level_caps'
+                         else f'{prefix}_pokemon_{datetime.now():%Y%m%d_%H%M%S}.json')
             selected = self.window.create_file_dialog(
                 webview.FileDialog.SAVE, save_filename=suggested,
                 file_types=('Archivo JSON (*.json)',))

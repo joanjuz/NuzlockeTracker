@@ -13,11 +13,13 @@ E2E_ARTIFACTS (default build/e2e-artifacts, ignored by git).
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import signal
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import unittest
@@ -398,6 +400,130 @@ class DemoBrowserTests(unittest.TestCase):
         self.page.set_viewport_size({'width': 390, 'height': 844})
         expect(self.page.get_by_label('Nombre de la etapa 1')).to_be_visible()
         self.assertLessEqual(self.page.evaluate('document.documentElement.scrollWidth - window.innerWidth'), 1)
+        self.reset_level_caps()
+        self.assert_clean()
+
+
+    def stage_ids(self) -> list[str]:
+        return self.page.evaluate('state.level_caps.stages.map(s => s.id)')
+
+    def test_level_caps_stage_lists_export_import_and_replace(self) -> None:
+        self.open_tracker()
+        self.reset_level_caps()
+        export = self.page.get_by_role('button', name='Exportar lista…')
+        import_button = self.page.get_by_role('button', name='Importar lista…')
+        self.open_tab('progress')
+        expect(export).to_be_disabled()
+        expect(self.page.locator('#caps-lists-hint')).to_contain_text('aún no tiene etapas')
+        files = Path(tempfile.mkdtemp(prefix='etapas-e2e-'))
+
+        def write(name: str, content) -> str:
+            path = files / name
+            path.write_text(content if isinstance(content, str) else json.dumps(content, ensure_ascii=False), encoding='utf-8')
+            return str(path)
+
+        def choose(path: str) -> None:
+            with self.page.expect_file_chooser() as chooser:
+                import_button.click()
+            chooser.value.set_files(path)
+
+        shared = {'format': 'progressive-tracker-stage-list', 'version': 1,
+                  'stages': [{'name': 'Primer gimnasio', 'cap': 20}, {'name': 'Cueva', 'cap': 15}, {'name': 'Liga', 'cap': 60}]}
+
+        # Importing into a run without stages: preview first, nothing changes until «Importar lista».
+        choose(write('compartida.json', shared))
+        dialog = self.page.locator('#level-caps-import-dialog')
+        expect(dialog).to_be_visible()
+        expect(dialog).to_contain_text('Primer gimnasio')
+        expect(dialog).to_contain_text('Nv. 60')
+        expect(dialog).to_contain_text('inferior al de la anterior')
+        expect(dialog).to_contain_text('Ninguna etapa quedará vigente')
+        expect(self.page.locator('#level-caps-import-confirm')).to_have_count(0)
+        self.assertEqual(self.stage_ids(), [], 'La vista previa no modifica la partida')
+        self.page.get_by_role('button', name='Cancelar').click()
+        expect(dialog).to_be_hidden()
+        expect(self.page.locator('#caps-lists-status')).to_contain_text('no se cambió nada')
+        self.assertEqual(self.stage_ids(), [])
+        expect(import_button).to_be_focused()
+
+        choose(write('compartida.json', shared))
+        self.page.get_by_role('button', name='Importar lista', exact=True).last.click()
+        expect(dialog).to_be_hidden()
+        expect(self.page.locator('#caps-lists-status')).to_contain_text('Lista importada: 3 etapas')
+        expect(self.page.locator('#caps-select option')).to_have_count(4)
+        expect(self.page.locator('#level-cap-chip')).to_have_text('Sin etapa vigente')
+        first_ids = self.stage_ids()
+        self.assertEqual(len(set(first_ids)), 3)
+
+        # Export: a normal download in the browser with names, caps and order only.
+        with self.page.expect_download() as download:
+            export.click()
+        self.assertEqual(download.value.suggested_filename, 'limites-de-nivel.json')
+        exported = json.loads(Path(download.value.path()).read_text(encoding='utf-8'))
+        self.assertEqual(exported, shared, 'Roundtrip exacto')
+        self.assertNotIn(first_ids[0], json.dumps(exported))
+        expect(self.page.locator('#caps-lists-status')).to_contain_text('Solo contiene nombres y niveles máximos')
+
+        # Replacing an existing list needs an explicit confirmation and creates new ids.
+        self.page.locator('#caps-select').select_option(label='2. Cueva · Nv. 15')
+        expect(self.page.locator('#level-cap-chip')).to_contain_text('Cueva')
+        replacement = {'format': 'progressive-tracker-stage-list', 'version': 1,
+                       'stages': [{'name': 'Etapa nueva', 'cap': 40}]}
+        choose(write('reemplazo.json', replacement))
+        expect(dialog).to_contain_text('Esta partida ya tiene 3 etapas')
+        apply = self.page.get_by_role('button', name='Reemplazar la lista')
+        expect(apply).to_be_disabled()
+        confirm = self.page.get_by_label('Entiendo que se reemplazará la lista actual')
+        confirm.focus()
+        self.page.keyboard.press('Space')
+        expect(apply).to_be_enabled()
+        self.assertEqual(self.stage_ids(), first_ids, 'Aún no se ha reemplazado nada')
+        # Narrow window with the preview open: no horizontal page scroll.
+        self.page.set_viewport_size({'width': 390, 'height': 844})
+        expect(apply).to_be_visible()
+        self.assertLessEqual(self.page.evaluate('document.documentElement.scrollWidth - window.innerWidth'), 1)
+        self.page.set_viewport_size({'width': 1366, 'height': 900})
+        apply.click()
+        expect(dialog).to_be_hidden()
+        expect(self.page.locator('#caps-select option')).to_have_count(2)
+        self.assertEqual(len(self.stage_ids()), 1)
+        self.assertTrue(set(self.stage_ids()).isdisjoint(first_ids), 'IDs nuevos')
+        expect(self.page.locator('#level-cap-chip')).to_have_text('Sin etapa vigente')
+        expect(self.page.locator('#caps-current')).to_contain_text('Se eliminó la etapa vigente «Cueva»')
+
+        # Escape cancels; broken, future and invalid files show a clear error and change nothing.
+        before = self.stage_ids()
+        choose(write('otra.json', replacement))
+        expect(dialog).to_be_visible()
+        self.page.keyboard.press('Escape')
+        expect(dialog).to_be_hidden()
+        for name, content, message in (
+                ('roto.json', '{ no es json', 'El archivo no es un JSON válido'),
+                ('futuro.json', {**shared, 'version': 2}, 'versión 2 del formato'),
+                ('otro.json', {'hola': 'mundo'}, 'no es una lista de etapas'),
+                ('limite.json', {**shared, 'stages': [{'name': 'X', 'cap': 101}]}, 'entre 1 y 100'),
+                ('ids.json', {**shared, 'stages': [{'id': 'a', 'name': 'X', 'cap': 5}]}, 'campos no admitidos'),
+                ('grande.json', ' ' * 40_000, 'demasiado grande')):
+            choose(write(name, content))
+            expect(self.page.locator('#caps-lists-error')).to_contain_text(message)
+            expect(dialog).to_be_hidden()
+            self.assertEqual(self.stage_ids(), before, name)
+
+        # Unsaved draft: importing is blocked, never discards it silently.
+        self.page.get_by_label('Nombre de la etapa 1').fill('Borrador sin guardar')
+        expect(import_button).to_be_disabled()
+        expect(self.page.locator('#caps-lists-hint')).to_contain_text('cambios sin guardar')
+        expect(export).to_be_enabled()
+        self.assertEqual(self.page.get_by_label('Nombre de la etapa 1').input_value(), 'Borrador sin guardar')
+        self.page.get_by_role('button', name='Descartar').click()
+        expect(import_button).to_be_enabled()
+
+        # The imported list survives a reload; the display option was never touched.
+        self.page.reload(wait_until='domcontentloaded')
+        expect(self.page.locator('#party > article.card')).to_have_count(6)
+        self.open_tab('progress')
+        expect(self.page.locator('#caps-select option')).to_have_count(2)
+        expect(self.page.get_by_label('Mostrar el límite en la cabecera y en las fichas')).to_be_checked()
         self.reset_level_caps()
         self.assert_clean()
 
