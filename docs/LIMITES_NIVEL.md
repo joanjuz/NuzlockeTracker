@@ -8,6 +8,7 @@ Los límites de nivel son **manuales**: el jugador define cada etapa y su nivel 
 - **Etapas**: tabla para añadir, renombrar, cambiar el nivel, reordenar (↑ ↓) y eliminar. Los cambios son un borrador hasta pulsar «Guardar cambios», que aplica la lista entera de una vez; «Descartar» la deja como estaba. Cada error aparece junto a su fila. Un límite más bajo que el de la etapa anterior se avisa, pero se puede guardar.
 - **Cabecera**: un indicador «Límite Nv. N · etapa», con «· X por encima» si algún Pokémon del equipo lo supera; «Sin etapa vigente» si hay etapas pero ninguna elegida. Al pulsarlo se abre Progreso. No aparece si la partida no tiene etapas o si se ocultan los límites.
 - **Fichas del equipo**: «+N sobre el límite» en los Pokémon que lo superan (los huevos no cuentan).
+- **Listas de etapas** (al final de Progreso): «Exportar lista…» guarda las etapas guardadas en un JSON y «Importar lista…» abre uno con vista previa. Ver [Listas de etapas reutilizables](#listas-de-etapas-reutilizables).
 - Si se elimina la etapa vigente, la partida queda «Sin etapa vigente» y Progreso indica cuál se eliminó; hay que elegir otra explícitamente.
 - Cambiar de sección conserva el borrador (la pestaña muestra «sin guardar»). Cambiar o crear una partida, recargar o cerrar la ventana con cambios sin guardar pide confirmación antes de descartarlos.
 - En la vista del compañero de Soul Link, Progreso no está disponible: los límites son de tu partida y no se comparten.
@@ -50,6 +51,28 @@ Los límites decrecientes están permitidos; el resumen los informa en `decreasi
 Cada orden se valida antes de encolarla: si no es válida responde 400 y no cambia nada. El trabajador la vuelve a validar antes de aplicarla.
 
 El estado incluye un resumen de solo lectura, `level_caps`: `status` (`none`, `ok` o `unsupported`), etapas, vigente con su posición, límite y nombre, total, `decreasing`, `removed_current` y `rejected_kept`. La lectura de RAM, la detección de muertes y los encuentros no lo usan.
+
+## Listas de etapas reutilizables
+
+Sirven para llevar las mismas etapas de una partida a otra o compartirlas. Es un formato propio, versionado e independiente de Definitive Game Data y de la copia «Guardar sesión…».
+
+```json
+{
+  "format": "progressive-tracker-stage-list",
+  "version": 1,
+  "stages": [
+    { "name": "Primer gimnasio", "cap": 20 },
+    { "name": "Liga", "cap": 60 }
+  ]
+}
+```
+
+- **Contenido**: solo `format`, `version` y `stages` (nombre y límite, en orden). **No** incluye identificadores internos, etapa vigente, la opción de mostrar, muertes, encuentros, partidas, tokens ni rutas locales; es seguro compartirlo. El tracker no trae listas oficiales ni inventa datos.
+- **Reglas**: hasta 64 etapas, nombres de 1 a 60 caracteres, límites enteros de 1 a 100; los límites decrecientes se permiten y se avisan. Tamaño máximo del archivo: 32 KB. Se rechaza cualquier campo que no sea de este formato, un `version` mayor que 1 (de un tracker más nuevo), un JSON dañado y una lista vacía.
+- **Exportar**: incluye la lista **guardada** (no el borrador). En la aplicación de escritorio se abre «Guardar como» (`limites-de-nivel.json` sugerido, sin nombre de partida); en un navegador se descarga el archivo. Es de solo lectura: no cambia nada.
+- **Importar**: 1) elige el archivo; 2) se muestra una vista previa con nombres, límites, orden y advertencias, **sin cambiar nada**; 3) si la partida ya tiene etapas hay que marcar «Entiendo que se reemplazará la lista actual» (la lista se reemplaza entera, no se mezcla); 4) se aplica con la orden atómica `level_caps_set`. Se crean identificadores nuevos, **no se elige ninguna etapa vigente** (se indica cuál era la anterior) y la opción de mostrar los límites de la partida no cambia. Si falla, la lista anterior queda intacta y la vista previa permanece para reintentar o cancelar. Cancelar, Esc o cerrar no cambian nada.
+- **Cambios sin guardar**: con un borrador sin guardar en el editor de etapas, importar queda desactivado (con la explicación) para no descartarlo en silencio. Si el borrador aparece o la lista de la partida cambia mientras se revisa la vista previa, la importación se rechaza.
+- Cada partida y juego tiene su propia lista; importar en una no afecta a las demás. La exportación del escritorio usa la acción nativa `save_export('level_caps')`; Soul Link, OBS, la RAM y Definitive Game Data no cambian.
 
 ## Datos dañados y versiones futuras
 

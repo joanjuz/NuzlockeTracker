@@ -160,6 +160,25 @@ def level_caps_view(data: Mapping[str, Any]) -> JSONDict:
     return view
 
 
+# Shareable stage list: names, caps and order only. It never carries stage ids, the current
+# stage, display options or anything else from the run, so it is safe to hand to other players.
+STAGE_LIST_FORMAT = 'progressive-tracker-stage-list'
+STAGE_LIST_VERSION = 1
+
+
+def stage_list_export(view: Mapping[str, Any]) -> JSONDict:
+    """Portable document for the saved stage list of a level-caps view; raises ValueError.
+
+    Reads the view only: nothing is changed and nothing else from the run is included.
+    """
+    if view.get('status') != 'ok':
+        raise ValueError('Esta partida no tiene límites de nivel que se puedan exportar.')
+    stages = [{'name': stage['name'], 'cap': stage['cap']} for stage in view.get('stages') or []]
+    if not stages:
+        raise ValueError('Esta partida no tiene etapas que exportar.')
+    return {'format': STAGE_LIST_FORMAT, 'version': STAGE_LIST_VERSION, 'stages': stages}
+
+
 def origin_category(pokemon: Pokemon, overrides: Mapping[str | None, str] | None = None) -> str:
     """Conservative classification; never infer a fossil/gift from species or location.
 

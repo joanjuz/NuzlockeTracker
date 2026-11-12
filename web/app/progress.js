@@ -80,6 +80,7 @@ function renderLevelCapIndicators(snapshot){
     chip.dataset.kind=model.kind;
   }
   const marker=$('progress-unsaved');if(marker)marker.hidden=!levelCapsDirty();
+  if(typeof renderStageListToolbar==='function')renderStageListToolbar();
 }
 
 // --- Progreso view.

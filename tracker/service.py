@@ -13,7 +13,7 @@ from .boxes import read_box,decode_box
 from .catalog import Catalog
 from .locations import location_name
 from .reference import ReferenceData
-from .progress import KEEP_CURRENT, LEVEL_CAP_ACTIONS, RunProgress, level_caps_view
+from .progress import KEEP_CURRENT, LEVEL_CAP_ACTIONS, RunProgress, level_caps_view, stage_list_export
 from .battle import apply_battle_hp
 from .battle_gen6 import apply_gen6_battle_hp
 from .gen6_pc import Gen6BoxProbe
@@ -239,6 +239,10 @@ class TrackerService:
             'selected_box':state.get('selected_box',1),
             'box_verified':state.get('box_verified',False),
         }
+
+    def level_caps_export(self):
+        """Shareable stage list (names, caps, order); raises ValueError when there is nothing to export."""
+        return stage_list_export(self.snapshot().get('level_caps') or {})
 
     def diagnostic_export(self):
         state=self.snapshot()
