@@ -1,5 +1,6 @@
 """Deterministic UI fixtures. Never opens an emulator process or socket."""
 import copy,queue
+from .progress import LEVEL_CAP_ACTIONS
 from .service import TrackerService
 
 class DemoService(TrackerService):
@@ -37,6 +38,7 @@ class DemoService(TrackerService):
         elif action=='set_origin':self.set_origin(cmd)
         elif action=='mark_route':self.mark_route(cmd)
         elif action=='clear_route_mark':self.clear_route_mark(cmd)
+        elif action in LEVEL_CAP_ACTIONS:self.apply_level_caps(cmd)
         elif action=='demo':self.scenario(cmd['scenario'])
         elif action=='connect':self.scenario('normal')
         elif action=='disconnect':self.scenario('stale')
