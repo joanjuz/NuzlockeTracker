@@ -81,6 +81,7 @@ function renderLevelCapIndicators(snapshot){
   }
   const marker=$('progress-unsaved');if(marker)marker.hidden=!levelCapsDirty();
   if(typeof renderStageListToolbar==='function')renderStageListToolbar();
+  if(typeof renderCapsProposal==='function')renderCapsProposal();
 }
 
 // --- Progreso view.
@@ -88,6 +89,7 @@ function renderProgress(){
   if(!state)return;
   renderCapsCurrent();
   renderCapsEditor();
+  if(typeof renderCapsProposal==='function')renderCapsProposal();
 }
 function renderCapsCurrent(){
   const box=$('caps-current');if(!box)return;

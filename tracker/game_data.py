@@ -3,14 +3,17 @@ from __future__ import annotations
 
 import copy
 import csv
+import hashlib
 import io
 import json
 import os
 from pathlib import Path
 import re
 import secrets
+import struct
 import threading
 
+from .progress import MAX_STAGES, MAX_STAGE_NAME, _CONTROL_CHARACTERS
 from .templates import evolutions_csv
 
 MAX_BYTES = 5_000_000
@@ -156,6 +159,188 @@ def validate_document(content):
     return doc
 
 
+# --- Optional playerLevelCaps block (version 1) -------------------------------------------
+# State of the Randomizer's Player Level Caps patch in the exported project. It is a mechanical
+# restriction of that ROM, never the stages of a run: the tracker only offers it as a proposal.
+# A block that is malformed, from a newer version or inconsistent is ignored on its own; it never
+# invalidates the rest of the document, so data accepted by Tracker 1.4.0 stays accepted.
+LEVEL_CAPS_BLOCK_VERSION = 1
+LEVEL_CAPS_MAX_CHECKPOINTS = 128
+LEVEL_CAPS_STATUSES = ('installed', 'not-detected', 'unsupported', 'inconsistent', 'legacy-format')
+LEVEL_CAPS_HOOKS = ('stock', 'applied', 'applied-legacy', 'unrecognized', 'missing')
+LEVEL_CAPS_STATUS_TEXT = {
+    'not-detected': 'El proyecto exportado no tiene instalado el parche Player Level Caps de Definitive Randomizer.',
+    'unsupported': 'El Randomizer no pudo reconocer el estado de Player Level Caps en el proyecto exportado.',
+    'inconsistent': 'Las dos copias del parche Player Level Caps (experiencia y Caramelo Raro) no coinciden en el proyecto exportado.',
+    'legacy-format': 'El proyecto exportado tiene Player Level Caps en un formato anterior, que no se puede importar.',
+}
+_SHA256 = re.compile(r'[0-9A-F]{64}\Z')
+
+
+def _keys(value, allowed, label):
+    _object(value, label)
+    if set(value) - set(allowed):
+        raise ValueError(label + ': campos no admitidos.')
+    return value
+
+
+def level_caps_table_sha256(checkpoints):
+    """SHA-256 of the runtime table: 6 bytes per checkpoint and the Lv100 terminator."""
+    data = bytearray()
+    for point in checkpoints:
+        condition = point['condition']
+        if condition['kind'] == 'event-flag-set':
+            data += struct.pack('<BBHH', 0, point['cap'], condition['byte'], condition['mask'])
+        else:
+            data += struct.pack('<BBHH', 1, point['cap'], condition['index'], condition['minimum'])
+    data += bytes((0xFF, 100, 0, 0, 0, 0))
+    return hashlib.sha256(bytes(data)).hexdigest().upper()
+
+
+def _level_caps_condition(value):
+    _object(value, 'Condición')
+    kind = value.get('kind')
+    if kind == 'event-flag-set':
+        _keys(value, ('kind', 'byte', 'mask'), 'Condición')
+        return {'kind': kind, 'byte': _integer(value.get('byte'), 0, 619, 'condition.byte'),
+                'mask': _integer(value.get('mask'), 1, 255, 'condition.mask')}
+    if kind == 'event-work-at-least':
+        _keys(value, ('kind', 'index', 'minimum'), 'Condición')
+        return {'kind': kind, 'index': _integer(value.get('index'), 0, 999, 'condition.index'),
+                'minimum': _integer(value.get('minimum'), 1, 65535, 'condition.minimum')}
+    raise ValueError('Tipo de condición no admitido.')
+
+
+def validated_level_caps_block(block):
+    """Strict check of a version 1 block (shape, status rules and installed-table rules); raises ValueError."""
+    _keys(block, ('version', 'status', 'hooks', 'detail', 'evaluation', 'enforcement', 'ceiling', 'source', 'checkpoints'),
+          'playerLevelCaps')
+    if type(block.get('version')) is not int or block['version'] != LEVEL_CAPS_BLOCK_VERSION:
+        raise ValueError('Versión del bloque no admitida.')
+    status = block.get('status')
+    if not isinstance(status, str) or status not in LEVEL_CAPS_STATUSES:
+        raise ValueError('Estado del parche no admitido.')
+    hooks = _keys(block.get('hooks'), ('battleCro', 'codeBin'), 'hooks')
+    pair = (hooks.get('battleCro'), hooks.get('codeBin'))
+    if set(hooks) != {'battleCro', 'codeBin'} or any(not isinstance(h, str) or h not in LEVEL_CAPS_HOOKS for h in pair):
+        raise ValueError('Estado de una copia del parche no admitido.')
+    unusable = any(h in ('unrecognized', 'missing') for h in pair)
+    expected = {'installed': pair == ('applied', 'applied'),
+                'not-detected': pair == ('stock', 'stock'),
+                'inconsistent': all(h in ('stock', 'applied') for h in pair) and pair != ('stock', 'stock'),
+                'legacy-format': not unusable and 'applied-legacy' in pair,
+                'unsupported': unusable}[status]
+    if not expected:
+        raise ValueError('El estado no corresponde a las copias del parche.')
+    detail = block.get('detail')
+    if 'detail' in block and (not isinstance(detail, str) or not 1 <= len(detail) <= 500):
+        raise ValueError('Detalle del productor inválido.')
+    installed = status == 'installed'
+    source = block.get('source')
+    if 'source' in block or status != 'unsupported':
+        _keys(source, ('fingerprintAlgorithm', 'scope', 'fingerprint', 'tableSha256'), 'source')
+        if source.get('fingerprintAlgorithm') != 'SHA-256' or source.get('scope') != 'battle.cro,code.bin':
+            raise ValueError('Origen del bloque no compatible.')
+        for field in ('fingerprint',) + (('tableSha256',) if installed else ()):
+            if not isinstance(source.get(field), str) or not _SHA256.match(source[field]):
+                raise ValueError('SHA-256 del bloque inválido.')
+        if not installed and 'tableSha256' in source:
+            raise ValueError('Solo un parche instalado lleva el hash de su tabla.')
+    result = {'version': LEVEL_CAPS_BLOCK_VERSION, 'status': status,
+              'hooks': {'battleCro': pair[0], 'codeBin': pair[1]}, 'detail': detail,
+              'fingerprint': source['fingerprint'] if isinstance(source, dict) else None,
+              'tableSha256': None, 'checkpoints': []}
+    if not installed:
+        if any(field in block for field in ('evaluation', 'enforcement', 'ceiling', 'checkpoints')):
+            raise ValueError('Solo un parche instalado lleva una lista de puntos.')
+        return result
+    if (block.get('evaluation') != 'ordered-first-incomplete' or block.get('enforcement') != ['exp-gain', 'rare-candy']
+            or type(block.get('ceiling')) is not int or block['ceiling'] != 100):
+        raise ValueError('Reglas del parche instalado no compatibles.')
+    points = block.get('checkpoints')
+    if not isinstance(points, list) or not 1 <= len(points) <= LEVEL_CAPS_MAX_CHECKPOINTS:
+        raise ValueError('Lista de puntos inválida.')
+    checkpoints, seen, previous = [], set(), 0
+    for position, point in enumerate(points, 1):
+        _keys(point, ('order', 'cap', 'condition', 'label', 'labelSource'), 'Punto')
+        if _integer(point.get('order'), 1, LEVEL_CAPS_MAX_CHECKPOINTS, 'order') != position:
+            raise ValueError('El orden de los puntos debe ser 1..n en el orden de la lista.')
+        cap = _integer(point.get('cap'), 1, 100, 'cap')
+        if cap < previous:
+            raise ValueError('Los límites de los puntos no pueden bajar.')
+        previous = cap
+        condition = _level_caps_condition(point.get('condition'))
+        key = tuple(sorted(condition.items()))
+        if key in seen:
+            raise ValueError('Cada condición debe aparecer una sola vez.')
+        seen.add(key)
+        label = point.get('label')
+        if ('label' in point) != ('labelSource' in point):
+            raise ValueError('La etiqueta y su origen van siempre juntos.')
+        if 'label' in point:
+            if (point.get('labelSource') != 'randomizer-catalog' or not isinstance(label, str) or not 1 <= len(label) <= 60
+                    or label != label.strip() or any(ord(c) < 32 or ord(c) == 127 for c in label)):
+                raise ValueError('Etiqueta de un punto inválida.')
+        checkpoints.append({'order': position, 'cap': cap, 'condition': condition, 'label': label})
+    if level_caps_table_sha256(checkpoints) != source['tableSha256']:
+        raise ValueError('El hash de la tabla no coincide con los puntos.')
+    result.update(tableSha256=source['tableSha256'], checkpoints=checkpoints)
+    return result
+
+
+def level_caps_condition_text(condition):
+    if condition['kind'] == 'event-flag-set':
+        return f"Event Flag · byte 0x{condition['byte']:04X}, máscara 0x{condition['mask']:02X}"
+    return f"Event Work {condition['index']} ≥ {condition['minimum']}"
+
+
+def level_caps_stage_name(point):
+    """Stage name for a checkpoint: its catalog label, or its condition when it has none."""
+    label = point.get('label')
+    if isinstance(label, str) and 1 <= len(label) <= MAX_STAGE_NAME and not _CONTROL_CHARACTERS.search(label):
+        return label
+    return level_caps_condition_text(point['condition'])
+
+
+def level_caps_summary(document):
+    """What the tracker may do with the block of a validated document. Never raises.
+
+    ``state``: ``absent`` (no block), ``ignored`` (newer version, malformed or inconsistent block),
+    ``unavailable`` (valid block, patch not installed), ``rejected`` (more points than a run admits;
+    never truncated) or ``proposal``. Only ``proposal`` carries ``stages``.
+    """
+    summary = {'state': 'absent', 'status': None, 'reason': None, 'detail': None, 'hooks': None,
+               'fingerprint': None, 'tableSha256': None, 'ceiling': None, 'count': 0, 'maxStages': MAX_STAGES,
+               'checkpoints': [], 'stages': []}
+    if not isinstance(document, dict) or 'playerLevelCaps' not in document:
+        return summary
+    block = document['playerLevelCaps']
+    version = block.get('version') if isinstance(block, dict) else None
+    if type(version) is int and version > LEVEL_CAPS_BLOCK_VERSION:
+        summary.update(state='ignored', reason=f'El archivo trae límites del Randomizer en un formato más nuevo (versión {version}). '
+                       'Esta versión del Tracker los ignora; el resto de los datos se usa con normalidad.')
+        return summary
+    try:
+        valid = validated_level_caps_block(block)
+    except (ValueError, TypeError, KeyError, AttributeError) as exc:
+        summary.update(state='ignored', reason='Los límites del Randomizer incluidos en el archivo no son válidos y se ignoran ('
+                       + str(exc)[:200].rstrip('.') + '). El resto de los datos se usa con normalidad.')
+        return summary
+    summary.update(status=valid['status'], detail=valid['detail'], hooks=valid['hooks'], fingerprint=valid['fingerprint'])
+    if valid['status'] != 'installed':
+        summary.update(state='unavailable', reason=LEVEL_CAPS_STATUS_TEXT[valid['status']])
+        return summary
+    points = [{**point, 'name': level_caps_stage_name(point), 'conditionText': level_caps_condition_text(point['condition'])}
+              for point in valid['checkpoints']]
+    summary.update(tableSha256=valid['tableSha256'], ceiling=100, count=len(points), checkpoints=points)
+    if len(points) > MAX_STAGES:
+        summary.update(state='rejected', reason=f'El parche tiene {len(points)} puntos y una partida admite como máximo {MAX_STAGES} etapas. '
+                       'La lista no se recorta: no se ofrece como propuesta.')
+        return summary
+    summary.update(state='proposal', stages=[{'name': point['name'], 'cap': point['cap']} for point in points])
+    return summary
+
+
 class GameDataManager:
     """One import per run directory, activated only for its compatible game."""
     def __init__(self, path):
@@ -178,6 +363,12 @@ class GameDataManager:
         self._records = {section: {((r['speciesId'], r['formId']) if section != 'moves' else r['id']): r
                                   for r in doc.get(section, [])}
                          for section in ('species', 'moves', 'evolutions')}
+        self._level_caps = level_caps_summary(self.document)
+
+    def level_caps(self, game):
+        """Summary of the optional playerLevelCaps block for ``game``; None when the import is not active."""
+        with self._lock:
+            return copy.deepcopy(self._level_caps) if self.active(game) else None
 
     def active(self, game):
         return self.document is not None and GAMES[self.document['game']['id']][0] == game
@@ -192,6 +383,7 @@ class GameDataManager:
                     'producer': copy.deepcopy(doc['producer']) if doc else None,
                     'fingerprint': doc['source']['fingerprint'] if doc else None,
                     'counts': {s: len(doc[s]) if doc else 0 for s in ('species', 'moves', 'evolutions')},
+                    'levelCaps': self.level_caps(game),
                     'warning': 'El fingerprint identifica datos exportados; no comprueba la ROM cargada en el emulador.'}
 
     def species(self, species, form, game):

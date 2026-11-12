@@ -22,6 +22,7 @@ Para reemplazar los datos, previsualiza y confirma otro archivo. **Cancelar** no
 | Movimientos | Nombre, tipo, categoría, potencia, precisión, PP y prioridad en la ficha y análisis. Descripciones y efectos no incluidos en v1 conservan la referencia; no se simulan parches de combate |
 | Evoluciones | Rutas por especie/forma con método, argumento, destino, forma y nivel. Una lista explícitamente vacía elimina las rutas de referencia para ese registro. Métodos especiales no descritos por el catálogo se muestran con su código, sin inventar condiciones |
 | Juego, revisión, productor y fingerprint | Validación, estado de importación y procedencia. El fingerprint identifica los datos exportados; no demuestra qué ROM está ejecutando el emulador |
+| Estado del parche Player Level Caps (`playerLevelCaps`, opcional) | **Propuesta** de límites de nivel en Progreso, con vista previa y confirmación. Nunca se aplica sola ni elige una etapa vigente. Ver [Límites de nivel](LIMITES_NIVEL.md#propuesta-de-definitive-randomizer) |
 | Índice personal | Identificación técnica del registro exportado. Tracker usa especie/forma como clave, no offsets ni clases binarias del Randomizer |
 
 Para registros presentes, **DGD prevalece sobre CSV**, y CSV sobre las referencias originales. Los registros ausentes conservan las referencias/CSV aplicables. Las listas de evoluciones presentes reemplazan la lista entera del registro; no se añaden silenciosamente a la original. Los datos de otra partida o de otro juego no se activan.
@@ -33,5 +34,7 @@ El contrato canónico, el esquema JSON y el ejemplo sintético se mantienen en [
 `tests/fixtures/definitive-game-data-v1.synthetic.json` conserva una copia del ejemplo sintético para comprobar compatibilidad en CI sin acceder al otro repositorio ni distribuir datos de una ROM.
 
 Se admite `schemaVersion: 1`, productor `DefinitiveRandomizer`, Ultra Sol/Ultra Luna y revisión conocida `1.0`, o desconocida con confirmación. Otras versiones del esquema, juegos, Title IDs incoherentes, IDs/valores fuera de rango, claves duplicadas, referencias inválidas y archivos mayores de 5 MB se rechazan. Se toleran campos opcionales adicionales para futuras extensiones.
+
+El bloque opcional `playerLevelCaps` se valida aparte y de forma estricta cuando su versión es 1: forma, estado frente a las dos copias del parche, orden 1..n, límites que no bajan, condiciones únicas y hash de la tabla. Un bloque no válido o de una versión más nueva **se ignora** (sin propuesta) y el resto del archivo se importa igual: los archivos que aceptaba la versión 1.4.0 se siguen aceptando. `tests/fixtures/definitive-game-data-v1.player-level-caps.synthetic.json` es una copia del ejemplo sintético del contrato.
 
 Los datos se guardan como `definitive-game-data.json` dentro de la carpeta de la partida. Son metadatos locales, no una prueba de que una ROM coincida con el archivo. No se transmite el documento por Soul Link ni se cambia el contrato de sus snapshots; cada jugador importa su propio catálogo. La demo y las fuentes remotas OBS no permiten importar. No se añade soporte de memoria DS, Switch, Sol/Luna o revisiones distintas de 1.0.

@@ -74,6 +74,44 @@ Sirven para llevar las mismas etapas de una partida a otra o compartirlas. Es un
 - **Cambios sin guardar**: con un borrador sin guardar en el editor de etapas, importar queda desactivado (con la explicación) para no descartarlo en silencio. Si el borrador aparece o la lista de la partida cambia mientras se revisa la vista previa, la importación se rechaza.
 - Cada partida y juego tiene su propia lista; importar en una no afecta a las demás. La exportación del escritorio usa la acción nativa `save_export('level_caps')`; Soul Link, OBS, la RAM y Definitive Game Data no cambian.
 
+## Propuesta de Definitive Randomizer
+
+Si los [datos importados de Definitive Randomizer](DEFINITIVE_GAME_DATA.md) incluyen el estado de su parche **Player Level Caps**, Progreso muestra una **propuesta**. Son los límites que ese parche aplica en la ROM exportada (bloquea la experiencia y el Caramelo Raro por encima del límite): una **restricción mecánica del juego**, no las etapas del desafío. El tracker nunca los aplica por su cuenta y no sabe qué puntos ha completado el jugador.
+
+- **Importar los datos no cambia los límites.** La tarjeta «Propuesta de Definitive Randomizer» resume cuántos puntos hay y entre qué niveles.
+- **Revisar propuesta…** abre una vista previa con cada punto, su nivel, el nombre del catálogo del Randomizer (o la condición, si no tiene nombre), la comparación fila a fila con las etapas actuales y los datos técnicos: productor, juego, estado de las dos copias del parche, cómo se evalúa, huellas y hash de la tabla.
+- **Aceptar** copia los puntos como etapas de esta partida. Si ya había etapas, hay que marcar «Entiendo que se reemplazarán las etapas actuales»; la lista se reemplaza entera, no se mezcla. Se crean identificadores nuevos, **ninguna etapa queda vigente** (se indica cuál era la anterior) y la opción de mostrar los límites no cambia.
+- **Etapa final de Nv. 100**: opcional y desmarcada. Añade «Después del último punto (techo del parche)». No es un punto del parche, sino su techo; al marcarla o desmarcarla la confirmación se pide de nuevo.
+- **Conservar los límites actuales** (o Esc) cierra sin cambiar nada. **Descartar propuesta** la aparta sin tocar las etapas; «Volver a mostrarla» la recupera.
+- **Cambios sin guardar**: con un borrador en el editor de etapas no se puede revisar la propuesta. Si durante la revisión cambia la partida, el juego, los datos importados o la lista de etapas, la propuesta deja de poder aceptarse y el servidor también la rechaza.
+- Solo un parche **instalado** en las dos copias y con la misma tabla genera propuesta. Los demás estados (no detectado, no reconocido, copias que no coinciden, formato anterior), un bloque no válido o de una versión más nueva solo se informan. Un parche con más de 64 puntos se rechaza entero: **no se recorta**.
+- **Retirar los datos importados no borra las etapas aceptadas** ni su procedencia.
+
+La procedencia se guarda en un archivo aparte por partida y juego (`…-level-caps-source.json`, junto al registro de la aventura), con escritura atómica. El bloque `level_caps` versión 1 y el formato de las listas de etapas no cambian, de modo que una partida sigue abriéndose con versiones anteriores del tracker.
+
+```json
+{
+  "format": "progressive-tracker-level-caps-source",
+  "version": 1,
+  "accepted": {
+    "source": "definitive-game-data", "blockVersion": 1,
+    "producer": {"id": "DefinitiveRandomizer", "version": "…"}, "game": "Ultra Sun 1.0",
+    "dataFingerprint": "…", "capsFingerprint": "…", "tableSha256": "…",
+    "checkpoints": 21, "finalStage": false, "listRevision": "…", "acceptedAt": "2026-11-12T05:00:00+00:00"
+  },
+  "dismissed": null
+}
+```
+
+`listRevision` identifica la lista tal como quedó al aceptar; si después se edita a mano, Progreso indica que ya no es la propuesta. Un archivo dañado se informa y no impide cargar la partida; uno de una versión más nueva se conserva sin tocar.
+
+| Acción (`POST /api/command`) | Cuerpo | Efecto |
+|---|---|---|
+| `level_caps_accept_proposal` | `game`, `dataFingerprint`, `capsFingerprint`, `tableSha256`, `listRevision`, `finalStage` (booleano) y `replace` (booleano) | Sustituye la lista por los puntos de la propuesta **cargada en el servidor** (el cliente no envía etapas). Se rechaza si algo de lo revisado ya no coincide o si falta `replace` habiendo etapas. |
+| `level_caps_dismiss_proposal` | Los mismos identificadores y `dismissed` (booleano) | Aparta o recupera la propuesta. No toca las etapas. |
+
+El resumen `level_caps` añade `revision` (huella corta de la lista guardada) y el estado incluye `level_caps_source` (`accepted`, `dismissed`, `matchesCurrent`, `error`).
+
 ## Datos dañados y versiones futuras
 
 - Un bloque `level_caps` dañado **no** pone en cuarentena el registro: se aparta sin cambios en `level_caps_rejected` para revisarlo, el resto (muertes, encuentros, rutas y marcas) se carga normalmente y se muestra un aviso. Se pueden configurar límites nuevos.
@@ -82,4 +120,4 @@ Sirven para llevar las mismas etapas de una partida a otra o compartirlas. Es un
 
 ## Compatibilidad
 
-Soul Link comparte solo los campos de progreso de su lista (`schema_version: 1` sin cambios): los límites no se envían al compañero. El estado público de OBS, la lectura de RAM, Definitive Game Data y los CSV de pk3DS no cambian. La copia **Guardar sesión…** incluye los límites dentro de `progress`.
+Soul Link comparte solo los campos de progreso de su lista (`schema_version: 1` sin cambios): los límites no se envían al compañero. El estado público de OBS, la lectura de RAM, los datos de Definitive Game Data que usa el tracker y los CSV de pk3DS no cambian. La copia **Guardar sesión…** incluye los límites dentro de `progress`.
