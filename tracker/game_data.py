@@ -15,6 +15,7 @@ import threading
 
 from .progress import MAX_STAGES, MAX_STAGE_NAME, _CONTROL_CHARACTERS
 from .templates import evolutions_csv
+from .profile_provenance import profile_provenance_summary
 
 MAX_BYTES = 5_000_000
 GAMES = {'ultra-sun': ('Ultra Sun 1.0', '00040000001B5000'),
@@ -364,6 +365,7 @@ class GameDataManager:
                                   for r in doc.get(section, [])}
                          for section in ('species', 'moves', 'evolutions')}
         self._level_caps = level_caps_summary(self.document)
+        self._profile_provenance = profile_provenance_summary(self.document)
 
     def level_caps(self, game):
         """Summary of the optional playerLevelCaps block for ``game``; None when the import is not active."""
@@ -384,6 +386,7 @@ class GameDataManager:
                     'fingerprint': doc['source']['fingerprint'] if doc else None,
                     'counts': {s: len(doc[s]) if doc else 0 for s in ('species', 'moves', 'evolutions')},
                     'levelCaps': self.level_caps(game),
+                    'profileProvenance': copy.deepcopy(self._profile_provenance) if self.active(game) else None,
                     'warning': 'El fingerprint identifica datos exportados; no comprueba la ROM cargada en el emulador.'}
 
     def species(self, species, form, game):
@@ -436,6 +439,7 @@ class GameDataManager:
                     'requiresRevisionAcknowledgement': doc['game']['revisionStatus'] == 'unknown',
                     'counts': {s: len(doc[s]) for s in ('species', 'moves', 'evolutions')},
                     'differences': differences[:20], 'replacesExisting': self.document is not None,
+                    'profileProvenance': profile_provenance_summary(doc),
                     'warning': 'Se importarán datos informativos para esta partida. No se verifica ni modifica la ROM o la memoria del emulador.'}
 
     def apply(self, token, game, acknowledge_unknown=False):

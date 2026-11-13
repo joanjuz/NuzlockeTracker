@@ -38,3 +38,11 @@ Se admite `schemaVersion: 1`, productor `DefinitiveRandomizer`, Ultra Sol/Ultra 
 El bloque opcional `playerLevelCaps` se valida aparte y de forma estricta cuando su versión es 1: forma, estado frente a las dos copias del parche, orden 1..n, límites que no bajan, condiciones únicas y hash de la tabla. Un bloque no válido o de una versión más nueva **se ignora** (sin propuesta) y el resto del archivo se importa igual: los archivos que aceptaba la versión 1.4.0 se siguen aceptando. `tests/fixtures/definitive-game-data-v1.player-level-caps.synthetic.json` es una copia del ejemplo sintético del contrato.
 
 Los datos se guardan como `definitive-game-data.json` dentro de la carpeta de la partida. Son metadatos locales, no una prueba de que una ROM coincida con el archivo. No se transmite el documento por Soul Link ni se cambia el contrato de sus snapshots; cada jugador importa su propio catálogo. La demo y las fuentes remotas OBS no permiten importar. No se añade soporte de memoria DS, Switch, Sol/Luna o revisiones distintas de 1.0.
+
+## Perfil de origen (procedencia histórica)
+
+El bloque opcional `profileProvenance` se muestra en el mismo panel **Datos de Definitive Randomizer**, durante la vista previa y después de confirmar la importación. Muestra nombre, autor declarado (si existe), edición, secciones de la receta aplicada y si hay cambios posteriores registrados. La huella de receta queda en un detalle desplegable con teclado. Es procedencia histórica declarada: **no certifica coincidencia exacta con el perfil original ni con la ROM actual**, tampoco autentica al autor.
+
+Sin bloque se indica que el archivo no incluye procedencia. Un bloque inválido o futuro se ignora aisladamente y se explica, conservando los datos DGD y Player Level Caps. La procedencia se persiste dentro del mismo DGD confirmado por partida: previsualizar no escribe; reemplazar y retirar usan las confirmaciones existentes. Un nuevo documento sin procedencia no hereda la del anterior. Nunca se ejecutan recetas/parches ni se modifican los límites ya aceptados, RAM, Soul Link u OBS.
+
+V1: máximo 16 KiB, 64 secciones únicas y ordenadas, nombre 120 caracteres y autor opcional 80, sin controles ni rutas. El juego debe coincidir con DGD. Contrato canónico en Randomizer; fixture local enteramente sintético.
