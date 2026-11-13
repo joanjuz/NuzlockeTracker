@@ -60,6 +60,9 @@ class RoomRequestHandler(DirectRequestHandler):
             self.reply(429, {'error': 'Demasiadas solicitudes; vuelve a intentar'})
             return
         if self.path == '/v2/join':
+            if data.get('features') != ['capture-links-v1']:
+                self.reply(409, {'error': 'Versiones de sala incompatibles; actualiza ambos Trackers'})
+                return
             self.reply(200, host.room.join(self.secret, data))
         else:
             # Check envelope even on leave: a stale incarnation cannot revoke
@@ -108,12 +111,20 @@ class RoomHost(DirectHost):
 class RoomPeer:
     def __init__(self, invite: object, person: JSONDict) -> None:
         self.base, secret = room_invitation(invite)
-        response = room_request(self.base, '/v2/join', secret, {'protocol': 2, **person})
+        response = room_request(self.base, '/v2/join', secret, {'protocol': 2, 'features': ['capture-links-v1'], **person})
         token = response.get('token')
         if not isinstance(token, str) or SECRET_RE.fullmatch(token) is None:
             raise ValueError('Credencial de sala inválida')
         self.token = token
         self.view = room_view(response.get('room'))
+        if 'capture-links-v1' not in self.view['features']:
+            try:
+                room_request(self.base, '/v2/leave', token, {'protocol': 2,
+                    'session_id': self.view['session_id'], 'epoch': self.view['epoch'],
+                    'run_id': person['run_id'], 'sequence': 1, 'state': None})
+            except ValueError:
+                pass
+            raise ValueError('El host no admite grupos de captura; actualiza ambos Trackers')
         if not any(m['player_id'] == person['player_id'] and m['run_id'] == person['run_id']
                    and m['game'] == person['game'] for m in self.view['members']):
             raise ValueError('Jugador ausente en la sala')

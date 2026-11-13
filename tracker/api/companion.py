@@ -5,7 +5,7 @@ from .routing import exact
 
 COMPANION_LIMIT = 4096
 ACTIONS = ('create', 'join', 'refresh', 'leave', 'direct_host', 'direct_join',
-           'room_host', 'room_join', 'room_invite', 'room_revoke', 'room_remove', 'room_new_run')
+           'room_host', 'room_join', 'room_invite', 'room_revoke', 'room_remove', 'room_new_run', 'room_link')
 
 
 def status(req, _match):

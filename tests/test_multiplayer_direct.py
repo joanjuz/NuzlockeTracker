@@ -5,6 +5,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from companion.direct import request_json
 from companion.room_direct import room_invitation, room_request
@@ -150,6 +151,25 @@ class MultiplayerDirectTests(unittest.TestCase):
             peer.sync_once(force=True)
         self.assertIn('429', peer.status()['error'])
         self.assertLessEqual(len(host.multiplayer.host.rates), 5)
+
+    def test_capture_feature_negotiation_rejects_old_rooms_without_live_credentials(self):
+        host, status = self.host()
+        base, secret = room_invitation(status['invite_link'])
+        with self.assertRaisesRegex(ValueError, '409'):
+            room_request(base, '/v2/join', secret, {'protocol': 2})
+        self.assertEqual(len(host.multiplayer.host.room.members), 1)
+        view = host.multiplayer.host.room.view
+        def old_view():
+            result = view()
+            result.pop('features', None)
+            return result
+        with patch.object(host.multiplayer.host.room, 'view', old_view):
+            peer = self.app(1)
+            with self.assertRaisesRegex(ValueError, 'actualiza ambos'):
+                peer.perform('room_join', {'invite_code': status['invite_link'],
+                    'name': 'New', 'game': 'Ultra Sun 1.0'})
+        self.assertFalse(peer.multiplayer.active)
+        self.assertEqual(host.multiplayer.host.room.tokens, {})
 
     def test_pair_room_mutual_exclusion_and_legacy_direct_still_works(self):
         host, _ = self.host()

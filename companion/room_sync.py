@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Protocol
 
 from .direct import identity
+from .room_links import captures, links
 from .room import MAX_SEQUENCE, room_view
 from .room_direct import RoomHost, RoomPeer
 from .room_storage import RoomStorage
@@ -28,6 +29,7 @@ class RoomSync:
         self.person: JSONDict = {}
         self.view: JSONDict | None = self.storage.data['room']
         self.sequence = 0
+        self.links: dict[str, str] = {}
         self.error = self.storage.error
         self.last_sync = 0.0
         self.last_cache = 0.0
@@ -55,6 +57,7 @@ class RoomSync:
             else:
                 raise ValueError('Acción de sala inválida')
             self.person = person
+            self.links = next((m.get('links', {}) for m in self.view['members'] if m['player_id'] == person['player_id']), {})
             self.sequence = 0
             self.last_sync = 0.0
             self.error = ''
@@ -67,7 +70,7 @@ class RoomSync:
             raise ValueError('Secuencia agotada; crea otra sesión')
         self.sequence += 1
         return {'protocol': 2, 'session_id': self.view['session_id'], 'epoch': self.view['epoch'],
-                'run_id': self.person['run_id'], 'sequence': self.sequence, 'state': value}
+                'run_id': self.person['run_id'], 'sequence': self.sequence, 'state': value, 'links': self.links}
 
     def sync(self, *, force: bool = False) -> None:
         with self.lock:
@@ -125,6 +128,25 @@ class RoomSync:
                 self.storage.new_run(options.get('game', ''))
                 self.view = None
                 return
+            if action == 'room_link':
+                if not self.active:
+                    raise ValueError('Conecta la sala antes de elegir una captura')
+                route, key = options.get('route'), options.get('pokemon_key')
+                proposed = dict(self.links)
+                if not isinstance(route, str):
+                    raise ValueError('Ruta inválida')
+                if key is None:
+                    proposed.pop(route, None)
+                else:
+                    proposed[route] = key
+                proposed = links(proposed, self.person['game'])
+                if key is not None:
+                    current = snapshot(self.service.snapshot())
+                    if current['game'] != self.person['game'] or key not in captures(self.person['game'], current).get(route, set()):
+                        raise ValueError('Elige una captura actual de tu propia ruta')
+                self.links = proposed
+                self.sync(force=True)
+                return
             if not self.host:
                 raise ValueError('Esta acción corresponde al anfitrión')
             with self.host.lock:
@@ -143,6 +165,33 @@ class RoomSync:
                     raise ValueError('Acción de sala inválida')
             self.view = self.host.room_status()
             self.storage.cache(self.view)
+
+    def validate_confirmation(self, context: object, key: object) -> None:
+        """Bind an explicitly clicked local command to the still-current room/run."""
+        with self.lock:
+            if not self.active or self.view is None or not isinstance(context, dict):
+                raise ValueError('Este aviso ya no corresponde a una sala activa')
+            if self.host:
+                self.view = self.host.room_status()
+            if (context.get('session_id') != self.view['session_id']
+                    or context.get('epoch') != self.view['epoch']
+                    or context.get('local_run_id') != self.person['run_id']
+                    or self.service.snapshot().get('game') != self.person['game']):
+                raise ValueError('La sala o la partida cambió; revisa el aviso')
+            remote = next((m for m in self.view['members']
+                           if m['player_id'] == context.get('player_id')
+                           and m['run_id'] == context.get('run_id')), None)
+            route, pokemon_key = context.get('route'), context.get('pokemon_key')
+            if not isinstance(route, str) or not isinstance(pokemon_key, str):
+                raise ValueError('Aviso de ruta inválido')
+            if (remote is None or remote['player_id'] == self.person['player_id']
+                    or not remote['online'] or not remote['source_live'] or remote['state'] is None
+                    or remote['links'].get(route) != pokemon_key or self.links.get(route) != key):
+                raise ValueError('El enlace del aviso ya no está disponible')
+            death = remote['state']['progress']['deaths'].get(pokemon_key)
+            if (not death or death.get('source') == 'soullink-response'
+                    or str(death.get('recorded_at', '')) != context.get('recorded_at')):
+                raise ValueError('La muerte remota cambió; no se aplicó el aviso')
 
     def close(self) -> None:
         with self.lock:

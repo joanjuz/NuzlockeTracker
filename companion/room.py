@@ -15,6 +15,7 @@ import uuid
 from collections.abc import Callable
 from typing import Any
 
+from .room_links import captures, links
 from .snapshot import JSONDict, SUPPORTED_GAMES, safe_text, shared_state
 
 PROTOCOL = 2
@@ -80,9 +81,9 @@ class Room:
     def _add(self, data: JSONDict) -> None:
         pid = data['player_id']
         self.members[pid] = {**data, 'sequence': 0, 'state': None,
-                             'source_live': False, 'left': False}
+                             'source_live': False, 'left': False, 'links': {}}
         self.last_seen[pid] = self.clock()
-        self.hashes[pid] = digest(None)
+        self.hashes[pid] = digest({'state': None, 'links': self.members[pid]['links']})
         self._event('joined', pid)
 
     def _event(self, kind: str, player_id: str, **extra: Any) -> None:
@@ -126,7 +127,7 @@ class Room:
             self._add(person)
         else:
             self.members[pid].update(name=person['name'], sequence=0, left=False)
-            self.hashes[pid] = digest(None)
+            self.hashes[pid] = digest({'state': None, 'links': self.members[pid]['links']})
             self.last_seen[pid] = self.clock()
             self._event('reconnected', pid)
         self.tokens[pid] = token
@@ -150,7 +151,12 @@ class Room:
         member = self.members[pid]
         if incoming is not None and incoming['game'] != member['game']:
             raise ValueError('Juego incompatible con la partida')
-        incoming_hash = digest(incoming)
+        chosen = links(data.get('links', member['links']), member['game'])
+        available = captures(member['game'], incoming if incoming is not None else member['state'])
+        for route, key in chosen.items():
+            if member['links'].get(route) != key and key not in available.get(route, set()):
+                raise ValueError('Elige una captura de tu propia partida y ruta')
+        incoming_hash = digest({'state': incoming, 'links': chosen})
         previous = member['sequence']
         if seq < previous or (seq == previous and incoming_hash != self.hashes[pid]):
             raise ValueError('Estado antiguo o secuencia reutilizada')
@@ -170,7 +176,12 @@ class Room:
                     for route in set(incoming['progress']['missed_routes']) - set(old['progress']['missed_routes']):
                         self._event('missed', pid, route=route)
                 member['state'] = incoming
-            member.update(sequence=seq, source_live=incoming is not None)
+            for route, key in chosen.items():
+                if member['links'].get(route) != key:
+                    self._event('linked', pid, route=route, pokemon_key=key)
+            for route in member['links'].keys() - chosen.keys():
+                self._event('unlinked', pid, route=route)
+            member.update(sequence=seq, source_live=incoming is not None, links=chosen)
             self.hashes[pid] = incoming_hash
             self.revision += 1
         return self.view()
@@ -195,7 +206,7 @@ class Room:
         members = [{**copy.deepcopy(member),
                     'online': not member['left'] and now - self.last_seen[pid] < OFFLINE_SECONDS}
                    for pid, member in self.members.items()]
-        return {'protocol': PROTOCOL, 'session_id': self.session_id, 'epoch': self.epoch,
+        return {'protocol': PROTOCOL, 'features': ['capture-links-v1'], 'session_id': self.session_id, 'epoch': self.epoch,
                 'capacity': self.capacity, 'host_id': self.host_id, 'revision': self.revision,
                 'members': members, 'events': copy.deepcopy(self.events)}
 
@@ -230,7 +241,8 @@ def room_view(value: object, *, offline: bool = False) -> JSONDict:
             if type(member.get(name)) is not bool:
                 raise ValueError('Estado de conexión inválido')
             flags[name] = False if offline and name != 'left' else member[name]
-        clean.append({**person, **flags, 'sequence': sequence(member.get('sequence')), 'state': state})
+        clean.append({**person, **flags, 'sequence': sequence(member.get('sequence')), 'state': state,
+                      'links': links(member.get('links', {}), person['game'])})
     if result['host_id'] not in ids:
         raise ValueError('Anfitrión ausente')
     events = value.get('events')
@@ -239,7 +251,7 @@ def room_view(value: object, *, offline: bool = False) -> JSONDict:
     cleaned_events = []
     last = 0
     for event in events:
-        if not isinstance(event, dict) or event.get('kind') not in ('joined', 'reconnected', 'left', 'death', 'revived', 'missed'):
+        if not isinstance(event, dict) or event.get('kind') not in ('joined', 'reconnected', 'left', 'death', 'revived', 'missed', 'linked', 'unlinked'):
             raise ValueError('Evento inválido')
         eid = sequence(event.get('id'))
         if not last < eid <= result['revision']:
@@ -247,7 +259,7 @@ def room_view(value: object, *, offline: bool = False) -> JSONDict:
         last = eid
         item = {'id': eid, 'kind': event['kind'], 'player_id': identifier(event.get('player_id')),
                 'run_id': identifier(event.get('run_id'))}
-        if event['kind'] in ('death', 'revived'):
+        if event['kind'] in ('death', 'revived', 'linked'):
             key = event.get('pokemon_key')
             if not safe_text(key, 70):
                 raise ValueError('Pokémon inválido')
@@ -256,10 +268,14 @@ def room_view(value: object, *, offline: bool = False) -> JSONDict:
                 if type(event.get('response')) is not bool:
                     raise ValueError('Evento inválido')
                 item['response'] = event['response']
-        if event['kind'] == 'missed':
+        if event['kind'] in ('missed', 'linked', 'unlinked'):
             route = event.get('route')
             if not safe_text(route, 20):
                 raise ValueError('Ruta inválida')
             item['route'] = route
         cleaned_events.append(item)
-    return {**result, 'members': clean, 'events': cleaned_events}
+    features = value.get('features', [])
+    if not isinstance(features, list) or len(features) > 8 or any(not safe_text(f, 40) for f in features):
+        raise ValueError('Capacidades de sala inválidas')
+    return {**result, 'members': clean, 'events': cleaned_events,
+            'features': [f for f in features if f == 'capture-links-v1']}
