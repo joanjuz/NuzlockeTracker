@@ -1,7 +1,7 @@
 # Sala Soul Link: contrato v2 (base de implementación)
 
-El protocolo de sala amplía el modelo a 2, 3 o 4 miembros. Este primer incremento
-contiene el modelo y la persistencia; todavía no habilita salas en la interfaz.
+El protocolo de sala amplía el modelo a 2, 3 o 4 miembros. El modelo, la persistencia y el transporte local v2 están implementados;
+los controles visuales se incorporan en un incremento separado.
 Direct v1 y Cloudflare v1 conservan sus contratos actuales de dos jugadores.
 
 Cada sala tiene UUID de sesión y época, capacidad y anfitrión. Cada jugador tiene
@@ -37,3 +37,35 @@ Límites: cuatro estados individuales de hasta 650 KB; respuesta agregada hasta
 2.8 MB, miembros y eventos acotados, textos mediante la lista blanca existente.
 Este contrato no demuestra conectividad por Internet ni compatibilidad jugable;
 las pruebas del modelo usan estados sintéticos y no ROMs ni saves originales.
+
+## Transporte y acciones locales v2
+
+El listener de Direct se reutiliza con rutas exclusivas `/v2/join`, `/v2/exchange`
+y `/v2/leave`. Una sala rechaza v1; una pareja v1 rechaza v2. El enlace de sala es
+`nuzlocke://IP:puerto/room#secreto`. No se permite proxy, redirección, IP pública,
+DNS, Origin de navegador ni acceso al servidor de administración. HTTP requiere
+LAN de confianza o VPN cifrada, como Direct v1. No hay descubrimiento ni NAT traversal.
+
+La API local autenticada añade `room_host`, `room_join`, `room_invite`,
+`room_revoke`, `room_remove` y `room_new_run`. El host elige capacidad 2/3/4.
+Los invitados no pueden administrar plazas ni invitaciones. La salida usa `leave`;
+`refresh` fuerza sincronización. Cambiar de pareja/sala exige salir primero.
+Nueva partida exige desconectarse y rota solo el run_id del juego seleccionado.
+
+Cada credencial identifica un único jugador. Se valida sesión, época, run_id y
+secuencia en cada intercambio y salida. Un campo player_id del remitente no tiene
+autoridad. Cada snapshot enviado mantiene el límite v1; solo la respuesta agregada
+admite 2.8 MB. Ocho peticiones autenticadas por segundo como máximo por miembro;
+el cliente normal transmite como máximo una vez por segundo y sondea cada cinco.
+
+Después de un fallo se marca la vista recibida offline. Al reiniciar no se restaura
+la conexión; se puede consultar caché. Si el host sigue abierto, una invitación
+dirigida permite recuperar la plaza con la identidad/partida persistidas. Si el host
+reinicia, debe crear otra sala e invitar explícitamente a los demás. No se restaura
+una credencial antigua ni se reutiliza una invitación consumida.
+
+Pruebas: `python -m unittest tests.test_multiplayer_direct tests.test_companion_direct
+tests.test_companion -v`; cuatro puentes independientes y listeners reales loopback,
+respuesta de cuatro estados mayor de 650 KB, aislamiento de identidad autenticada,
+reconexión tras recrear el puente, pérdida de fuente actual, cierre del host, límites,
+CSRF/Origin, rutas de administración rechazadas y regresión de pareja v1.

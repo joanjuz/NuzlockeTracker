@@ -14,6 +14,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
+from .room_sync import RoomSync
 from .snapshot import SUPPORTED_GAMES, JSONDict, shared_state, snapshot
 from .direct import DirectHost, SECRET_RE, identity, invitation, partner as direct_partner, request_json
 
@@ -126,6 +127,7 @@ class CompanionSync:
         self.settings_path = self.directory / 'companion-credentials.json'
         self.cache_path = self.directory / 'companion-cache.json'
         self.transport = transport
+        self.multiplayer = RoomSync(service, self.directory)
         self.lock = threading.RLock()
         self.stop = threading.Event()
         self.wake = threading.Event()
@@ -180,6 +182,8 @@ class CompanionSync:
         return DEFAULT_WORKER_URL
 
     def status(self) -> JSONDict:
+        if self.multiplayer.active or (self.multiplayer.view is not None and not self.settings):
+            return self.multiplayer.status()
         with self.lock:
             worker_url = self.settings.get('worker_url') or self.default_worker_url()
             invite = self.settings.get('invite_code', '')
@@ -254,6 +258,33 @@ class CompanionSync:
 
     def perform(self, action: str, options: JSONDict | None = None) -> JSONDict:
         options = options or {}
+        if action.startswith('room_'):
+            with self.lock:
+                if self.settings and self.settings.get('transport') != 'room':
+                    raise ValueError('Desvincula la pareja antes de abrir una sala')
+                if action in ('room_host', 'room_join'):
+                    if self.multiplayer.active:
+                        raise ValueError('Ya existe una sala; sal de ella primero')
+                    self.settings = {'transport': 'room'}  # Reserve before any network operation.
+                    try:
+                        self.multiplayer.start(action, options)
+                    except Exception:
+                        self.settings = {}
+                        raise
+                else:
+                    self.multiplayer.manage(action, options)
+                self.wake.set()
+            return self.status()
+        if self.multiplayer.active:
+            if action == 'leave':
+                self.multiplayer.close()
+                with self.lock:
+                    self.settings = {}
+                return self.status()
+            if action == 'refresh':
+                self.multiplayer.sync(force=True)
+                return self.status()
+            raise ValueError('Sal de la sala antes de crear otra conexión')
         if action in ('direct_host', 'direct_join'):
             with self.lock:
                 if self.settings:
@@ -335,6 +366,9 @@ class CompanionSync:
         raise ValueError('Acción de compañero inválida')
 
     def sync_once(self, force: bool = False, fetch_partner: bool = True) -> None:
+        if self.multiplayer.active:
+            self.multiplayer.sync(force=force)
+            return
         with self.lock:
             settings = dict(self.settings)
         if not settings:
@@ -494,3 +528,4 @@ class CompanionSync:
         with self.lock:
             host, session = self._detach_direct()
         self._shutdown_direct(host, session)
+        self.multiplayer.close()
