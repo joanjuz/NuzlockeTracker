@@ -69,6 +69,10 @@ def command(req, _match):
         if len(body) > COMMAND_LIMIT and cmd.get('action') != 'level_caps_set':
             raise ValueError('Tamaño inválido')
         action = validate_command(service, cmd)
+        if 'soullink_room' in cmd:
+            if action != 'mark_dead' or cmd.get('source') != 'soullink-response' or req.ctx.companion is None:
+                raise ValueError('Confirmación de sala inválida')
+            req.ctx.companion.multiplayer.validate_confirmation(cmd['soullink_room'], cmd.get('key'))
         if action in ('connect', 'disconnect'):
             cmd['_connection_generation'] = service.request_connection_change()
         service.commands.put(cmd)

@@ -53,7 +53,7 @@ class RoomTests(unittest.TestCase):
         for capacity in (True, 1, 5, '4'):
             with self.subTest(capacity=capacity), self.assertRaises(ValueError):
                 Room(person(), capacity)
-        for fields in ({'name': '<script>'}, {'name': ''}, {'game': 'Unknown'},
+        for fields in ({'name': '<script>'}, {'name': '\ud800'}, {'name': ''}, {'game': 'Unknown'},
                        {'player_id': 'arbitrary'}, {'run_id': None}):
             with self.subTest(fields=fields), self.assertRaises(ValueError):
                 Room({**person(), **fields}, 4)

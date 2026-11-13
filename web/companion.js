@@ -5,6 +5,7 @@
   const toggle = el('companion-toggle');
   const dialog = el('companion-dialog');
   const indicator = el('companion-status');
+  let roomController = null;
   let remote = null;
   let viewingPartner = false;
   let lastUpdate = -1;
@@ -12,8 +13,10 @@
   let connectionMode = 'direct';
   const transportControl = el('companion-transport');
   function updateTransport() {
-    connectionMode = transportControl?.value === 'cloud' ? 'cloud' : 'direct';
-    const direct = connectionMode === 'direct';
+    connectionMode = ['cloud','room'].includes(transportControl?.value) ? transportControl.value : 'direct';
+    const direct = connectionMode !== 'cloud';
+    if(el('room-capacity-label'))el('room-capacity-label').hidden=connectionMode!=='room';
+    if(el('companion-direct-host'))el('companion-direct-host').textContent=connectionMode==='room'?'Crear sala':'Ser host';
     const fields = el('companion-direct-fields');
     if (fields) fields.hidden = !direct;
     el('companion-create').hidden = direct;
@@ -55,6 +58,7 @@
     try { localStorage.setItem('soullink-manual-enabled',String(soulToggle.checked)); } catch (error) {}
     soulNotice.hidden = true; souls.pending = null; souls.queue = [];
     souls.initialized = false;
+    roomController?.reset();
   };
   function deathIdentity(entry,key){return key+'|'+String(entry?.recorded_at||'')}
   // Location IDs are resolved with the partner game's catalog, not whatever view is on screen.
@@ -126,7 +130,8 @@
     if(souls.pending || !soulToggle.checked)return;
     while(souls.queue.length){
       const next=souls.queue.shift();
-      const candidates=routeCandidates(next.remoteMon,next.remoteGame);
+      if(roomController&&!roomController.valid(next))continue;
+      const candidates=routeCandidates(next.remoteMon,next.remoteGame).filter(c=>!next.localKey||c.key===next.localKey);
       if(!candidates.length)continue;
       souls.pending={...next,candidates,selectedKey:candidates.length===1?candidates[0].key:''};
       soulChoice.replaceChildren();
@@ -191,7 +196,7 @@
     const current=souls.pending;
     if(!current || !token || souls.busy)return;
     const selected=routeCandidates(current.remoteMon,current.remoteGame).find(p=>p.key===current.selectedKey);
-    if(!selected){
+    if(!selected||(current.localKey&&selected.key!==current.localKey)||(roomController&&!roomController.valid(current))){
       soulError.textContent='Ese Pokémon ya no está disponible. Ignora el aviso si cambió tu equipo.';
       soulError.hidden=false;return;
     }
@@ -200,7 +205,7 @@
     try{
       const response=await fetch('/api/command',{method:'POST',
         headers:{'Content-Type':'application/json','X-Tracker-Token':token},
-        body:JSON.stringify({action:'mark_dead',key:selected.key,source:'soullink-response'})});
+        body:JSON.stringify({action:'mark_dead',key:selected.key,source:'soullink-response',...roomController?.commandContext(current)})});
       const payload=await response.json();
       if(!response.ok)throw Error(payload.error||'No se pudo registrar la muerte');
       souls.pending=null;soulNotice.hidden=true;
@@ -215,6 +220,8 @@
   };
   const stamp = ms => ms ? new Date(ms).toLocaleString('es-CR') : 'Aún no ha compartido una sesión';
   function updatePage(info) {
+    if(roomController&&info.protocol===2&&info.room){roomController.update(info);return;}
+    roomController?.clear();
     const p = info.partner;
     if (info.default_worker_url && !el('companion-url').value) el('companion-url').value = info.default_worker_url;
     const hasPartner = Boolean(p);
@@ -261,6 +268,7 @@
   async function action(actionName, extra = {}) {
     if (working) return;
     working = true;
+    roomController?.setBusy(true);
     for(const id of ['companion-create','companion-join','companion-refresh','companion-leave','companion-direct-host']) {if(el(id))el(id).disabled = true;}
     indicator.textContent = 'Procesando…';
     try {
@@ -278,6 +286,7 @@
     } finally {
       el('companion-setup-key').value = '';
       working = false;
+      roomController?.setBusy(false);
       for(const id of ['companion-create','companion-join','companion-refresh','companion-leave','companion-direct-host']) {if(el(id))el(id).disabled = false;}
     }
   }
@@ -294,13 +303,13 @@
   };
   el('companion-close').onclick = () => dialog.close();
   el('companion-create').onclick = () => action('create', {...fields(),setup_key:el('companion-setup-key').value});
-  if (el('companion-direct-host')) el('companion-direct-host').onclick = () => action('direct_host', {
-    ...fields(),host:el('companion-host').value.trim(),port:Number(el('companion-port').value),
+  if (el('companion-direct-host')) el('companion-direct-host').onclick = () => action(connectionMode==='room'?'room_host':'direct_host', {
+    ...fields(),host:el('companion-host').value.trim(),port:Number(el('companion-port').value),capacity:Number(el('room-capacity')?.value||4),
   });
-  el('companion-join').onclick = () => action(connectionMode === 'direct' ? 'direct_join' : 'join', {...fields(),invite_code:el('companion-invite').value.trim()});
+  el('companion-join').onclick = () => action(connectionMode === 'room'||el('companion-invite').value.includes('/room#') ? 'room_join' : connectionMode === 'direct' ? 'direct_join' : 'join', {...fields(),invite_code:el('companion-invite').value.trim()});
   el('companion-refresh').onclick = () => action('refresh');
   el('companion-leave').onclick = () => {
-    if (confirm('¿Desvincular la pareja? La conexión directa se cerrará; en Cloudflare se eliminarán las sesiones compartidas.')) action('leave');
+    if (confirm('¿Salir de esta conexión? Si eres host, se cerrará para todos. En Cloudflare se eliminará la pareja; la última sala Direct queda de solo lectura.')) action('leave');
   };
   el('companion-copy').onclick = async () => {
     const code = el('companion-share').value;
@@ -315,6 +324,19 @@
     else {indicator.textContent='Esperando la primera sesión del compañero.';dialog.showModal();}
     toggle.textContent = viewingPartner?'← Mi partida':'Compañero';
   };
+  roomController=window.PokeJuzRoom?.create({el,action,
+    catalog:game=>typeof routeCatalogFor==='function'?routeCatalogFor(game):[],
+    enabled:()=>soulToggle.checked,
+    resetNotices:()=>{souls.pending=null;souls.queue=[];souls.initialized=false;souls.pair='';soulNotice.hidden=true;},
+    propose:notice=>{souls.queue.push(notice);showNextProposal();},
+    backToLocal:()=>{viewingPartner=false;remote=null;window.setCompanionView(false);toggle.hidden=true;},
+    showMember:(member,open)=>{
+      remote=asView(member);if(!remote)return;
+      if(open){viewingPartner=true;dialog.close();}
+      if(viewingPartner)window.setCompanionView(true,remote);
+      toggle.hidden=false;toggle.textContent=viewingPartner?'← Mi partida':'Ver jugador';
+    },
+  });
   getStatus();
   setInterval(getStatus, 5000);
 })();

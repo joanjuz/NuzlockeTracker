@@ -78,3 +78,26 @@ nav .death-counter{align-self:center;padding:3px 6px;font-size:11px;border-radiu
 /* The embedded editor grows to its natural body height after a trusted message. */
 #overlay-view{min-height:0}
 #overlay-editor-frame{display:block;height:660px;min-height:660px}
+
+/* Room roster stays inside the existing Companion dialog; remote views are read-only. */
+.companion-dialog:has(#room-panel:not([hidden])) {width:min(1080px,94vw)}
+.room-roster {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:18px 0}
+.room-player {min-width:0;padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--soft);overflow-wrap:anywhere}
+.room-player>strong,.room-player>small {display:block;margin-bottom:6px}
+.room-player>small,.room-presence {font-size:12px;color:var(--muted)}
+.room-team {padding-left:16px;font-size:12px;line-height:1.7;min-height:72px}
+.companion-dialog .room-player button {padding:7px;margin-top:7px;width:100%;font-size:12px}
+#room-host-actions {display:flex;gap:8px;flex-wrap:wrap}
+.room-table-scroll {max-height:380px;overflow:auto;border:1px solid var(--border);border-radius:9px;margin:14px 0}
+#room-groups {border-collapse:collapse;width:100%;font-size:12px;min-width:520px}
+#room-groups th,#room-groups td {padding:10px;border:1px solid var(--border);vertical-align:top;text-align:left;min-width:130px}
+#room-groups th {background:var(--soft)}
+#room-groups select {margin-top:8px;font-size:12px;max-width:210px}
+#room-events {max-height:220px;overflow:auto;font-size:12px;line-height:1.8;padding-left:22px}
+@media(max-width:820px){.room-roster{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.room-roster{grid-template-columns:1fr}.companion-dialog{padding:16px}}
+
+.companion-dialog #companion-linked.room-linked-controls {display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.room-linked-controls>label {flex-basis:100%}
+.companion-dialog .room-player button {background:transparent;color:var(--text);border-color:var(--border)}
+.companion-dialog .room-player button:hover {background:var(--page)}

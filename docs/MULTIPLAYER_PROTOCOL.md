@@ -69,3 +69,27 @@ tests.test_companion -v`; cuatro puentes independientes y listeners reales loopb
 respuesta de cuatro estados mayor de 650 KB, aislamiento de identidad autenticada,
 reconexión tras recrear el puente, pérdida de fuente actual, cierre del host, límites,
 CSRF/Origin, rutas de administración rechazadas y regresión de pareja v1.
+
+## Capturas enlazadas y confirmación
+
+`features: ["capture-links-v1"]` se negocia al entrar. Un host que no lo admite no
+puede mostrar selecciones como guardadas; el cliente revoca su entrada y solicita
+actualizar ambos Trackers. El listener rechaza huéspedes sin la capacidad antes
+de consumir la invitación. Direct v1/Cloudflare v1 conservan sus contratos.
+
+Cada miembro incorpora `links`, mapa de ruta canónica `familia:id` a clave de
+captura `origin_version:encryption_constant`. Los catálogos son los mismos de
+`tracker.reference.ROUTE_PROFILES`; no se inventan equivalencias entre regiones.
+Cada cambio de elección debe referirse a una captura de ese mismo miembro/ruta;
+las secuencias cubren tanto snapshot como elecciones. Si desaparece la captura se
+conserva la elección marcada fuera de lectura, sin asignarla a un sustituto.
+Los eventos `linked`/`unlinked` quedan acotados junto al resto del historial.
+
+La UI de sala nunca consume la canalización de avisos v1. Mantiene líneas base
+por sesión/época/jugador/partida; solo propone muertes nuevas de capturas elegidas
+por ambos jugadores. `soullink_room` en la confirmación local vincula sesión, época,
+partida local/remota, captura y fecha. La API valida esos datos antes de encolar
+el comando local ya confirmado. Se rechazan sala cerrada, otra partida, enlace
+retirado, respuesta de rebote y muerte reanimada en el último estado recibido.
+No hay comandos de partida en el listener peer. Las lecturas recibidas siguen
+siendo solo datos declarados por el compañero, no prueba de identidad de una ROM.

@@ -83,3 +83,8 @@ La conexión directa funciona entre dos aplicaciones actualizadas. Para Cloudfla
 el código del Worker incluido también admite estos seis juegos. Un Worker
 instalado anteriormente que solo acepte Ultra Sol/Ultra Luna debe actualizarse
 por separado antes de usar Gen6; generar el ejecutable no despliega el Worker.
+
+## Salas de 2–4 jugadores
+
+El modo de pareja descrito aquí sigue disponible. Para salas con invitaciones por
+plaza, grupos por ruta y vistas individuales consulta [MULTIPLAYER_2A4.md](MULTIPLAYER_2A4.md).
