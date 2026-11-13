@@ -638,6 +638,9 @@ class LevelCapsProposalBrowserTests(unittest.TestCase):
             self.page.evaluate("document.getElementById('game-data-settings').open = true")
             expect(self.page.locator('#game-data-profile-text')).to_contain_text('<Perfil de pruebas>')
             self.assertEqual(self.level_caps(), before_caps)
+        self.page.on('dialog', lambda dialog: dialog.accept())
+        self.page.locator('#remove-game-data').click()
+        expect(self.page.locator('#game-data-status')).to_contain_text('Sin datos DGD importados')
         self.assert_clean()
 
 
