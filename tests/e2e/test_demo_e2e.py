@@ -592,6 +592,58 @@ class LevelCapsProposalBrowserTests(unittest.TestCase):
         self.page.locator('#apply-game-data').click()
         expect(self.page.locator('#game-data-status')).to_contain_text('DGD activo para esta partida')
 
+
+    def test_profile_provenance_preview_persistence_keyboard_and_narrow_layout(self) -> None:
+        document = json.loads((ROOT / 'tests/fixtures/definitive-game-data-v1.profile-provenance.synthetic.json').read_text(encoding='utf-8'))
+        document['game'].update(id='ultra-moon', titleId='00040000001B5100')
+        document['profileProvenance']['gameId'] = 'ultra-moon'
+        document['profileProvenance']['profile']['name'] = '<Perfil de pruebas>'
+        baseline = json.loads(json.dumps(document))
+        del baseline['profileProvenance']
+        self.open_tracker()
+        self.import_game_data(baseline)
+        expect(self.page.locator('#game-data-profile-text')).to_contain_text('no incluye procedencia')
+        self.page.screenshot(path=str(ARTIFACTS / 'profile-before-import.png'), full_page=True)
+        before_caps = self.level_caps()
+        with tempfile.TemporaryDirectory(prefix='dgd-profile-e2e-') as folder:
+            path = Path(folder) / 'profile.json'
+            path.write_text(json.dumps(document, ensure_ascii=False), encoding='utf-8')
+            self.page.locator('#game-data-file').set_input_files(str(path))
+            self.page.locator('#preview-game-data').click()
+            expect(self.page.locator('#game-data-profile-title')).to_contain_text('vista previa')
+            expect(self.page.locator('#game-data-profile-text')).to_contain_text('<Perfil de pruebas>')
+            self.page.locator('#cancel-game-data').click()
+            expect(self.page.locator('#game-data-profile-text')).to_contain_text('no incluye procedencia')
+            self.assertNotIn('<Perfil de pruebas>', self.page.locator('#game-data-profile-text').inner_text())
+            self.page.locator('#game-data-file').set_input_files(str(path))
+            self.page.locator('#preview-game-data').click()
+            self.page.locator('#game-data-ack').check()
+            self.page.locator('#apply-game-data').click()
+            expect(self.page.locator('#game-data-profile-title')).to_have_text('Perfil de origen')
+            expect(self.page.locator('#game-data-profile-text')).to_contain_text('Autor declarado: Autor de ejemplo')
+            expect(self.page.locator('#game-data-profile-text')).to_contain_text('No acredita coincidencia exacta')
+            self.assertEqual(self.page.locator('#game-data-profile-text b').count(), 0)
+            self.assertEqual(self.level_caps(), before_caps)
+            details = self.page.locator('#game-data-profile-details')
+            details.locator('summary').focus()
+            self.page.keyboard.press('Enter')
+            self.assertTrue(details.evaluate('(el) => el.open'))
+            expect(self.page.locator('#game-data-profile-hash')).to_have_text('A' * 64)
+            self.page.screenshot(path=str(ARTIFACTS / 'profile-after-import.png'), full_page=True)
+            self.page.set_viewport_size({'width': 390, 'height': 844})
+            self.assertTrue(self.page.locator('#game-data-profile').evaluate('(el) => el.scrollWidth <= el.clientWidth'))
+            self.page.screenshot(path=str(ARTIFACTS / 'profile-narrow.png'), full_page=True)
+            self.page.reload(wait_until='domcontentloaded')
+            self.open_tab('connection')
+            self.page.evaluate("document.getElementById('game-data-settings').open = true")
+            expect(self.page.locator('#game-data-profile-text')).to_contain_text('<Perfil de pruebas>')
+            self.assertEqual(self.level_caps(), before_caps)
+        self.page.on('dialog', lambda dialog: dialog.accept())
+        self.page.locator('#remove-game-data').click()
+        expect(self.page.locator('#game-data-status')).to_contain_text('Sin datos DGD importados')
+        self.assert_clean()
+
+
     def level_caps(self) -> dict:
         return self.page.evaluate('({total: state.level_caps.total, current: state.level_caps.current, show: state.level_caps.show,'
                                   ' caps: state.level_caps.stages.map(s => s.cap), names: state.level_caps.stages.map(s => s.name)})')

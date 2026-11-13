@@ -110,8 +110,35 @@ function cancelGameDataPreview(){
   gameDataRequest++;gameDataPreview=null;
   if($('game-data-preview'))$('game-data-preview').hidden=true;
   if($('game-data-ack'))$('game-data-ack').checked=false;
+  if($('game-data-profile'))$('game-data-profile').hidden=true;
 }
+function profileProvenanceText(profile){
+  if(!profile||profile.state!=='historical')return profile?.reason||'Procedencia no disponible.';
+  const titles={personal:'Pokémon: estadísticas, tipos y habilidades',moves:'Movimientos',trainers:'Entrenadores',
+    evolutions:'Evoluciones',rng:'Semilla','pokemon-stats':'Estadísticas Pokémon','egg-moves':'Movimientos huevo',
+    starters:'Iniciales','wild-encounters':'Encuentros salvajes','static-encounters':'Encuentros estáticos',
+    trades:'Intercambios',tms:'MT','move-tutors':'Tutores',marts:'Tiendas',items:'Objetos','field-items':'Objetos de campo',
+    pickup:'Recogida','shiny-rate':'Probabilidad shiny','personal-fields':'Campos Pokémon editados',
+    record:'Entradas editadas',move:'Movimientos editados',learnset:'Movimientos por nivel','personal-flags':'Compatibilidades MT/tutores',
+    typechart:'Tabla de tipos',shiny:'Probabilidad shiny',playercaps:'Player Level Caps',crointegrity:'Integridad CRO/CRR',
+    shops6:'Tiendas',shops7:'Tiendas',machines7:'MT',tutors7:'Tutores','nature-mints':'Mentas'};
+  const sections=profile.sections.map(id=>titles[id.split('/')[1]]||id).join(', ');
+  return `Perfil: ${profile.name}\nAutor declarado: ${profile.author||'No indicado'}\nJuego de origen: ${profile.gameId==='ultra-moon'?'Ultra Luna':'Ultra Sol'}\nSecciones de la receta aplicada: ${sections}\n`
+    +'Procedencia histórica declarada. No acredita coincidencia exacta con el perfil original ni con la ROM actual.\n'
+    +(profile.subsequentChanges==='recorded'?'Hay cambios posteriores registrados.':'No constan cambios posteriores en el historial; puede haber cambios externos.');
+}
+function renderProfileProvenance(profile,preview=false){
+  const card=$('game-data-profile');if(!card)return;
+  card.hidden=!profile;
+  if(!profile)return;
+  $('game-data-profile-title').textContent=preview?'Perfil de origen · vista previa':'Perfil de origen';
+  $('game-data-profile-text').textContent=profileProvenanceText(profile);
+  $('game-data-profile-details').hidden=profile.state!=='historical';
+  $('game-data-profile-hash').textContent=profile.state==='historical'?profile.recipeSha256:'';
+}
+
 function renderGameDataStatus(status){
+  renderProfileProvenance(gameDataPreview?.selectedGame===$('game').value?gameDataPreview.profileProvenance:status.profileProvenance,!!gameDataPreview);
   const note=$('game-data-status');if(!note)return;
   $('remove-game-data').hidden=!status.loaded;
   note.textContent=status.error||(!status.loaded?'Sin datos DGD importados. Se usan las referencias y los CSV existentes.':
@@ -143,6 +170,7 @@ async function previewGameData(){
     const result=await gameDataPost('preview',{content,game});
     if(request!==gameDataRequest||game!==$('game').value)return;
     gameDataPreview={...result,selectedGame:game};
+    renderProfileProvenance(result.profileProvenance,true);
     $('game-data-summary').textContent=`${result.game} · ${result.counts.species} especies/formas · ${result.counts.moves} movimientos · ${result.counts.evolutions} listas de evoluciones. `
       +(result.replacesExisting?'Reemplazará la importación anterior de esta partida.':'Se guardará en esta partida.');
     $('game-data-differences').textContent=result.differences.length?result.differences.map(d=>`${d.record} · ${d.field}\nActual: ${JSON.stringify(d.before)}\nImportado: ${JSON.stringify(d.after)}`).join('\n\n'):'No se detectaron diferencias en la muestra comparada.';
@@ -167,7 +195,7 @@ async function applyGameData(){
 if($('preview-game-data')){
   $('preview-game-data').onclick=previewGameData;
   $('apply-game-data').onclick=applyGameData;
-  $('cancel-game-data').onclick=cancelGameDataPreview;
+  $('cancel-game-data').onclick=()=>{cancelGameDataPreview();gameDataStatus();};
   $('game-data-file').onchange=cancelGameDataPreview;
   $('remove-game-data').onclick=async()=>{
     if(!confirm('¿Retirar los datos DGD de esta partida y volver a las referencias y los CSV existentes?'))return;
