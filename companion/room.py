@@ -43,6 +43,10 @@ def member_identity(data: JSONDict) -> JSONDict:
             or any(ord(c) < 32 or c in '<>' for c in name)
             or not isinstance(game, str) or game not in SUPPORTED_GAMES):
         raise ValueError('Jugador o juego inválido')
+    try:
+        name.encode('utf-8')
+    except UnicodeError:
+        raise ValueError('Nombre de jugador inválido') from None
     return {'player_id': identifier(data.get('player_id')),
             'run_id': identifier(data.get('run_id')), 'name': name.strip(), 'game': game}
 
