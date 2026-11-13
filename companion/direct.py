@@ -137,7 +137,8 @@ class DirectRequestHandler(BaseHTTPRequestHandler):
     constant-time secret compare, size and type limits, single-use invitation)
     runs under the host lock, in the same order as before.
     """
-    paths = ('/v1/join', '/v1/exchange', '/v1/leave')
+    paths: tuple[str, ...] = ('/v1/join', '/v1/exchange', '/v1/leave')
+    message_limit = MAX_MESSAGE_BYTES
     server_version = 'SoulLink'
     sys_version = ''
     owner: DirectHost  # Set on the per-host subclass created by handler_for().
@@ -216,7 +217,7 @@ class DirectRequestHandler(BaseHTTPRequestHandler):
             self.reply(400, {'error': 'Tamaño requerido'})
             return None
         size = int(length[0])
-        if size > MAX_MESSAGE_BYTES:
+        if size > self.message_limit:
             self.reply(413, {'error': 'Sesión demasiado grande'})
             return None
         if self.headers.get('Content-Type') != 'application/json':
