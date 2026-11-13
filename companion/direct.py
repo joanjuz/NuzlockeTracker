@@ -93,7 +93,8 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
-def request_json(base: str, path: str, secret: str, data: JSONDict) -> JSONDict:
+def request_json(base: str, path: str, secret: str, data: JSONDict,
+                 *, response_limit: int = MAX_MESSAGE_BYTES) -> JSONDict:
     # Only called with a numeric, validated invitation target. Never proxy or
     # follow redirects: neither credentials nor snapshots may leave that target.
     body = json.dumps(data, ensure_ascii=False).encode('utf-8')
@@ -103,8 +104,8 @@ def request_json(base: str, path: str, secret: str, data: JSONDict) -> JSONDict:
         'Content-Type': 'application/json', 'Authorization': 'Bearer ' + secret})
     try:
         with build_opener(ProxyHandler({}), NoRedirect()).open(request, timeout=3) as response:
-            raw = response.read(MAX_MESSAGE_BYTES + 1)
-            if len(raw) > MAX_MESSAGE_BYTES:
+            raw = response.read(response_limit + 1)
+            if len(raw) > response_limit:
                 raise ValueError('Respuesta directa demasiado grande')
             result = json.loads(raw)
             if not isinstance(result, dict):
@@ -136,6 +137,7 @@ class DirectRequestHandler(BaseHTTPRequestHandler):
     constant-time secret compare, size and type limits, single-use invitation)
     runs under the host lock, in the same order as before.
     """
+    paths = ('/v1/join', '/v1/exchange', '/v1/leave')
     server_version = 'SoulLink'
     sys_version = ''
     owner: DirectHost  # Set on the per-host subclass created by handler_for().
@@ -170,7 +172,7 @@ class DirectRequestHandler(BaseHTTPRequestHandler):
         super().finish()
 
     def reply(self, code: int, value: JSONDict) -> None:
-        raw = json.dumps(value, ensure_ascii=False).encode('utf-8')
+        raw = json.dumps(value, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
         self.send_response(code)
         self.send_header('Content-Type', 'application/json')
         self.send_header('Content-Length', str(len(raw)))
@@ -185,7 +187,7 @@ class DirectRequestHandler(BaseHTTPRequestHandler):
                 or self.headers.get('Transfer-Encoding') is not None):
             self.reply(403, {'error': 'Solicitud rechazada'})
             return
-        if self.path not in ('/v1/join', '/v1/exchange', '/v1/leave'):
+        if self.path not in self.paths:
             self.reply(404, {'error': 'Ruta no disponible'})
             return
         with owner.lock:
@@ -252,7 +254,7 @@ class DirectRequestHandler(BaseHTTPRequestHandler):
 
 def handler_for(owner: DirectHost) -> type[DirectRequestHandler]:
     """Handler class bound to one host (http.server instantiates a class per request)."""
-    return type('Handler', (DirectRequestHandler,), {'owner': owner})
+    return type('Handler', (getattr(owner, 'handler_type', DirectRequestHandler),), {'owner': owner})
 
 
 class DirectHost:
