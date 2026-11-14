@@ -95,9 +95,21 @@ explícitamente ese modo avanzado, sin bajar silenciosamente la privacidad.
 La transición purga únicamente las cachés remotas anteriores al entrar en Soul Link;
 conserva identidad de partida, progreso, DGD, límites de nivel y configuración OBS.
 
-## Probar estos cambios desde el código
+## Actualizar a v1.5.0
 
-No se publica una versión ni se reemplaza tu ejecutable instalado. Desde un checkout
+Cierra todas las ventanas y respalda `%LOCALAPPDATA%\PokemonTracker\runtime`.
+Extrae el ZIP de [v1.5.0](https://github.com/joanjuz/NuzlockeTracker/releases/tag/v1.5.0)
+en otra carpeta y abre su EXE: conserva los datos locales de v1.4.0. Guarda también
+sprites e iconos personalizados. El respaldo es privado y puede contener credenciales;
+no lo compartas. Para el permiso individual crea una sala nueva: las conexiones
+anteriores siguen en opciones avanzadas.
+
+El propietario confirmó el funcionamiento de las funciones de la nueva experiencia
+que probó personalmente; no se atribuye mayor alcance a ese reporte.
+
+## Ejecutar desde el código
+
+La descarga portable no requiere Python. Para desarrollo, desde un checkout
 actualizado y un entorno Python con las dependencias del proyecto:
 
 ```powershell

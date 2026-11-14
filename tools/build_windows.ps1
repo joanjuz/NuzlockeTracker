@@ -114,8 +114,12 @@ function Invoke-Build {
     New-Item -ItemType Directory -Force (Split-Path $iconFile) | Out-Null
     & $Python -c "from PIL import Image; import sys; i=Image.open(sys.argv[1]).convert('RGBA'); i.save(sys.argv[2],format='ICO',sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])" $iconSource $iconFile
     if ($LASTEXITCODE -ne 0) { throw 'No se pudo convertir el icono del programa.' }
+    # Metadatos del EXE desde la misma versión que la aplicación.
+    $versionFile = Join-Path $root 'build\windows-version.txt'
+    & $Python 'tools/windows_version_info.py' $versionFile
+    if ($LASTEXITCODE -ne 0) { throw 'No se pudieron generar los metadatos de version.' }
     $pyi = @('--noconfirm', '--clean', '--windowed', '--onefile', '--icon', $iconFile,
-        '--name', 'PokemonTracker', '--collect-all', 'webview',
+        '--name', 'PokemonTracker', '--version-file', $versionFile, '--collect-all', 'webview',
         '--hidden-import', 'clr', '--exclude-module', 'PyQt5',
         '--exclude-module', 'PyQt6', '--exclude-module', 'PySide2',
         '--exclude-module', 'PySide6',
@@ -125,6 +129,13 @@ function Invoke-Build {
 }
 
 function Invoke-SmokeTest([string]$File) {
+    # Comprobar también que el recurso Windows coincide con tracker.__version__.
+    $expectedVersion = & $Python -c 'from tracker import __version__; print(__version__)'
+    if ($LASTEXITCODE -ne 0) { throw 'No se pudo leer la version esperada.' }
+    $metadata = (Get-Item -LiteralPath $File).VersionInfo
+    if ($metadata.FileVersion -ne $expectedVersion -or $metadata.ProductVersion -ne $expectedVersion) {
+        throw 'La version del ejecutable no coincide con la aplicacion.'
+    }
     # Check packaged executable without opening the window, with isolated data.
     $oldAppData = $env:LOCALAPPDATA
     try {
