@@ -2,8 +2,8 @@
 
 El protocolo 3 separa la participación Soul Link de mostrar una partida completa.
 Los protocolos anteriores de pareja y sala mantienen sus contratos durante la
-transición. La interfaz principal se incorpora por separado; este incremento
-añade el modelo, transporte, almacenamiento y ciclo de vida sin activar el flujo.
+transición. La interfaz principal usa este contrato; los modos anteriores permanecen bajo
+opciones avanzadas con advertencia de compartición completa. Uso: [SOUL_LINK.md](SOUL_LINK.md).
 
 ## Membresía y acceso
 

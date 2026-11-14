@@ -6,6 +6,12 @@
   const dialog = el('companion-dialog');
   const indicator = el('companion-status');
   let roomController = null;
+  let soulController = null;
+  let sessionProtocol = 0;
+  let sessionConfigured = false;
+  let statusGeneration = 0;
+  let soulRemoteViewed = false;
+  const noticeController = notice => notice?.protocol === 3 ? soulController : roomController;
   let remote = null;
   let viewingPartner = false;
   let lastUpdate = -1;
@@ -13,10 +19,12 @@
   let connectionMode = 'direct';
   const transportControl = el('companion-transport');
   function updateTransport() {
-    connectionMode = ['cloud','room'].includes(transportControl?.value) ? transportControl.value : 'direct';
+    connectionMode = ['cloud','room','soul'].includes(transportControl?.value) ? transportControl.value : 'direct';
     const direct = connectionMode !== 'cloud';
     if(el('room-capacity-label'))el('room-capacity-label').hidden=connectionMode!=='room';
-    if(el('companion-direct-host'))el('companion-direct-host').textContent=connectionMode==='room'?'Crear sala':'Ser host';
+    if(el('companion-direct-host')){el('companion-direct-host').textContent=['room','soul'].includes(connectionMode)?'Crear sala':'Ser host';el('companion-direct-host').hidden=connectionMode==='cloud';}
+    if(el('soul-new-run'))el('soul-new-run').hidden=connectionMode!=='soul';
+    if(el('room-new-run'))el('room-new-run').hidden=connectionMode!=='room';
     const fields = el('companion-direct-fields');
     if (fields) fields.hidden = !direct;
     el('companion-create').hidden = direct;
@@ -24,8 +32,8 @@
     if (keyLabel) keyLabel.hidden = direct;
     const urlDetails = el('companion-url').closest?.('details');
     if (urlDetails) urlDetails.hidden = direct;
-    el('companion-join').textContent = direct ? 'Unirme al host' : 'Unirme por Cloudflare';
-    el('companion-invite').placeholder = direct ? 'nuzlocke://192.168.1.10:8770/join#…' : 'Enlace o código de Cloudflare';
+    el('companion-join').textContent = connectionMode==='soul'?'Unirse':direct ? 'Unirme al host' : 'Unirme por Cloudflare';
+    el('companion-invite').placeholder = connectionMode==='soul'?'Pega aquí el enlace de la sala':direct ? 'nuzlocke://192.168.1.10:8770/join#…' : 'Enlace o código de Cloudflare';
   }
   if (transportControl) transportControl.onchange = updateTransport;
   updateTransport();
@@ -59,6 +67,7 @@
     soulNotice.hidden = true; souls.pending = null; souls.queue = [];
     souls.initialized = false;
     roomController?.reset();
+    soulController?.reset();
   };
   function deathIdentity(entry,key){return key+'|'+String(entry?.recorded_at||'')}
   // Location IDs are resolved with the partner game's catalog, not whatever view is on screen.
@@ -130,7 +139,7 @@
     if(souls.pending || !soulToggle.checked)return;
     while(souls.queue.length){
       const next=souls.queue.shift();
-      if(roomController&&!roomController.valid(next))continue;
+      if(noticeController(next)&&!noticeController(next).valid(next))continue;
       const candidates=routeCandidates(next.remoteMon,next.remoteGame).filter(c=>!next.localKey||c.key===next.localKey);
       if(!candidates.length)continue;
       souls.pending={...next,candidates,selectedKey:candidates.length===1?candidates[0].key:''};
@@ -196,7 +205,7 @@
     const current=souls.pending;
     if(!current || !token || souls.busy)return;
     const selected=routeCandidates(current.remoteMon,current.remoteGame).find(p=>p.key===current.selectedKey);
-    if(!selected||(current.localKey&&selected.key!==current.localKey)||(roomController&&!roomController.valid(current))){
+    if(!selected||(current.localKey&&selected.key!==current.localKey)||(noticeController(current)&&!noticeController(current).valid(current))){
       soulError.textContent='Ese Pokémon ya no está disponible. Ignora el aviso si cambió tu equipo.';
       soulError.hidden=false;return;
     }
@@ -205,7 +214,7 @@
     try{
       const response=await fetch('/api/command',{method:'POST',
         headers:{'Content-Type':'application/json','X-Tracker-Token':token},
-        body:JSON.stringify({action:'mark_dead',key:selected.key,source:'soullink-response',...roomController?.commandContext(current)})});
+        body:JSON.stringify({action:'mark_dead',key:selected.key,source:'soullink-response',...noticeController(current)?.commandContext(current)})});
       const payload=await response.json();
       if(!response.ok)throw Error(payload.error||'No se pudo registrar la muerte');
       souls.pending=null;soulNotice.hidden=true;
@@ -220,8 +229,15 @@
   };
   const stamp = ms => ms ? new Date(ms).toLocaleString('es-CR') : 'Aún no ha compartido una sesión';
   function updatePage(info) {
-    if(roomController&&info.protocol===2&&info.room){roomController.update(info);return;}
+    sessionProtocol=info.protocol||0;
+    sessionConfigured=Boolean(info.configured);
+    if(soulController&&info.protocol===3){roomController?.clear();if(info.room)soulController.update(info);else soulController.idle(info);return;}
+    if(soulController&&!info.configured&&connectionMode==='soul'){roomController?.clear();soulController.idle(info);return;}
+    soulController?.clear();
+    if(roomController&&info.protocol===2&&info.room){roomController.update(info);el('companion-title').textContent='Conexión anterior';el('companion-disclaimer').textContent='Esta sala anterior comparte la partida completa. Para controlar su visibilidad, sal y usa Soul Link.';return;}
     roomController?.clear();
+    el('companion-title').textContent='Soul Link';
+    el('companion-disclaimer').textContent=info.configured?'Esta conexión anterior comparte la última partida completa. Para controlar su visibilidad, sal y usa Soul Link.':'Tu partida está privada al entrar. Solo se comparten las capturas que enlazas y sus eventos Soul Link.';
     const p = info.partner;
     if (info.default_worker_url && !el('companion-url').value) el('companion-url').value = info.default_worker_url;
     const hasPartner = Boolean(p);
@@ -257,18 +273,24 @@
     }
   }
   async function getStatus() {
+    const generation=statusGeneration;
     try {
       const response = await fetch('/api/companion', {cache:'no-store'});
       if (!response.ok) throw Error('No se pudo consultar la sincronización local');
-      updatePage(await response.json());
+      const info=await response.json();
+      if(generation===statusGeneration&&!working)updatePage(info);
     } catch (error) {
+      if(generation!==statusGeneration||working)return;
+      soulController?.failed();
       indicator.textContent = error.message;
     }
   }
   async function action(actionName, extra = {}) {
     if (working) return;
     working = true;
+    statusGeneration++;
     roomController?.setBusy(true);
+    soulController?.setBusy(true);
     for(const id of ['companion-create','companion-join','companion-refresh','companion-leave','companion-direct-host']) {if(el(id))el(id).disabled = true;}
     indicator.textContent = 'Procesando…';
     try {
@@ -286,7 +308,9 @@
     } finally {
       el('companion-setup-key').value = '';
       working = false;
+      statusGeneration++;
       roomController?.setBusy(false);
+      soulController?.setBusy(false);
       for(const id of ['companion-create','companion-join','companion-refresh','companion-leave','companion-direct-host']) {if(el(id))el(id).disabled = false;}
     }
   }
@@ -303,18 +327,26 @@
   };
   el('companion-close').onclick = () => dialog.close();
   el('companion-create').onclick = () => action('create', {...fields(),setup_key:el('companion-setup-key').value});
-  if (el('companion-direct-host')) el('companion-direct-host').onclick = () => action(connectionMode==='room'?'room_host':'direct_host', {
-    ...fields(),host:el('companion-host').value.trim(),port:Number(el('companion-port').value),capacity:Number(el('room-capacity')?.value||4),
+  if (el('companion-direct-host')) el('companion-direct-host').onclick = () => action(connectionMode==='soul'?'soul_host':connectionMode==='room'?'room_host':'direct_host', {
+    ...fields(),...(el('companion-host').value.trim()?{host:el('companion-host').value.trim()}:{}),port:Number(el('companion-port').value),...(connectionMode==='room'?{capacity:Number(el('room-capacity')?.value||4)}:{}),
   });
-  el('companion-join').onclick = () => action(connectionMode === 'room'||el('companion-invite').value.includes('/room#') ? 'room_join' : connectionMode === 'direct' ? 'direct_join' : 'join', {...fields(),invite_code:el('companion-invite').value.trim()});
+  el('companion-join').onclick = () => {
+    const invite=el('companion-invite').value.trim();
+    if(connectionMode==='soul'&&(/\/(room|join)#/.test(invite))){
+      indicator.textContent='Esta invitación usa una conexión anterior. Elige ese modo en Opciones de conexión; comparte la partida completa.';
+      return;
+    }
+    const selected=invite.includes('/soul#')||connectionMode==='soul'?'soul_join':connectionMode==='room'||invite.includes('/room#')?'room_join':connectionMode==='direct'?'direct_join':'join';
+    return action(selected,{...fields(),invite_code:invite});
+  };
   el('companion-refresh').onclick = () => action('refresh');
   el('companion-leave').onclick = () => {
-    if (confirm('¿Salir de esta conexión? Si eres host, se cerrará para todos. En Cloudflare se eliminará la pareja; la última sala Direct queda de solo lectura.')) action('leave');
+    if (confirm(sessionProtocol===3&&!sessionConfigured?'¿Olvidar esta conexión guardada? Si queda una plaza reservada, quien creó la sala podrá liberarla.':sessionProtocol===3?'¿Salir de Soul Link? Si creaste la sala, se cerrará para todos.':'¿Salir de esta conexión? Si eres host, se cerrará para todos. En Cloudflare se eliminará la pareja; la última sala Direct queda de solo lectura.')) action('leave');
   };
   el('companion-copy').onclick = async () => {
     const code = el('companion-share').value;
     if (code && navigator.clipboard) {
-      try {await navigator.clipboard.writeText(code);indicator.textContent = 'Código copiado. Envíalo de forma privada.';}
+      try {await navigator.clipboard.writeText(code);indicator.textContent = 'Invitación copiada. Puedes enviar este mismo enlace a tus amigos.';}
       catch(error) {indicator.textContent = 'Selecciona el texto y cópialo manualmente.';}
     }
   };
@@ -335,6 +367,35 @@
       if(open){viewingPartner=true;dialog.close();}
       if(viewingPartner)window.setCompanionView(true,remote);
       toggle.hidden=false;toggle.textContent=viewingPartner?'← Mi partida':'Ver jugador';
+    },
+  });
+  soulController=window.PokeJuzSoul?.create({el,action,
+    catalog:game=>typeof routeCatalogFor==='function'?routeCatalogFor(game):[],
+    local:()=>typeof localState==='object'?localState:null,
+    enabled:()=>soulToggle.checked,
+    resetNotices:()=>{souls.pending=null;souls.queue=[];souls.initialized=false;souls.pair='';soulNotice.hidden=true;},
+    propose:notice=>{souls.queue.push(notice);showNextProposal();},
+    backToLocal:()=>{
+      viewingPartner=false;remote=null;
+      if(soulRemoteViewed){
+        if(typeof detailPokemon!=='undefined')detailPokemon=null;
+        if(typeof detailSignature!=='undefined')detailSignature='';
+        if(typeof moveRequest!=='undefined')moveRequest++;
+        for(const id of ['detail-content','move-content','boxes','dead','places','analysis-content','analysis-a','analysis-b'])el(id)?.replaceChildren?.();
+        if(typeof boxSignature!=='undefined')boxSignature='';
+        if(typeof placeSignature!=='undefined')placeSignature='';
+        if(typeof deadSignature!=='undefined')deadSignature='';
+        if(typeof analysisSignature!=='undefined')analysisSignature='';
+        if(typeof analysisTeamSignature!=='undefined')analysisTeamSignature='';
+        soulRemoteViewed=false;
+      }
+      window.setCompanionView(false);toggle.hidden=true;
+    },
+    showMember:(member,open)=>{
+      remote=asView(member);if(!remote)return;
+      if(open){viewingPartner=true;dialog.close();}
+      if(viewingPartner){soulRemoteViewed=true;window.setCompanionView(true,remote);}
+      toggle.hidden=false;toggle.textContent=viewingPartner?'← Mi partida':'Ver partida';
     },
   });
   getStatus();

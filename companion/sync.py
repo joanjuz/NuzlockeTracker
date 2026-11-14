@@ -15,6 +15,7 @@ from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 from .room_sync import RoomSync
+from .soul_sync import SoulSync
 from .snapshot import SUPPORTED_GAMES, JSONDict, shared_state, snapshot
 from .direct import DirectHost, SECRET_RE, identity, invitation, partner as direct_partner, request_json
 
@@ -128,6 +129,7 @@ class CompanionSync:
         self.cache_path = self.directory / 'companion-cache.json'
         self.transport = transport
         self.multiplayer = RoomSync(service, self.directory)
+        self.soul = SoulSync(service, self.directory)
         self.lock = threading.RLock()
         self.stop = threading.Event()
         self.wake = threading.Event()
@@ -182,6 +184,8 @@ class CompanionSync:
         return DEFAULT_WORKER_URL
 
     def status(self) -> JSONDict:
+        if self.soul.active or (self.soul.present and not self.settings):
+            return {**self.soul.status(), 'default_worker_url': self.default_worker_url()}
         if self.multiplayer.active or (self.multiplayer.view is not None and not self.settings):
             return self.multiplayer.status()
         with self.lock:
@@ -258,6 +262,43 @@ class CompanionSync:
 
     def perform(self, action: str, options: JSONDict | None = None) -> JSONDict:
         options = options or {}
+        if action.startswith('soul_'):
+            with self.lock:
+                if self.settings and self.settings.get('transport') != 'soul':
+                    raise ValueError('Sal de la conexión anterior para entrar en Soul Link')
+                if action in ('soul_host', 'soul_join'):
+                    if self.soul.active:
+                        raise ValueError('Ya estás en Soul Link')
+                    self.settings = {'transport': 'soul'}
+                    try:
+                        # Migration purges only remote view caches, never local runs.
+                        if self.multiplayer.storage.path.exists() and not self.multiplayer.storage.error:
+                            self.multiplayer.storage.data['room'] = None
+                            self.multiplayer.storage._save()
+                        self.multiplayer.view = None
+                        self.partner = None
+                        self.cache_path.unlink(missing_ok=True)
+                        self.soul.start(action, options)
+                    except OSError:
+                        self.settings = {}
+                        raise ValueError('No se pudieron preparar los datos de Soul Link; revisa el almacenamiento local') from None
+                    except Exception:
+                        self.settings = {}
+                        raise
+                else:
+                    self.soul.manage(action, options)
+                self.wake.set()
+            return self.status()
+        if self.soul.active or (self.soul.present and not self.settings and action == 'leave'):
+            if action == 'leave':
+                self.soul.leave()
+                with self.lock:
+                    self.settings = {}
+                return self.status()
+            if action == 'refresh':
+                self.soul.sync(force=True)
+                return self.status()
+            raise ValueError('Sal de Soul Link antes de abrir otra conexión')
         if action.startswith('room_'):
             with self.lock:
                 if self.settings and self.settings.get('transport') != 'room':
@@ -366,6 +407,9 @@ class CompanionSync:
         raise ValueError('Acción de compañero inválida')
 
     def sync_once(self, force: bool = False, fetch_partner: bool = True) -> None:
+        if self.soul.active:
+            self.soul.sync(force=force)
+            return
         if self.multiplayer.active:
             self.multiplayer.sync(force=force)
             return
@@ -529,3 +573,4 @@ class CompanionSync:
             host, session = self._detach_direct()
         self._shutdown_direct(host, session)
         self.multiplayer.close()
+        self.soul.close()

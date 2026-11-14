@@ -1,5 +1,9 @@
 # Soul Link manual (versión experimental)
 
+> Conexión anterior conservada en Opciones de conexión. El flujo principal actual
+> es [Soul Link](SOUL_LINK.md): invitación común, hasta cuatro personas y partida
+> privada por defecto. Este documento describe el contrato previo de compatibilidad.
+
 ## Juegos admitidos
 
 Se puede enlazar **Ultra Sol + Ultra Sol**, **Ultra Luna + Ultra Luna**,

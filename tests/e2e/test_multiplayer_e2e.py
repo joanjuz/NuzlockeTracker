@@ -30,6 +30,7 @@ class MultiplayerBrowserTests(unittest.TestCase):
                     expect(page.locator('#party > article.card')).to_have_count(6)
                     page.locator('details.options > summary').click()
                     page.locator('#open-companion').click()
+                    page.locator('#companion-advanced > summary').click()
                     page.locator('#companion-transport').select_option('room')
                     page.locator('#companion-name').fill('Jugador '+str(i+1))
                 host = pages[0]

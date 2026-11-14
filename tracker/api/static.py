@@ -46,6 +46,7 @@ STATIC_FILES = {
     '/': ('web/index.html', 'text/html; charset=utf-8'),
     '/app.js': ('web/app.js', 'text/javascript; charset=utf-8'),
     '/analysis.js': ('web/analysis.js', 'text/javascript; charset=utf-8'),
+    '/soul.js': ('web/soul.js', 'text/javascript; charset=utf-8'),
     '/room.js': ('web/room.js', 'text/javascript; charset=utf-8'),
     '/companion.js': ('web/companion.js', 'text/javascript; charset=utf-8'),
     '/companion.css': ('web/companion.css', 'text/css; charset=utf-8'),

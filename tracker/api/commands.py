@@ -72,7 +72,11 @@ def command(req, _match):
         if 'soullink_room' in cmd:
             if action != 'mark_dead' or cmd.get('source') != 'soullink-response' or req.ctx.companion is None:
                 raise ValueError('Confirmación de sala inválida')
-            req.ctx.companion.multiplayer.validate_confirmation(cmd['soullink_room'], cmd.get('key'))
+            binding = cmd['soullink_room']
+            if isinstance(binding, dict) and binding.get('protocol') == 3:
+                req.ctx.companion.soul.validate_confirmation(binding, cmd.get('key'))
+            else:
+                req.ctx.companion.multiplayer.validate_confirmation(binding, cmd.get('key'))
         if action in ('connect', 'disconnect'):
             cmd['_connection_generation'] = service.request_connection_change()
         service.commands.put(cmd)

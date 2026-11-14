@@ -1,5 +1,9 @@
 # Soul Link directo: una aplicación hace de host
 
+> Conexión anterior conservada en Opciones de conexión. El flujo principal actual
+> es [Soul Link](SOUL_LINK.md): invitación común, hasta cuatro personas y partida
+> privada por defecto. Este documento describe el contrato previo de compatibilidad.
+
 En **Sincronizar compañero**, elige **Conexión directa**. Se mantienen la vista de
 la partida del compañero y los avisos manuales de muerte por ruta. Cloudflare
 sigue disponible como alternativa en el selector de conexión.

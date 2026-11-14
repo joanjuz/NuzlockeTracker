@@ -1,5 +1,9 @@
 # Soul Link para 2–4 jugadores
 
+> Conexión anterior conservada en Opciones de conexión. El flujo principal actual
+> es [Soul Link](SOUL_LINK.md): invitación común, hasta cuatro personas y partida
+> privada por defecto. Este documento describe el contrato previo de compatibilidad.
+
 En cada Tracker abre Opciones (…) → Sincronizar compañero. En Conexión elige
 **Sala de 2–4 · red local/VPN**. Los dos modos anteriores de pareja continúan
 disponibles: Direct de dos jugadores y Cloudflare de dos jugadores.
