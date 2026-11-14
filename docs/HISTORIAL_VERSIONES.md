@@ -1,3 +1,26 @@
+# 1.5.0 — Soul Link de 2 a 4 jugadores, privado por defecto
+
+- Sala dinámica 1/4–4/4, invitación común y credenciales individuales.
+- Compartir mi partida por persona; capturas enlazadas con datos mínimos privados.
+- Muertes enlazadas con confirmación manual; recuperación y liberación de plazas.
+- Procedencia de perfiles DGD y revisión de límites de nivel propuestos.
+- Se conservan partidas, OBS, límites manuales y transportes anteriores avanzados.
+
+[Notas completas de v1.5.0](releases/v1.5.0.md).
+
+# 1.4.0 — Límites de nivel manuales
+
+- Etapas y nivel máximo por partida y juego, con avisos informativos.
+- Listas de etapas exportables e importables con vista previa.
+
+[Notas completas de v1.4.0](releases/v1.4.0.md).
+
+# 1.3.0 — Datos de Definitive Randomizer por partida
+
+- Importar, previsualizar, reemplazar y retirar Definitive Game Data v1 de USUM.
+
+[Notas completas de v1.3.0](releases/v1.3.0.md).
+
 # 1.2.0 — Perfiles de estilo para OBS, lápidas y datos del Pokémon
 
 - Perfiles de estilo del overlay, fijables por fuente con `&preset=`.

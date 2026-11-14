@@ -3,6 +3,16 @@
 Soul Link permite una sala de hasta cuatro personas con un enlace común y vista
 de partida opcional por jugador. [Guía de Soul Link](docs/SOUL_LINK.md).
 
+## v1.5.0: Soul Link de 2 a 4 jugadores, privado por defecto
+
+Crea una sala y comparte **el mismo enlace** con hasta tres invitados. El contador
+pasa de 1/4 a 4/4 sin elegir capacidad. Cada persona controla **Compartir mi partida**:
+puedes enlazar capturas y confirmar muertes manualmente sin compartir todo tu equipo
+ni tus cajas. Direct requiere LAN o una VPN apropiada; no ofrece conexión por
+Internet sin configuración. Se mantienen OBS, límites de nivel y Definitive Game Data.
+
+[Notas de v1.5.0](docs/releases/v1.5.0.md) · [Guía de Soul Link](docs/SOUL_LINK.md).
+
 ## v1.4.0: límites de nivel manuales
 
 Define las etapas de tu aventura con su nivel máximo, sigue tu avance en la nueva
@@ -62,7 +72,7 @@ la distribución publicada se encuentra en GitHub Releases.
 
 **Progressive Tracker** (antes *Pokémon Tracker*) es una aplicación local para Windows que lee los datos de Pokémon desde la memoria del emulador, organiza aventuras Nuzlocke y Soul Link y genera fuentes visuales para OBS.
 
-> **Versión actual:** **v1.4.0**, con límites de nivel manuales y las funciones de v1.3.0. La descarga oficial está en GitHub Releases. Es una aplicación **portable**: no hace falta instalar Python ni Node.js.
+> **Versión actual:** **v1.5.0**, con Soul Link de hasta cuatro jugadores y privacidad individual. La descarga oficial está en GitHub Releases. Es una aplicación **portable**: no hace falta instalar Python ni Node.js.
 
 ## Descargar para Windows
 
@@ -73,9 +83,9 @@ la distribución publicada se encuentra en GitHub Releases.
 3. Ejecuta **`PokemonTracker.exe`** en Windows 10/11 de 64 bits.
 4. Abre Lime3DS y selecciona juego/PID en **Conexión**.
 
-Requiere **Microsoft Edge WebView2 Runtime**. El EXE no está firmado digitalmente. **Nunca descargues una ROM desde este proyecto**: no se incluyen juegos ni partidas.
+Requiere **Microsoft Edge WebView2 Runtime**. Comprueba la firma Authenticode del EXE; no presupongas que está firmado. **Nunca descargues una ROM desde este proyecto**: no se incluyen juegos ni partidas.
 
-Los datos se conservan en `%LOCALAPPDATA%\PokemonTracker\runtime`. Antes de actualizar, cierra la aplicación y haz una copia de seguridad de esta carpeta.
+Los datos se conservan en `%LOCALAPPDATA%\PokemonTracker\runtime`. Para actualizar desde v1.4.0, cierra todas las ventanas y respalda esta carpeta. Extrae v1.5.0 en otra carpeta y abre el nuevo EXE: reutiliza tus datos locales. Conserva también sprites e iconos personalizados. El respaldo es privado y puede contener credenciales de Soul Link; no lo publiques. Para usar privacidad individual, crea una sala nueva; las conexiones anteriores siguen en opciones avanzadas.
 
 ## Juegos compatibles
 
@@ -94,7 +104,7 @@ Las funciones principales se han validado con **Lime3DS en Windows**. La compati
 - Rutas, capturas, MISS, muertes, revivir, fósiles, regalos, huevos, intercambios e historial.
 - Información de movimientos, estadísticas, IV/EV y análisis de tipos ofensivo/defensivo.
 - Importación informativa de CSV de **pk3DS Progressive** (movimientos, estadísticas base y evoluciones).
-- **Soul Link Companion** opcional y visualización del equipo, cajas y progreso del compañero. No registra muertes locales automáticamente por eventos remotos.
+- **Soul Link** de 2 a 4 jugadores con invitación común y partida privada por defecto. Cada persona decide si comparte su vista completa; las muertes enlazadas requieren confirmación manual. Los modos anteriores siguen en opciones avanzadas.
 - Overlays transparentes para **OBS**, con sprites, motes y barras de vida independientes, estilos, fuentes y escalado HD.
 - Sprites personalizados PNG, APNG, GIF, WebP y otros formatos estáticos admitidos, con recarga en caliente.
 

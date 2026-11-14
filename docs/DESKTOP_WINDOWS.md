@@ -1,7 +1,8 @@
-POKEMON TRACKER - APLICACION PARA WINDOWS (VERSION EXPERIMENTAL)
+PROGRESSIVE TRACKER v1.5.0 - APLICACION PORTABLE PARA WINDOWS
 
 INICIAR
-1. Descarga PokemonTracker-Windows-x64.zip desde los artefactos de GitHub Actions.
+1. Descarga PokemonTracker-Windows-x64.zip desde el release oficial:
+   https://github.com/joanjuz/NuzlockeTracker/releases/latest
 2. Extrae el ZIP en una carpeta nueva. Esta edición usa un EXE independiente:
    solo necesitas PokemonTracker.exe para ejecutarla; LEEME.txt y LICENSE.txt
    son documentación. La primera apertura puede tardar más por extracción temporal.
@@ -11,6 +12,14 @@ INICIAR
    Al abrir una segunda ventana del EXE, se utiliza automáticamente el otro
    perfil local existente para Soul Link. Si hay dos Lime3DS, conecta cada PID.
 5. Requisitos: Windows 10/11 x64, Microsoft Edge WebView2 Runtime instalado.
+
+SOUL LINK EN v1.5.0
+- Crear sala comienza en 1/4 y admite tres invitados con el mismo enlace.
+- Partida privada por defecto: cada persona controla Compartir mi partida.
+- Enlazar capturas no exige compartir el equipo ni las cajas.
+- Las muertes enlazadas requieren confirmación manual, nunca automática.
+- Direct requiere LAN/VPN apropiada y mantener el anfitrión abierto.
+- [Guía completa de Soul Link](SOUL_LINK.md).
 
 PERFILES, PARTIDAS Y SOUL LINK
 - El ZIP no incluye ROM, partidas de emulador, tokens, claves ni datos privados.
@@ -48,14 +57,13 @@ SOLUCIONAR PROBLEMAS
 - Si no abre, revisa %LOCALAPPDATA%\PokemonTracker\desktop-error.log.
 - El test de compilación ahora carga Python.NET/WinForms y comprueba el servidor,
   por lo que detecta el error Python.Runtime.Loader.Initialize antes de publicar.
-- Windows SmartScreen puede avisar porque la compilación experimental no está
-  firmada digitalmente. Comprueba la procedencia del artefacto y no desactives
+- Windows SmartScreen puede avisar si la compilación no tiene firma digital válida. Comprueba la procedencia del artefacto y no desactives
   protecciones del sistema sin verificarlo. La firma opcional del EXE está
   preparada en `tools/build_windows.ps1`; ver `docs/FIRMA_CODIGO.md`.
 - No borres el runtime antiguo hasta confirmar que el nuevo inicia y sincroniza.
 
-Esta version experimental todavía necesita validarse en Windows con Lime3DS,
-Ultra Sol y Ultra Luna y las plantillas pk3DS reales.
+La compatibilidad mantiene los límites por juego y emulador documentados en README.
+Las pruebas automáticas del paquete no acreditan validaciones jugables adicionales.
 
 LAYOUT PARA OBS
 - Al abrir, se crea la carpeta layout junto al ejecutable, cuando es posible
