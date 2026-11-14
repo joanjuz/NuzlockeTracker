@@ -1,5 +1,8 @@
 # Progressive Tracker
 
+Soul Link permite una sala de hasta cuatro personas con un enlace común y vista
+de partida opcional por jugador. [Guía de Soul Link](docs/SOUL_LINK.md).
+
 ## v1.4.0: límites de nivel manuales
 
 Define las etapas de tu aventura con su nivel máximo, sigue tu avance en la nueva
