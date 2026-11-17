@@ -22,6 +22,7 @@ from tracker.service import TrackerService
 from tracker.layout_export import PartyLayoutExporter, layout_directory
 from tracker.overlay import OverlayManager
 from tracker.desktop_export import DesktopExportApi
+from tracker.preview_mode import preview_home
 from tracker.run_profiles import RunProfileStore, acquire_run_lock
 from tracker.updates import CACHE_NAME as UPDATE_CACHE_NAME, UpdateChecker
 from tracker import __version__, diaglog
@@ -403,13 +404,18 @@ def main(argv=None):
     parser.add_argument('--smoke-test', action='store_true',
                         help='Solo para validar la compilación en CI.')
     opts = parser.parse_args(argv)
-    home = app_home()
-    home.mkdir(parents=True, exist_ok=True)
+    try:
+        preview = preview_home()
+        home = preview if preview is not None else app_home()
+        home.mkdir(parents=True, exist_ok=True)
+    except (OSError, ValueError) as error:
+        message_error(str(error))
+        return 1
     backend = None
     locked = None
     slot_lock = None
     try:
-        if not opts.smoke_test:
+        if not opts.smoke_test and preview is None:
             auto_migrate_local_checkout(home)
         if opts.profile:
             profile = opts.profile
@@ -431,7 +437,7 @@ def main(argv=None):
             sprite_cache=home / 'sprite-cache',
             custom_dir=layout_directory(home).parent / 'sprites_personalizados',
             profile_lock=locked, slot_profile=slot, slot_lock=slot_lock,
-            check_updates=not opts.smoke_test
+            check_updates=not opts.smoke_test and preview is None
         ).start()
         if opts.smoke_test:
             smoke_test(backend)
