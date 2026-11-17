@@ -187,18 +187,20 @@ class VirtualTeamServiceTests(unittest.TestCase):
         return status, body
 
     def test_api_round_trip_requires_token_and_validates(self):
-        self.assertEqual(self.request('GET'), (200, {'schema_version': 1, 'game': 'Ultra Moon 1.0', 'teams': [], 'limit': MAX_TEAMS}))
-        payload = {'action': 'save', 'name': 'Liga', 'members': [member(1)]}
+        status, initial = self.request('GET')
+        scope = initial.pop('scope')
+        self.assertEqual((status, initial), (200, {'schema_version': 1, 'game': 'Ultra Moon 1.0', 'teams': [], 'limit': MAX_TEAMS}))
+        payload = {'action': 'save', 'name': 'Liga', 'members': [member(1)], 'scope': scope}
         self.assertEqual(self.request('POST', payload, authorized=False)[0], 403)
         self.assertEqual(self.request('GET')[1]['teams'], [])
         status, saved = self.request('POST', payload)
         self.assertEqual(status, 200)
         self.assertEqual(saved['teams'][0]['name'], 'Liga')
-        status, error = self.request('POST', {'action': 'delete', 'id': saved['team']})
+        status, error = self.request('POST', {'action': 'delete', 'id': saved['team'], 'scope': scope})
         self.assertEqual(status, 400)
         self.assertIn('confirmación', error['error'])
-        self.assertEqual(self.request('POST', {'action': 'save', 'name': 'x', 'members': 'no'})[0], 400)
-        self.assertEqual(self.request('POST', {'action': 'save', 'name': 'x' * 9000, 'members': [member(1)]})[0], 400)
+        self.assertEqual(self.request('POST', {'action': 'save', 'name': 'x', 'members': 'no', 'scope': scope})[0], 400)
+        self.assertEqual(self.request('POST', {'action': 'save', 'name': 'x' * 9000, 'members': [member(1)], 'scope': scope})[0], 400)
         self.assertEqual(len(self.request('GET')[1]['teams']), 1)
 
     def test_teams_are_isolated_per_game_and_run_and_survive_restart(self):
@@ -216,6 +218,47 @@ class VirtualTeamServiceTests(unittest.TestCase):
         # Restart: the original game still has its team.
         again = TrackerService(self.root / 'state.json')
         self.assertEqual([t['name'] for t in again.virtual_teams.view()['teams']], ['Luna'])
+
+    def test_api_rejects_save_from_previous_game(self):
+        old_scope = self.request('GET')[1].get('scope')
+        self.service.open_progress('-ultra-sun', 'Ultra Sun 1.0')
+        status, _ = self.request('POST', {'action': 'save', 'name': 'Equipo de Luna',
+                                         'members': [member(1)], 'scope': old_scope})
+        self.assertEqual(status, 409)
+        self.assertEqual(self.service.virtual_teams.view()['teams'], [])
+        self.assertFalse((self.root / 'state-ultra-sun-virtual-teams.json').exists())
+
+    def test_api_rejects_save_from_previous_run(self):
+        old_scope = self.request('GET')[1].get('scope')
+        # The local handler is rebound to a new service on profile changes.
+        self.service.virtual_teams = VirtualTeamStore(self.root / 'otra' / 'teams.json', 'Ultra Moon 1.0', 'otra')
+        status, _ = self.request('POST', {'action': 'save', 'name': 'Equipo de otra partida',
+                                         'members': [member(1)], 'scope': old_scope})
+        self.assertEqual(status, 409)
+        self.assertEqual(self.service.virtual_teams.view()['teams'], [])
+
+    def test_api_requires_scope_before_any_write(self):
+        status, _ = self.request('POST', {'action': 'save', 'name': 'Sin cargar', 'members': [member(1)]})
+        self.assertEqual(status, 409)
+        self.assertEqual(self.service.virtual_teams.view()['teams'], [])
+
+    def test_api_rejects_game_change_while_reading_body(self):
+        from types import SimpleNamespace
+        from tracker.api.state import teams_action
+        scope = self.service.virtual_teams.scope
+        replies = []
+
+        def read_json(*_args):
+            self.service.open_progress('-ultra-sun', 'Ultra Sun 1.0')
+            return {'action': 'save', 'name': 'Solicitud antigua', 'members': [member(1)], 'scope': scope}
+
+        req = SimpleNamespace(ctx=SimpleNamespace(service=self.service), read_json=read_json,
+                              reply=lambda code, body: replies.append((code, body)))
+        teams_action(req, None)
+        self.assertEqual(replies[0][0], 409)
+        self.assertEqual(self.service.virtual_teams.view()['teams'], [])
+        self.assertFalse((self.root / 'state-virtual-teams.json').exists())
+        self.assertFalse((self.root / 'state-ultra-sun-virtual-teams.json').exists())
 
     def test_teams_stay_out_of_snapshots_and_exports(self):
         self.service.virtual_teams.apply({'action': 'save', 'name': 'Equipo privado', 'members': [member(1, nickname='Secreto')]})

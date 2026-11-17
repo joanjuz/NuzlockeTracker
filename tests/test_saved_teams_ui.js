@@ -14,7 +14,7 @@ const live={game:'Ultra Moon 1.0',party:[a,b,null,null,null,null],boxes:{'1':box
 
 // Minimal stand-in for /api/teams with the same contract as tracker/virtual_teams.py.
 const server={teams:[],next:1,posts:[],fail:null,readOnly:false,notice:null};
-const view=team=>({schema_version:1,game:'Ultra Moon 1.0',teams:JSON.parse(JSON.stringify(server.teams)),limit:50,team,
+const view=team=>({schema_version:1,scope:'local-store-a',game:'Ultra Moon 1.0',teams:JSON.parse(JSON.stringify(server.teams)),limit:50,team,
   ...(server.readOnly?{read_only:true}:{}),...(server.notice?{notice:server.notice}:{})});
 function post(body){
   server.posts.push(body);
@@ -64,7 +64,7 @@ const options=()=>$('builder-saved').options.map(o=>o.text);
   eq(server.posts.length,0);eq($('builder-saved-status').textContent,'Escribe un nombre para el equipo.');eq(focused,'builder-name');
   $('builder-name').value='  Liga  ';
   await $('builder-save').onclick();
-  eq(server.posts[0],{action:'save',name:'Liga',members:[I.memberOf(I.candidateEntries(live)[0]),I.memberOf(I.candidateEntries(live)[1])]},'Solo identificador, especie y apodo, en orden');
+  eq(server.posts[0],{action:'save',name:'Liga',scope:'local-store-a',members:[I.memberOf(I.candidateEntries(live)[0]),I.memberOf(I.candidateEntries(live)[1])]},'Scope local e identificador, especie y apodo, en orden');
   eq(Object.keys(server.posts[0].members[0]).sort(),['id','nickname','species','species_id']);
   eq(options(),['Borrador sin guardar','Liga (2)']);eq($('builder-saved').value,'t1');
   eq($('builder-saved-status').textContent,'Equipo guardado.');
@@ -78,7 +78,7 @@ const options=()=>$('builder-saved').options.map(o=>o.text);
   ok(!$('builder-saved-info').textContent.includes('sin guardar'));
   // Rename and duplicate.
   $('builder-name').value='Final';await $('builder-rename').onclick();
-  eq(server.posts[2],{action:'rename',id:'t1',name:'Final'});eq(options()[1],'Final (3)');
+  eq(server.posts[2],{action:'rename',id:'t1',name:'Final',scope:'local-store-a'});eq(options()[1],'Final (3)');
   await $('builder-duplicate').onclick();
   eq(options(),['Borrador sin guardar','Final (3)','Final (copia) (3)']);
   eq($('builder-saved').value,'t2','Se edita la copia');eq($('builder-name').value,'Final (copia)');
@@ -101,7 +101,7 @@ const options=()=>$('builder-saved').options.map(o=>o.text);
   confirmAnswer=false;$('builder-delete').onclick();
   eq(server.teams.length,2,'Sin confirmar no se elimina');ok(confirms.at(-1).includes('«Final»'));
   confirmAnswer=true;await $('builder-delete').onclick();
-  eq(server.posts.at(-1),{action:'delete',id:'t1',confirm:true});
+  eq(server.posts.at(-1),{action:'delete',id:'t1',confirm:true,scope:'local-store-a'});
   eq(options(),['Borrador sin guardar','Final (copia) (3)']);eq($('builder-saved').value,'');eq(slots(),['Uno','Dos','Tres']);
   // Server errors are shown and nothing changes locally.
   server.fail='Ya hay un equipo guardado con ese nombre';$('builder-name').value='Final (copia)';
@@ -114,6 +114,19 @@ const options=()=>$('builder-saved').options.map(o=>o.text);
   eq($('builder-save').disabled,true);eq($('builder-name').disabled,true);
   eq($('builder-saved-status').textContent,'Estos equipos se guardaron con una versión más nueva.');
   server.readOnly=false;server.notice=null;
+  // A failed list reload must not allow writes using the previous game's store.
+  async function failedTeamListBlocksSaving(){
+    const workingGet=ctx.getJSON;
+    ctx.getJSON=async()=>{throw Error('offline')};
+    const beforePosts=server.posts.length;
+    await ctx.loadBuilderTeams();
+    eq($('builder-save').disabled,true,'Carga fallida bloquea guardar hasta conocer la partida activa');
+    await ctx.builderTeamRequest({action:'save',name:'Pendiente',members:[]},'no');
+    eq(server.posts.length,beforePosts,'No se envía una escritura sin scope confirmado');
+    ctx.getJSON=workingGet;await ctx.loadBuilderTeams();
+    eq($('builder-save').disabled,false,'Reintentar la carga recupera el guardado');
+  }
+  await failedTeamListBlocksSaving();
   // The partner view never loads or saves local teams.
   const before=server.posts.length;
   ctx.companionView=true;ctx.renderTeamBuilder();await tick();

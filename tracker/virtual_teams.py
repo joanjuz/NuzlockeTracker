@@ -91,6 +91,8 @@ class VirtualTeamStore:
         self.path = Path(path)
         self.game = game
         self.run = _text(run, 80)
+        # Ephemeral identity of this opened run/game. An old browser request cannot write into another store.
+        self.scope = secrets.token_hex(16)
         self.lock = threading.Lock()
         self.teams: list[dict[str, Any]] = []
         # 'newer': written by a later version, kept untouched and read-only.
@@ -140,7 +142,7 @@ class VirtualTeamStore:
             return self._view()
 
     def _view(self) -> dict[str, Any]:
-        result: dict[str, Any] = {'schema_version': SCHEMA_VERSION, 'game': self.game,
+        result: dict[str, Any] = {'schema_version': SCHEMA_VERSION, 'game': self.game, 'scope': self.scope,
                                   'teams': json.loads(json.dumps(self.teams)), 'limit': MAX_TEAMS}
         if self.problem == 'newer':
             result['read_only'] = True

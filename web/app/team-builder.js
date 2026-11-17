@@ -182,7 +182,7 @@ $('builder-clear').onclick=()=>{builderMembers=[];renderTeamBuilder()};
 $('builder-search').oninput=renderTeamBuilder;
 for(const id of ['builder-type','builder-source','builder-sort','builder-dead','builder-abilities'])$(id).onchange=renderTeamBuilder;
 // --- Saved teams: local to this run and game (GET/POST /api/teams). Nothing here reaches the game or the network.
-let builderTeams=[],builderOpenId=null,builderReadOnly=false,builderNotice='',builderRequest=0;
+let builderTeams=[],builderOpenId=null,builderReadOnly=true,builderNotice='',builderRequest=0,builderStoreScope='';
 const builderOpenTeam=()=>builderTeams.find(team=>team.id===builderOpenId)||null;
 function builderDirty(){
   const open=builderOpenTeam();
@@ -191,12 +191,14 @@ function builderDirty(){
 function builderSavedMessage(text){builderNotice=text;setText($('builder-saved-status'),text)}
 function applyBuilderTeams(result){
   builderTeams=list(result.teams).filter(team=>team&&typeof team==='object'&&typeof team.id==='string'&&Array.isArray(team.members));
-  builderReadOnly=result.read_only===true;
+  builderStoreScope=typeof result.scope==='string'?result.scope:'';
+  builderReadOnly=result.read_only===true||!builderStoreScope;
   if(!builderOpenTeam())builderOpenId=null;
   builderSignature='';
 }
 async function loadBuilderTeams(){
   const request=++builderRequest;
+  builderReadOnly=true;builderStoreScope='';builderSignature='';
   if(companionView){applyBuilderTeams({teams:[]});return}
   try{
     const result=await getJSON('/api/teams');
@@ -210,9 +212,10 @@ async function loadBuilderTeams(){
 }
 async function builderTeamRequest(payload,done){
   if(companionView)return;
+  if(builderReadOnly||!builderStoreScope){builderSavedMessage('Vuelve a abrir el asistente para cargar los equipos de esta partida antes de guardar.');return}
   const request=++builderRequest;
   try{
-    const response=await fetch('/api/teams',{method:'POST',headers:{'Content-Type':'application/json','X-Tracker-Token':token},body:JSON.stringify(payload)});
+    const response=await fetch('/api/teams',{method:'POST',headers:{'Content-Type':'application/json','X-Tracker-Token':token},body:JSON.stringify({...payload,scope:builderStoreScope})});
     const result=await response.json();
     if(!response.ok)throw Error(result.error||'No se pudo guardar el equipo.');
     if(request!==builderRequest)return;

@@ -178,8 +178,12 @@ def teams_status(req, _match):
 
 def teams_action(req, _match):
     try:
+        store = req.ctx.service.virtual_teams
         data = req.read_json(TEAMS_LIMIT, 'Solicitud demasiado grande', 'Solicitud de equipos inválida')
-        req.reply(200, req.ctx.service.virtual_teams.apply(data))
+        if data.get('scope') != store.scope or req.ctx.service.virtual_teams is not store:
+            req.reply(409, {'error': 'La partida o el juego cambió. Vuelve a abrir el asistente antes de guardar.'})
+            return
+        req.reply(200, store.apply(data))
     except (ValueError, TypeError, UnicodeError) as exc:
         req.reply(400, {'error': str(exc)})
     except OSError:
