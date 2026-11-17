@@ -81,6 +81,11 @@ class BuilderWorkspaceTests(unittest.TestCase):
         self.assertLessEqual(page.evaluate('document.documentElement.scrollWidth'), 600)
         catalog.locator('summary').click()
         demo.expect(catalog).not_to_have_attribute('open', '')
+        catalog.locator('summary').focus()
+        page.keyboard.press('Enter')
+        demo.expect(catalog).to_have_attribute('open', '')
+        page.keyboard.press('Enter')
+        demo.expect(catalog).not_to_have_attribute('open', '')
         self.assert_clean()
 
 
