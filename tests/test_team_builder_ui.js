@@ -168,6 +168,14 @@ ctx.state={...live,party:[mon(hostile,1,[hostile],[move(hostile,hostile)],{speci
 ctx.renderTeamBuilder();$('builder-use-party').onclick();
 for(const id of ['builder-team','builder-candidates','builder-report'])ok(!$(id).innerHTML.includes('<img src=x'),id+' escapa nombres');
 eq(commands.length,0,'El asistente no envía órdenes al juego');
+function copyingPartyRespectsDeadFilter(){
+  ctx.state={...live,party:[dead,skarm,null,null,null,null]};ctx.renderTeamBuilder();
+  $('builder-dead').checked=false;$('builder-use-party').onclick();
+  eq(slots(),['Skarm'],'Usar el equipo actual excluye muertos por defecto');
+  $('builder-dead').checked=true;$('builder-use-party').onclick();
+  eq(slots(),['Caído','Skarm'],'La inclusión de muertos necesita activar el control');
+}
+copyingPartyRespectsDeadFilter();
 $('analysis-section-current').onclick();
 eq([ctx.teamBuilderActive(),$('analysis-current').hidden,$('team-builder').hidden],[false,false,true]);
 

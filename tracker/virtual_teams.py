@@ -12,8 +12,8 @@ import json
 import os
 import re
 import secrets
+import tempfile
 import threading
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -29,6 +29,8 @@ MEMBER_ID = re.compile(r'\d{1,3}:\d{1,10}')
 TEAM_ID = re.compile(r'[0-9a-f]{16}')
 NEWER = ('Estos equipos se guardaron con una versión más nueva de Progressive Tracker. '
          'Se conservan sin cambios; actualiza el Tracker para usarlos.')
+UNRECOVERED = ('No se pudo conservar una copia del archivo de equipos dañado. '
+               'El original sigue intacto y no se permiten cambios; comprueba los permisos y vuelve a abrir la partida.')
 
 
 def _now() -> str:
@@ -118,10 +120,20 @@ class VirtualTeamStore:
         except (OSError, ValueError, TypeError):
             # Never start from a damaged file, and never overwrite it: keep a copy aside.
             self.problem = 'recovered'
+            backup = None
             try:
-                os.replace(self.path, self.path.with_name(f'{self.path.name}.corrupt-{int(time.time())}'))
+                # Reserve a unique destination; never replace a previous recovery copy.
+                descriptor, name = tempfile.mkstemp(prefix=self.path.name + '.corrupt-', dir=self.path.parent)
+                backup = Path(name)
+                os.close(descriptor)
+                os.replace(self.path, backup)
             except OSError:
-                pass
+                self.problem = 'unrecovered'
+                if backup is not None:
+                    try:
+                        backup.unlink(missing_ok=True)
+                    except OSError:
+                        pass
 
     def view(self) -> dict[str, Any]:
         with self.lock:
@@ -133,6 +145,9 @@ class VirtualTeamStore:
         if self.problem == 'newer':
             result['read_only'] = True
             result['notice'] = NEWER
+        elif self.problem == 'unrecovered':
+            result['read_only'] = True
+            result['notice'] = UNRECOVERED
         elif self.problem == 'recovered':
             result['notice'] = ('El archivo de equipos guardados estaba dañado. Se apartó una copia '
                                 'y se empezó una lista nueva.')
@@ -164,6 +179,8 @@ class VirtualTeamStore:
         with self.lock:
             if self.problem == 'newer':
                 raise ValueError(NEWER)
+            if self.problem == 'unrecovered':
+                raise ValueError(UNRECOVERED)
             teams = json.loads(json.dumps(self.teams))
             stamp = _now()
             if action == 'save':

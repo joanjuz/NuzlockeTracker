@@ -6,6 +6,7 @@ import threading
 import unittest
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+from unittest.mock import patch
 
 from server import make_handler
 from tracker.run_profiles import PRINCIPAL_FILE_PATTERNS
@@ -129,6 +130,30 @@ class VirtualTeamStoreTests(unittest.TestCase):
             store.apply({'action': 'save', 'name': 'Liga', 'members': [member(1)]})
         self.assertEqual(self.path.read_text(encoding='utf-8'), newer)
         self.assertEqual(list(self.path.parent.glob('*.corrupt-*')), [])
+
+    def test_failed_quarantine_preserves_original_and_blocks_writes(self):
+        damaged = '{broken original}'
+        self.path.write_text(damaged, encoding='utf-8')
+        with patch('tracker.virtual_teams.os.replace', side_effect=PermissionError('locked')):
+            store = VirtualTeamStore(self.path, 'Ultra Moon 1.0')
+        self.assertTrue(store.view().get('read_only'))
+        self.assertNotIn('Se apartó una copia', store.view()['notice'])
+        with self.assertRaisesRegex(ValueError, 'conservar'):
+            store.apply({'action': 'save', 'name': 'Nueva', 'members': [member(1)]})
+        self.assertEqual(self.path.read_text(encoding='utf-8'), damaged)
+        self.assertEqual(list(self.path.parent.glob('*.corrupt-*')), [])
+
+    def test_quarantine_never_replaces_an_existing_backup(self):
+        previous = self.path.with_name(self.path.name + '.corrupt-1234')
+        previous.write_text('previous damaged file', encoding='utf-8')
+        self.path.write_text('new damaged file', encoding='utf-8')
+        with patch('time.time', return_value=1234):
+            store = VirtualTeamStore(self.path, 'Ultra Moon 1.0')
+        self.assertEqual(previous.read_text(encoding='utf-8'), 'previous damaged file')
+        copies = list(self.path.parent.glob('*.corrupt-*'))
+        self.assertEqual(len(copies), 2)
+        self.assertIn('new damaged file', [p.read_text(encoding='utf-8') for p in copies])
+        store.apply({'action': 'save', 'name': 'Nueva', 'members': [member(1)]})
 
     def test_failed_write_keeps_previous_teams(self):
         self.save()

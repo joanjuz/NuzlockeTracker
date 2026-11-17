@@ -150,12 +150,12 @@ function builderClick(event){
   const data=button.dataset;
   if(data.builderToggle!==undefined)builderToggle(data.builderToggle);
   else if(data.builderRemove!==undefined){builderMembers=builderMembers.filter((_,i)=>i!==Number(data.builderRemove));renderTeamBuilder()}
-  else if(data.builderSwap!==undefined){const cut=data.builderSwap.indexOf(':');builderSwap(Number(data.builderSwap.slice(0,cut)),data.builderSwap.slice(cut+1))}
+  else if(data.builderSwap!==undefined){const [out,id]=data.builderSwap.split('|');builderSwap(out,id)}
   else if(data.builderMove!==undefined){const [index,step]=data.builderMove.split(':').map(Number);builderMove(index,step)}
 }
 $('team-builder').addEventListener('click',builderClick);
 $('builder-use-party').onclick=()=>{
-  builderMembers=TeamInsights.candidateEntries(state).filter(entry=>entry.kind==='party'&&!entry.egg).slice(0,TeamInsights.MAX_TEAM).map(TeamInsights.memberOf);
+  builderMembers=TeamInsights.candidateEntries(state).filter(entry=>entry.kind==='party'&&!entry.egg&&($('builder-dead').checked||!entry.dead)).slice(0,TeamInsights.MAX_TEAM).map(TeamInsights.memberOf);
   renderTeamBuilder();
 };
 $('builder-clear').onclick=()=>{builderMembers=[];renderTeamBuilder()};
@@ -269,7 +269,7 @@ function builderAdvice(evaluation,entries,abilities){
   const swaps=result.swaps.map(item=>
     `Sustituir a <b>${esc(TeamInsights.label(item.out))}</b> por ${builderCandidateName(item.entry)}<span>Motivo: ${item.gains.map(text=>esc(text)).join('; ')}.</span>`
     +(item.losses.length?`<span class="builder-cost">Se perdería o empeoraría: ${item.losses.map(text=>esc(text)).join('; ')}.</span>`:'<span class="builder-cost">Sin nuevas debilidades compartidas ni pérdida de cobertura.</span>')
-    +`<button type="button" data-builder-swap="${item.index}:${esc(item.entry.id)}" data-focus="swap${item.index}${esc(item.entry.id)}">Aplicar al borrador</button>`);
+    +`<button type="button" data-builder-swap="${esc(TeamInsights.pokemonId(item.out))}|${esc(item.entry.id)}" data-focus="swap${item.index}${esc(item.entry.id)}">Aplicar al borrador</button>`);
   const pool=result.considered?`Se compararon ${result.considered} candidatos${result.skipped?` (quedaron ${result.skipped} sin comparar)`:''}.`:'No hay otros candidatos con los que comparar.';
   return '<section class="builder-advice" aria-label="Recomendaciones">'
     +'<dl class="builder-measures">'
@@ -287,7 +287,8 @@ function builderAdvice(evaluation,entries,abilities){
     +`<p class="subtitle">${pool} Las sugerencias comparan tipos, habilidades compatibles y movimientos conocidos, de una incorporación o una sustitución cada vez. No tienen en cuenta niveles, estadísticas, objetos ni las reglas de tu partida: son opciones para valorar, no «el mejor equipo».</p>`
     +'</section>';
 }
-function builderSwap(index,id){
+function builderSwap(out,id){
+  const index=builderMembers.findIndex(member=>member.id===out);
   const entry=builderEntry(id);
   if(!entry||index<0||index>=builderMembers.length||builderMembers.some(member=>member.id===id))return;
   builderMembers=builderMembers.map((member,i)=>i===index?TeamInsights.memberOf(entry):member);

@@ -128,11 +128,29 @@ ok(report.includes('Se compararon 3 candidatos.'));
 ok(!/data-builder-(toggle|swap)="[^"]*"[^>]*>[^<]*<\/button>[^]*Caído/.test(report.split('Cobertura ofensiva')[0])||!report.includes('Caído'),'Los muertos no se sugieren');
 // Applying a substitution edits only the draft.
 const first=result.swaps[0];
-click({builderSwap:`${first.index}:${first.entry.id}`});
+click({builderSwap:`${I.pokemonId(first.out)}|${first.entry.id}`});
 const expected=steel.map(p=>p.nickname);expected[first.index]=first.entry.pokemon.nickname;
 eq(slots(),expected,'La sustitución se aplica al borrador');
-click({builderSwap:`0:${first.entry.id}`});eq(slots(),expected,'Un Pokémon no puede entrar dos veces');
-click({builderSwap:'9:33:1'});eq(slots(),expected);
+click({builderSwap:`${I.pokemonId(skarm)}|${first.entry.id}`});eq(slots(),expected,'Un Pokémon no puede entrar dos veces');
+click({builderSwap:'33:999999|33:1'});eq(slots(),expected);
+
+// A missing saved member keeps its slot; a recommendation must still replace the named specimen.
+function substitutionKeepsMissingMember(){
+  $('builder-clear').onclick();
+  for(const p of [ghost,skarm,magne])click({builderToggle:I.pokemonId(p)});
+  ctx.state={...live,boxes:{'1':[gyara,chomp,null,dead,egg,...Array(25).fill(null)]}};
+  ctx.renderTeamBuilder();
+  eq(slots(),['Gengar','Skarm','Magne']);
+  const markup=$('builder-report').innerHTML;
+  const offer=markup.match(/Sustituir a <b>([^<]+)<\/b> por <b>([^<]+)<\/b>[^]*?data-builder-swap="([^"]+)"/);
+  ok(offer,'Se ofrece una sustitución del equipo localizado');
+  click({builderSwap:offer[3]});
+  const after=slots();
+  eq(after[0],'Gengar','El ausente conserva su lugar');
+  ok(!after.includes(offer[1])&&after.includes(offer[2]),'Se sustituye exactamente el integrante anunciado');
+  ctx.state=live;ctx.renderTeamBuilder();
+}
+substitutionKeepsMissingMember();
 // Complete with suggestions, then keep editing.
 $('builder-use-party').onclick();
 $('builder-complete').onclick();
