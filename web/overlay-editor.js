@@ -1,6 +1,8 @@
 'use strict';
 (() => {
   const $=id=>document.getElementById(id), fields=[
+    'frame_enabled','frame_color','frame_width','frame_radius',
+    'frame_names_height','frame_items_height','frame_info_height','graveyard_layout','graveyard_gap',
     'direction','gap','slot_width','sprite_size','name_size','name_color',
     'name_weight','font','font_file','name_outline','hp_height','hp_radius',
     'hp_background','hp_border','hp_border_width','hp_good','hp_mid','hp_low',
@@ -15,11 +17,11 @@
     'info_in_composition','info_size','info_show_level','info_show_types','info_show_shiny','info_show_gender',
     'stats_show_captures','stats_show_deaths','stats_show_alive','stats_show_missed','stats_direction','stats_size',
   ];
-  const numberFields=new Set(['gap','slot_width','sprite_size','name_size','name_weight','hp_height',
+  const numberFields=new Set(['frame_width','frame_radius','frame_names_height','frame_items_height','frame_info_height','graveyard_gap','gap','slot_width','sprite_size','name_size','name_weight','hp_height',
     'hp_radius','hp_border_width','hp_low_threshold','hp_mid_threshold','hp_text_size',
     'render_scale','sprite_padding','hp_animation_ms','counter_total','counter_icon_size','item_size','item_icon_size',
     'graveyard_max','graveyard_columns','graveyard_sprite_size','info_size','stats_size']);
-  const checkFields=new Set(['hp_reverse','hp_glow','show_empty','hp_custom_fill','hp_custom_frame','sprite_shadow','counter_in_composition','counter_custom_icon','items_in_composition',
+  const checkFields=new Set(['frame_enabled','hp_reverse','hp_glow','show_empty','hp_custom_fill','hp_custom_frame','sprite_shadow','counter_in_composition','counter_custom_icon','items_in_composition',
     'graveyard_title','graveyard_show_name','graveyard_show_species','graveyard_show_level','graveyard_show_route',
     'slot_frame','info_in_composition','info_show_level','info_show_types','info_show_shiny','info_show_gender',
     'stats_show_captures','stats_show_deaths','stats_show_alive','stats_show_missed']);
@@ -67,82 +69,23 @@
   if(typeof ResizeObserver!=='undefined')new ResizeObserver(scheduleHeight).observe(document.body);
   window.addEventListener('resize',scheduleHeight);
   document.fonts?.ready.then(scheduleHeight);
-  // Estimated rows of the «Datos» line inside one slot (level, two widest types, ★, ♂).
-  function infoLines(ctx,c){
-    const size=c.info_size||14;
-    ctx.font=c.name_weight+' '+size+'px '+c.font;
-    const parts=[];
-    if(c.info_show_level)parts.push(ctx.measureText('Nv. 100').width);
-    if(c.info_show_types){
-      ctx.font=c.name_weight+' '+Math.round(size*0.82)+'px '+c.font;
-      const typeWidth=ctx.measureText('Siniestro').width+size;
-      parts.push(typeWidth,typeWidth);
-    }
-    if(c.info_show_shiny)parts.push(size);
-    if(c.info_show_gender)parts.push(size);
-    if(!parts.length)return 0;
-    let lines=1,used=0;
-    for(const width of parts){
-      const next=used?used+0.3*size+width:width;
-      if(next>c.slot_width&&used){lines++;used=width;}else used=next;
-    }
-    return lines;
-  }
-  function statsBox(ctx,c){
-    const size=c.stats_size||20;
-    ctx.font=c.name_weight+' '+size+'px '+c.font;
-    const shown=[['captures','Capturas 999'],['deaths','Muertes 999'],['alive','Vivos 999'],['missed','Rutas perdidas 999']]
-      .filter(([key])=>c['stats_show_'+key]).map(([,text])=>ctx.measureText(text).width);
-    if(!shown.length)return {w:0,h:0};
-    const line=Math.ceil(size*1.3);
-    if(c.stats_direction==='column')
-      return {w:Math.ceil(Math.max(...shown))+8,h:shown.length*line+Math.ceil((shown.length-1)*size*0.2)+4};
-    const separator=ctx.measureText('·').width+size*1.1;
-    return {w:Math.ceil(shown.reduce((a,b)=>a+b,0)+(shown.length-1)*separator)+8,h:line+4};
-  }
   function sourceDimensions(){
-    const c=read(),scale=c.render_scale||1,n=$('slot').value?1:6;
-    const columns=c.direction==='grid'?3:c.direction==='column'?1:n;
-    const rows=c.direction==='column'?n:c.direction==='grid'?Math.ceil(n/3):1;
-    const width=columns*c.slot_width+(columns-1)*c.gap;
-    // Include generous text headroom; custom fonts may have different metrics.
-    const names=publicParty.filter(p=>!$('slot').value||p.slot===Number($('slot').value));
-    const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
-    ctx.font=c.name_weight+' '+c.name_size+'px '+c.font;
-    const lines=Math.max(1,...names.map(p=>Math.ceil(ctx.measureText(p.nickname||'').width/c.slot_width)));
-    const heights={sprites:rows*c.sprite_size+(rows-1)*c.gap,
-      names:rows*(Math.ceil(c.name_size*1.3)*lines+4)+(rows-1)*c.gap,
-      hp:rows*(c.hp_height+(c.hp_label==='none'?0:4+Math.ceil(c.hp_text_size*1.3)))+(rows-1)*c.gap,
-      items:rows*((c.item_display==='name'?0:c.item_icon_size+2)+(c.item_display==='icon'?0:Math.ceil(c.item_size*1.3)*2)+4)+(rows-1)*c.gap,
-      info:rows*(Math.max(1,infoLines(ctx,c))*Math.ceil((c.info_size||14)*1.45)+4)+(rows-1)*c.gap};
-    const stats=statsBox(ctx,c);
-    heights.stats=stats.h;
-    const counterWidth=Math.max(c.counter_icon_size,Math.min(width,120+c.counter_total*(c.counter_icon_size+8)));
-    const graveCols=Math.max(1,c.graveyard_columns||6),graveCount=Math.min(c.graveyard_max||12,60);
-    const graveWidth=graveCols*Math.max(c.slot_width,c.graveyard_sprite_size)+(graveCols-1)*c.gap;
-    const graveText=[c.graveyard_show_name,c.graveyard_show_species,c.graveyard_show_level,c.graveyard_show_route]
-      .filter(Boolean).length*Math.ceil(c.name_size*0.8*1.3);
-    heights.graveyard=(c.graveyard_title?Math.ceil(c.name_size*1.3)+6:0)+
-      Math.ceil(graveCount/graveCols)*(c.graveyard_sprite_size+graveText+4)+(Math.ceil(graveCount/graveCols)-1)*c.gap;
-    heights.counter=c.counter_mode==='lives'?Math.ceil((120+c.counter_total*(c.counter_icon_size+8))/counterWidth)*(Math.max(c.counter_icon_size,c.name_size*1.3)+8):Math.ceil(c.name_size*1.3)+4;
-    heights.all=heights.sprites+heights.names+heights.hp+2*c.gap;
-    if(c.items_in_composition)heights.all+=heights.items+c.gap;
-    if(c.info_in_composition)heights.all+=heights.info+c.gap;
-    if(c.counter_in_composition&&c.counter_mode!=='off')heights.all+=heights.counter+c.gap;
-    const widthOf=layer=>layer==='counter'?counterWidth:layer==='graveyard'?graveWidth:layer==='stats'?stats.w:width;
+    const c=read(),scale=c.render_scale||1;
+    const boxes=OverlayLayout.measure(c,$('slot').value?1:6);
     for(const el of document.querySelectorAll('[data-source-size]')){
-      const layer=el.dataset.sourceSize;
-      el.textContent='Ancho '+Math.ceil(widthOf(layer)*scale)+' × alto '+Math.ceil(heights[layer]*scale)+' px';
+      const box=boxes[el.dataset.sourceSize];
+      el.textContent=Math.ceil(box.width*scale)+' \u00d7 '+Math.ceil(box.height*scale)+' px';
     }
-    $('source-size').textContent='Dimensiones orientativas para OBS a '+scale+'×. Conserva estos tamaños de render; deja margen adicional si tu fuente personalizada o tus motes son más altos.';
-    const layer=$('preview-layer').value;
-    updatePreview(Math.ceil(widthOf(layer)*scale),Math.ceil((heights[layer]||0)*scale));
+    $('source-size').textContent='Dimensiones fijas para OBS. El contenido se ajusta dentro del recuadro.';
+    const box=boxes[$('preview-layer').value];
+    updatePreview(Math.ceil(box.width*scale),Math.ceil(box.height*scale));
+    $('graveyard_columns').disabled=c.graveyard_layout!=='custom';
   }
   // Live preview: the real overlay page in a same-origin iframe. It re-reads the
   // saved settings by itself, so only its URL and its box size are managed here.
   function previewUrl(){
     const layer=$('preview-layer').value,slot=$('slot').value;
-    return '/overlay?layer='+encodeURIComponent(layer)+(slot&&!SINGLE_LAYERS.has(layer)?'&slot='+slot:'');
+    return '/overlay?layer='+encodeURIComponent(layer)+(slot&&!SINGLE_LAYERS.has(layer)?'&slot='+slot:'')+($('preview-bounds').checked?'&bounds=1':'');
   }
   function updatePreview(width,height){
     const frame=$('preview-frame'),stage=$('preview-stage');
@@ -383,6 +326,7 @@
 
   // --- Preview -------------------------------------------------------------
   $('preview-layer').onchange=sourceDimensions;
+  $('preview-bounds').onchange=sourceDimensions;
   let stageWidth=0;
   if(typeof ResizeObserver!=='undefined')new ResizeObserver(entries=>{
     const width=Math.round(entries[0].contentRect.width);

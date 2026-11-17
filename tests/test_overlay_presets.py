@@ -46,6 +46,19 @@ class Base(unittest.TestCase):
 
 
 class SettingsTests(unittest.TestCase):
+    def test_stable_boxes_validate_and_migrate_old_profiles(self):
+        old = validated_settings({'gap': 40, 'graveyard_columns': 3})
+        self.assertFalse(old['frame_enabled'])
+        self.assertEqual(old['graveyard_layout'], 'custom')
+        self.assertEqual(old['graveyard_columns'], 3)
+        self.assertEqual(old['graveyard_gap'], 40)
+        for mode in ('horizontal', 'vertical', 'grid', 'custom'):
+            self.assertEqual(validated_settings({'graveyard_layout': mode})['graveyard_layout'], mode)
+        for field, value in [('frame_enabled', 1), ('frame_width', 9), ('frame_radius', -1),
+                             ('frame_color', 'red'), ('frame_names_height', 601),
+                             ('graveyard_layout', 'diagonal'), ('graveyard_gap', 121)]:
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                validated_settings({field: value})
     def test_every_setting_has_exactly_one_rule(self):
         self.assertEqual(overlay_settings.RULED, overlay_settings.ALLOWED)
 
@@ -62,6 +75,16 @@ class SettingsTests(unittest.TestCase):
 
 
 class PresetTests(Base):
+    def test_box_geometry_is_saved_per_profile_and_exported(self):
+        custom = {**DEFAULT, 'frame_enabled': True, 'frame_width': 4, 'frame_color': '#123456',
+                  'frame_names_height': 60, 'graveyard_layout': 'vertical', 'graveyard_gap': 7}
+        self.overlay.set_settings(custom)
+        self.overlay.preset_action('save', 'Vertical')
+        self.overlay.set_settings(DEFAULT)
+        result = self.overlay.preset_action('apply', 'Vertical')['settings']
+        for key in ('frame_enabled', 'frame_width', 'frame_color', 'frame_names_height',
+                    'graveyard_layout', 'graveyard_gap'):
+            self.assertEqual(result[key], custom[key])
     def test_save_apply_delete_and_case_insensitive_rename(self):
         self.overlay.set_settings({**DEFAULT, 'gap': 40})
         self.overlay.preset_action('save', 'Combate')

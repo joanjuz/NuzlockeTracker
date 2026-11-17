@@ -43,6 +43,7 @@ SHARE_LIMIT = 256
 FONT_TYPES = {'ttf': 'font/ttf', 'otf': 'font/otf', 'woff': 'font/woff', 'woff2': 'font/woff2'}
 
 OVERLAY_FILES = {
+    '/overlay-layout.js': ('web/overlay-layout.js', 'text/javascript; charset=utf-8'),
     '/overlay': ('web/overlay.html', 'text/html; charset=utf-8'),
     '/overlay/editor': ('web/overlay-editor.html', 'text/html; charset=utf-8'),
     '/overlay.js': ('web/overlay.js', 'text/javascript; charset=utf-8'),
@@ -50,7 +51,7 @@ OVERLAY_FILES = {
     '/overlay-editor.js': ('web/overlay-editor.js', 'text/javascript; charset=utf-8'),
     '/overlay-editor.css': ('web/overlay-editor.css', 'text/css; charset=utf-8'),
 }
-REMOTE_OVERLAY_FILES = {'/overlay', '/overlay.js', '/overlay.css'}
+REMOTE_OVERLAY_FILES = {'/overlay', '/overlay.js', '/overlay.css', '/overlay-layout.js'}
 
 
 def _png_or_404(req, raw, kind='image/png'):

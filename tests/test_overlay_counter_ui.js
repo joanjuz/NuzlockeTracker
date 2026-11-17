@@ -16,7 +16,7 @@ function harness(query='?layer=counter'){
   const context={location:{search:query},URLSearchParams,setInterval(){},
     document:{getElementById:id=>id==='overlay'?root:null,createElement:tag=>new Element(tag),
       documentElement:{style:{setProperty(){}}}}};
-  vm.createContext(context);vm.runInContext(source,context);
+  context.OverlayLayout=require('../web/overlay-layout.js');vm.createContext(context);vm.runInContext(source,context);
   const config={order:['sprites','names','hp'],direction:'row',font:'Arial',
     counter_mode:'lives',counter_total:10,counter_lost:'gray',counter_custom_icon:true,
     counter_icon_size:36,counter_icon_version:'v1'};
