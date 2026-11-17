@@ -39,6 +39,9 @@ eq(names(I.filterEntries(entries,{type:'Volador'})),['Llama','Ola'],'Tipo primar
 eq(names(I.filterEntries(entries,{ability:'Estática'})),['Chispa','Duda']);
 eq(names(I.filterEntries(entries,{available:true})),['Chispa','Llama','Duda','Medio'],'Disponibles: ni muertos ni huevos');
 eq(names(I.filterEntries(entries,{query:'  GYARA '})),['Ola'],'Busca por especie');
+eq(names(I.filterEntries(entries,{query:'intimidacion'})),['Ola'],'Conserva búsqueda por habilidad');
+eq(names(I.filterEntries(entries,{query:'placaje'})),['Chispa','Llama','Ola','Duda','Huevo','Medio'],'Conserva búsqueda por movimiento');
+eq(names(I.filterEntries([{...entries[0],pokemon:{...pika,item:'Restos',met_location:'Ruta 12'}}],{query:'restos ruta 12'})),['Chispa'],'Conserva objeto y origen');
 eq(names(I.filterEntries(entries,{query:'lider'})),[],'El equipo no está si no se pide');
 eq(names(I.filterEntries(I.ownedEntries(snapshot,{party:true}),{query:'lider'})),['Líder'],'Sin tildes ni mayúsculas');
 eq(names(I.filterEntries(entries,{box:2})),['Ola','Duda']);
@@ -143,6 +146,9 @@ $('box-analysis-party').checked=false;ctx.state={...snapshot,boxes:full,progress
 eq(($('box-analysis').innerHTML.match(/<tr class=/g)||[]).length,240);
 ok($('box-analysis').innerHTML.includes('Se muestran 240 de 960'));
 eq($('box-analysis-status').textContent,'960 Pokémon · 32 / 32 cajas leídas');
+// A key for every box is not proof that all thirty slots have been read.
+ctx.state={...snapshot,boxes:Object.fromEntries(Array.from({length:32},(_,i)=>[String(i+1),[pika]]))};ctx.renderBoxes();
+ok($('box-analysis-status').textContent.includes('0 / 32 cajas leídas')&&$('box-analysis-status').textContent.includes('resultado es parcial'),'Un escaneo con registros incompletos no afirma PC completo');
 // Back to the normal view.
 ctx.state=snapshot;$('global').checked=false;$('box-view-mode').value='normal';$('box-view-mode').onchange();
 eq($('boxes').hidden,false);eq($('box-analysis').hidden,true);eq($('living-dex-label').hidden,false);

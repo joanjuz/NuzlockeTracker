@@ -83,7 +83,7 @@ function filterEntries(entries,filters={}){
     if(filters.hideEggs&&entry.egg)return false;
     if(filters.kind&&entry.kind!==filters.kind)return false;
     if(box&&entry.kind==='box'&&entry.box!==box)return false;
-    if(words.length){const text=fold([p.nickname,p.species].join(' '));if(!words.every(word=>text.includes(word)))return false}
+    if(words.length){const text=fold([p.nickname,p.species,p.ability,p.item,p.met_location,...arr(p.move_names)].join(' '));if(!words.every(word=>text.includes(word)))return false}
     return true;
   });
 }

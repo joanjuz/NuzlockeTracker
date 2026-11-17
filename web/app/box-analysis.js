@@ -59,7 +59,8 @@ function syncBoxAnalysisFacets(entries){
   }
 }
 function boxAnalysisStatus(entries,shown){
-  const gen6=GEN6_GAMES.includes(state.game),total=gen6?31:32,read=Object.keys(state.boxes||{}).length;
+  const gen6=GEN6_GAMES.includes(state.game),total=gen6?31:32;
+  const read=Array.from({length:total},(_,i)=>state.boxes?.[String(i+1)]).filter(box=>Array.isArray(box)&&box.length===30).length;
   const notes=[`${shown} Pokémon`,`${read} / ${total} cajas leídas`];
   if(read<total)notes.push('faltan cajas por leer: el resultado es parcial');
   if(state.scan?.active)notes.push('lectura en curso');
@@ -79,9 +80,9 @@ function renderBoxAnalysis(){
     query:$('search').value,box:all?0:Number($('box').value)};
   const sort=$('box-analysis-sort').value||'bst',direction=$('box-analysis-direction').value==='asc'?'asc':'desc';
   // Only what the table draws: full PK6/PK7 records are not serialised on every frame.
-  const signature=JSON.stringify([state.game,companionView,state.stale,state.box_verified,state.scan?.active,Object.keys(state.boxes||{}).length,filters,sort,direction,
+  const signature=JSON.stringify([state.game,companionView,state.stale,state.box_verified,state.scan?.active,Object.values(state.boxes||{}).map(box=>Array.isArray(box)?box.length:0),filters,sort,direction,
     entries.map(e=>[e.key,e.id,e.dead,e.egg,e.pokemon.species,e.pokemon.nickname,e.pokemon.level,e.pokemon.max_hp,e.pokemon.ability,e.pokemon.nature,
-      e.pokemon.types,e.pokemon.base_stats,e.pokemon.stats,e.pokemon.move_names])]);
+      e.pokemon.types,e.pokemon.base_stats,e.pokemon.stats,e.pokemon.move_names,e.pokemon.item,e.pokemon.met_location])]);
   if(signature===boxAnalysisSignature)return;
   boxAnalysisSignature=signature;
   const found=TeamInsights.sortEntries(TeamInsights.filterEntries(entries,filters),sort,direction);
