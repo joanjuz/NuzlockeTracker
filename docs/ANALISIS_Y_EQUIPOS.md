@@ -79,3 +79,28 @@ Un equipo virtual se puede guardar con un nombre (hasta 60 caracteres). Las acci
 - En la vista del compañero no se cargan ni se guardan equipos.
 
 API local (requiere el token de sesión para escribir): `GET /api/teams` y `POST /api/teams` con `action` `save`, `rename`, `duplicate` o `delete` (`confirm: true`).
+
+### Recomendaciones
+
+Con al menos un integrante, el informe empieza con una lectura del equipo y con sugerencias de cambio. Son reglas fijas sobre los datos del Tracker: no usan servicios externos y, con los mismos datos, dan siempre el mismo resultado.
+
+**Medidas separadas** (sirven para comparar cambios, no son una nota del equipo):
+
+| Medida | Qué cuenta |
+| --- | --- |
+| Balance defensivo | Por cada tipo atacante suma resistencias (×½: 1; ×¼: 1,5) e inmunidades (2) y resta debilidades (×2: 1; ×4: 2). Resta 2 más por cada tipo al que son débiles dos o más integrantes y nadie resiste |
+| Tipos con ataque supereficaz | Cuántos de los 18 tipos reciben un ataque supereficaz de algún movimiento conocido |
+| Redundancias | Integrantes que repiten tipo y ataques del mismo tipo a partir del tercero |
+| Tipos distintos | Tipos diferentes entre los integrantes |
+
+**Lectura defensiva y ofensiva:** frases como «3 integrantes son débiles a Fuego y ninguno lo resiste ni es inmune», «2 integrantes son débiles a Tierra; Skarm es inmune» o «Ningún Pokémon del equipo dispone de un ataque supereficaz contra Eléctrico».
+
+**Incorporaciones posibles** (si quedan espacios) y **Sustituciones posibles:** cada candidato de las cajas o del equipo se prueba como incorporación y como sustituto de cada integrante, de uno en uno. Cada sugerencia indica:
+
+- A quién se propone sustituir y a quién incorporar.
+- El motivo: inmunidades nuevas, resistencias a tipos que nadie resistía, debilidades compartidas que se reducen, cobertura supereficaz nueva.
+- Lo que se perdería o empeoraría: debilidades compartidas nuevas o mayores, inmunidades o resistencias perdidas, cobertura perdida.
+
+Solo se muestran cambios con algún beneficio y cuyo saldo conjunto es positivo, ordenados por ese saldo; cada candidato aparece una vez entre las sustituciones. **Añadir al borrador** y **Aplicar al borrador** modifican únicamente el equipo virtual. **Completar con sugerencias** rellena los espacios libres con la mejor incorporación de cada paso y se detiene cuando ninguna aporta; el resultado es un borrador que se puede editar antes de guardar.
+
+Límites deliberados: no se sugieren Pokémon muertos ni huevos; se comparan como máximo 300 candidatos y nunca combinaciones de varios cambios a la vez; el BST no interviene. Las sugerencias no consideran niveles, estadísticas, objetos ni las reglas de la partida, así que son opciones para valorar y no «el mejor equipo».

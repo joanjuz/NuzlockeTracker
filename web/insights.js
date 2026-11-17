@@ -186,6 +186,152 @@ function evaluateTeam(chart,types,team,abilities=true){
     attackTypes:ordered(byAttack).map(([type,list])=>({type,count:list.length,moves:list}))
   };
 }
-const api={MAX_TEAM,candidateEntries,memberOf,resolveTeam,damagingMoves,offenseSummary,evaluateTeam,BUCKETS,bucketOf,label,defenseSummary,sortDefense,STAT_KEYS,pokemonId,baseStat,bst,ownedEntries,filterEntries,sortEntries,sortValue,entryFacets};
+// --- Recommendations: deterministic rules over evaluateTeam. They explain trade-offs; they never name a "best" team.
+const SUGGESTION_POOL=300;
+const plural=(n,one,many)=>n===1?one:many;
+const joinTypes=list=>list.join(', ');
+// Four separate measures. `total` only orders suggestions; it is not shown as a verdict.
+function teamScores(evaluation){
+  const exposed=evaluation.sharedWeaknesses.filter(w=>!w.answers.length).map(w=>w.type);
+  const defense=evaluation.defense.reduce((n,row)=>n+row.half.length+1.5*row.quarter.length+2*row.immune.length-row.x2.length-2*row.x4.length,0)-2*exposed.length;
+  const covered=evaluation.knownMoves?evaluation.offense.length-evaluation.uncovered.length:0;
+  const coverage=covered-.5*evaluation.walled.length;
+  const redundancy=evaluation.sharedTypes.reduce((n,s)=>n+s.members.length-1,0)+evaluation.attackTypes.reduce((n,a)=>n+Math.max(0,a.count-2),0);
+  const diversity=new Set(evaluation.members.flatMap(p=>arr(p.types))).size;
+  return {defense,coverage,covered,redundancy,diversity,exposed,total:defense+1.5*coverage-.5*redundancy+.25*diversity};
+}
+// Plain statements about the team as it is.
+function teamNotes(evaluation){
+  const defensive=[],offensive=[];
+  for(const w of evaluation.sharedWeaknesses.slice(0,5)){
+    const who=`${w.weak} integrantes son débiles a ${w.type}`;
+    const immune=evaluation.immunities.find(i=>i.type===w.type);
+    defensive.push(!w.answers.length?`${who} y ninguno lo resiste ni es inmune.`
+      :immune?`${who}; ${immune.members.join(', ')} ${plural(immune.members.length,'es inmune','son inmunes')}.`
+      :`${who} y ninguno es inmune; lo ${plural(w.answers.length,'resiste','resisten')} ${w.answers.join(', ')}.`);
+  }
+  const loose=evaluation.unresisted.filter(type=>!evaluation.sharedWeaknesses.some(w=>w.type===type));
+  if(loose.length)defensive.push(`Ningún integrante resiste ${joinTypes(loose)}.`);
+  if(evaluation.size&&!evaluation.knownMoves)offensive.push('No se conocen movimientos ofensivos de este equipo: no se puede valorar su cobertura.');
+  else if(evaluation.uncovered.length){
+    offensive.push(`Ningún Pokémon del equipo dispone de un ataque supereficaz contra ${joinTypes(evaluation.uncovered)}.`);
+    if(evaluation.offense.length-evaluation.uncovered.length>=evaluation.uncovered.length)
+      offensive.push(`Los ataques conocidos son supereficaces contra ${evaluation.offense.length-evaluation.uncovered.length} de ${evaluation.offense.length} tipos.`);
+  }else if(evaluation.knownMoves)offensive.push('Hay al menos un ataque supereficaz contra cada tipo.');
+  if(evaluation.walled.length)offensive.push(`${joinTypes(evaluation.walled)} ${plural(evaluation.walled.length,'resiste','resisten')} todos los ataques conocidos.`);
+  return {defensive,offensive};
+}
+// What changes between two evaluations, as explained gains and losses.
+function compareTeams(before,after){
+  const gains=[],losses=[];
+  const a=new Map(before.defense.map(row=>[row.type,row]));
+  const gained={immunity:[],resist:[],coverage:[]},lost={immunity:[],resist:[],coverage:[]};
+  for(const row of after.defense){
+    const old=a.get(row.type);if(!old)continue;
+    const hadAnswer=old.resist+old.immunities>0,hasAnswer=row.resist+row.immunities>0;
+    if(!old.immunities&&row.immunities)gained.immunity.push(row.type);
+    else if(before.size&&!hadAnswer&&hasAnswer)gained.resist.push(row.type);
+    if(old.immunities&&!row.immunities)lost.immunity.push(row.type);
+    else if(hadAnswer&&!hasAnswer)lost.resist.push(row.type);
+    if(old.weak>=2&&row.weak<old.weak)gains.push(`reduce las debilidades compartidas a ${row.type} (${old.weak} → ${row.weak})`);
+    if(row.weak>old.weak&&row.weak>=2)losses.push(old.weak<2?`nueva debilidad compartida a ${row.type} (${row.weak} débiles)`:`más integrantes débiles a ${row.type} (${old.weak} → ${row.weak})`);
+  }
+  if(before.knownMoves||after.knownMoves){
+    const was=new Set(before.knownMoves?before.uncovered:before.offense.map(row=>row.type));
+    const now=new Set(after.knownMoves?after.uncovered:after.offense.map(row=>row.type));
+    for(const row of after.offense){
+      if(was.has(row.type)&&!now.has(row.type))gained.coverage.push(row.type);
+      if(!was.has(row.type)&&now.has(row.type))lost.coverage.push(row.type);
+    }
+  }
+  if(gained.immunity.length)gains.unshift(`añade inmunidad a ${joinTypes(gained.immunity)}`);
+  if(gained.resist.length)gains.push(`aporta resistencia a ${joinTypes(gained.resist)}, que nadie resistía`);
+  if(gained.coverage.length)gains.push(`añade cobertura supereficaz frente a ${joinTypes(gained.coverage)}`);
+  if(lost.immunity.length)losses.push(`se pierde la inmunidad a ${joinTypes(lost.immunity)}`);
+  if(lost.resist.length)losses.push(`nadie resistiría ${joinTypes(lost.resist)}`);
+  if(lost.coverage.length)losses.push(`se pierde la cobertura supereficaz frente a ${joinTypes(lost.coverage)}`);
+  const x=teamScores(before),y=teamScores(after);
+  return {gains,losses,gained,lost,delta:y.total-x.total,
+    scores:{defense:y.defense-x.defense,coverage:y.coverage-x.coverage,redundancy:y.redundancy-x.redundancy,diversity:y.diversity-x.diversity}};
+}
+// One addition or one substitution at a time: at most 7 evaluations per candidate, over a bounded pool.
+function suggestChanges(chart,types,team,candidates,abilities=true,limit=5){
+  const members=arr(team).filter(Boolean),pool=arr(candidates).filter(entry=>entry&&entry.pokemon&&!entry.dead&&!entry.egg&&!members.includes(entry.pokemon));
+  const considered=pool.slice(0,SUGGESTION_POOL),before=evaluateTeam(chart,types,members,abilities);
+  const additions=[],swaps=[];
+  const worth=change=>change.gains.length>0&&change.delta>0;
+  const best=(a,b)=>b.delta-a.delta||a.order-b.order;
+  considered.forEach((entry,order)=>{
+    if(members.length<MAX_TEAM){
+      const change=compareTeams(before,evaluateTeam(chart,types,[...members,entry.pokemon],abilities));
+      if(worth(change))additions.push({entry,order,...change});
+    }
+    members.forEach((out,index)=>{
+      const change=compareTeams(before,evaluateTeam(chart,types,members.map((p,i)=>i===index?entry.pokemon:p),abilities));
+      if(worth(change))swaps.push({entry,out,index,order,...change});
+    });
+  });
+  // Variety: each candidate and each replaced member appears at most twice among the substitutions.
+  const perEntry=new Map(),perOut=new Map(),chosen=[];
+  for(const swap of swaps.sort(best)){
+    if(chosen.length>=limit)break;
+    if((perEntry.get(swap.entry.id)||0)>=1||(perOut.get(swap.index)||0)>=2)continue;
+    perEntry.set(swap.entry.id,1);perOut.set(swap.index,(perOut.get(swap.index)||0)+1);chosen.push(swap);
+  }
+  return {additions:additions.sort(best).slice(0,limit),swaps:chosen,considered:considered.length,skipped:pool.length-considered.length};
+}
+// Fills the free slots one by one with the addition that helps most; stops when nothing helps. The result is a draft to edit.
+function completeTeam(chart,types,team,candidates,abilities=true){
+  const members=arr(team).filter(Boolean).slice(),added=[];
+  while(members.length<MAX_TEAM){
+    const pick=suggestChanges(chart,types,members,candidates,abilities,1).additions[0];
+    if(!pick)break;
+    members.push(pick.entry.pokemon);added.push(pick);
+  }
+  return added;
+}
+// --- Move advisor: which attack types the team has, which it lacks, and what a new type would add.
+function moveAdvice(chart,types,evaluation,abilities=true){
+  const uncovered=evaluation.knownMoves?evaluation.uncovered:[];
+  const thin=evaluation.offense.filter(row=>row.hitters.length===1).map(row=>({type:row.type,move:String(row.hitters[0].move.name??'Movimiento'),pokemon:label(row.hitters[0].pokemon)}));
+  const have=new Set(evaluation.attackTypes.map(a=>a.type));
+  const suggestions=[];
+  for(const type of arr(types)){
+    if(have.has(type))continue;
+    const covers=uncovered.filter(target=>TA.basic(chart,type,[target])>1);
+    const reinforces=thin.filter(item=>TA.basic(chart,type,[item.type])>1).map(item=>item.type);
+    if(covers.length||reinforces.length)suggestions.push({type,covers,reinforces});
+  }
+  suggestions.sort((a,b)=>b.covers.length-a.covers.length||b.reinforces.length-a.reinforces.length||types.indexOf(a.type)-types.indexOf(b.type));
+  const stacked=evaluation.attackTypes.filter(a=>a.count>=3);
+  // Who could make room: a free move slot, or two or more damaging moves of one type.
+  const room=[];
+  for(const p of evaluation.members){
+    const known=arr(p.analysis_moves).filter(move=>move&&typeof move==='object');
+    const byType=new Map();
+    for(const move of damagingMoves(p)){const type=TA.attackType(move,p,abilities);byType.set(type,[...(byType.get(type)||[]),String(move.name??'Movimiento')])}
+    const repeated=[...byType].filter(([,names])=>names.length>=2).map(([type,names])=>({type,moves:names}));
+    if(known.length<4||repeated.length)room.push({pokemon:label(p),free:Math.max(0,4-known.length),repeated});
+  }
+  // Concrete moves only with evidence: `learnable_moves` is filled by the tracker when an import carries learnsets.
+  const learnable=[];
+  for(const suggestion of suggestions){
+    for(const p of evaluation.members){
+      const knownIds=new Set(arr(p.analysis_moves).filter(Boolean).map(move=>move.id));
+      for(const move of arr(p.learnable_moves)){
+        if(!move||typeof move!=='object'||move.category==='Estado'||knownIds.has(move.id))continue;
+        if(TA.attackType(move,p,abilities)===suggestion.type)learnable.push({type:suggestion.type,pokemon:label(p),move:String(move.name??'Movimiento'),source:String(move.source??'datos importados')});
+      }
+    }
+  }
+  const lines=[];
+  const top=suggestions[0];
+  if(top&&top.covers.length){
+    const lead=stacked[0]?`Tienes ${stacked[0].count} ataques de tipo ${stacked[0].type}. `:'';
+    lines.push(`${lead}Te vendría bien un movimiento de tipo ${top.type} para mejorar la cobertura frente a ${joinTypes(top.covers)}.`);
+  }
+  return {attackTypes:evaluation.attackTypes,stacked,uncovered,thin,suggestions:suggestions.slice(0,6),room,learnable,hasLearnsets:evaluation.members.some(p=>Array.isArray(p.learnable_moves)),lines};
+}
+const api={SUGGESTION_POOL,teamScores,teamNotes,compareTeams,suggestChanges,completeTeam,moveAdvice,MAX_TEAM,candidateEntries,memberOf,resolveTeam,damagingMoves,offenseSummary,evaluateTeam,BUCKETS,bucketOf,label,defenseSummary,sortDefense,STAT_KEYS,pokemonId,baseStat,bst,ownedEntries,filterEntries,sortEntries,sortValue,entryFacets};
 root.TeamInsights=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof window!=='undefined'?window:globalThis);
