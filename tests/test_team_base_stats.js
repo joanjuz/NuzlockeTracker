@@ -35,14 +35,14 @@ function known_stats_break_equal_coverage_ties(){
   assert.equal(I.bst(low.pokemon)>I.bst(useful.pokemon),true,'Higher BST is not the winner');
   assert.deepEqual(I.suggestChanges(chart,types,party,[low,useful],true),result,'Deterministic');
 }
-function missing_stats_keep_coverage_and_storage_order(){
+function missing_team_stats_do_not_hide_known_candidate_quality(){
   const party=[mon(1,'Normal',null)];
   const a=entry(mon(2,'Agua',bases(50,50,50,50,50,50))),b=entry(mon(3,'Agua',bases(100,100,100,100,100,100)));
   const result=I.suggestChanges(chart,types,party,[a,b],true);
-  assert.deepEqual(result.additions.map(item=>item.entry.id),[a.id,b.id]);
+  assert.deepEqual(result.additions.map(item=>item.entry.id),[b.id,a.id]);
   assert.equal(result.additions[0].statistics,null);
   assert.equal(result.additions[1].statistics,null);
 }
-for(const test of [known_stats_break_equal_coverage_ties,stats_follow_known_attack_category,unknown_bases_are_not_guessed,missing_stats_keep_coverage_and_storage_order]){
+for(const test of [known_stats_break_equal_coverage_ties,stats_follow_known_attack_category,unknown_bases_are_not_guessed,missing_team_stats_do_not_hide_known_candidate_quality]){
   test();console.log(test.name+': OK');
 }

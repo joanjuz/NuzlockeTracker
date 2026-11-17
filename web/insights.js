@@ -281,19 +281,30 @@ function compareTeams(before,after){
 }
 // One addition or one substitution at a time: at most 7 evaluations per candidate, over a bounded pool.
 function suggestChanges(chart,types,team,candidates,abilities=true,limit=5){
-  const members=arr(team).filter(Boolean),pool=arr(candidates).filter(entry=>entry&&entry.pokemon&&!entry.dead&&!entry.egg&&!members.includes(entry.pokemon));
+  const members=arr(team).filter(Boolean),selected=new Set(members.map(pokemonId).filter(Boolean));
+  const pool=arr(candidates).filter(entry=>entry&&entry.pokemon&&!entry.dead&&!entry.egg&&!members.includes(entry.pokemon)&&!selected.has(entry.id||pokemonId(entry.pokemon)));
   const considered=pool.slice(0,SUGGESTION_POOL),before=evaluateTeam(chart,types,members,abilities);
   const additions=[],swaps=[];
   const worth=change=>change.gains.length>0&&change.delta>0;
-  const best=(a,b)=>b.delta-a.delta||(b.statistics?.delta??0)-(a.statistics?.delta??0)||a.order-b.order;
+  // Two-point bands mean close matchup benefits are resolved by usable strength,
+  // while a whole extra band of coverage always outranks raw species strength.
+  const ranking=(change,p)=>{
+    const coverage=change.scores.defense+1.5*change.scores.coverage;
+    const total=bst(p),profile=baseStatProfile([p]);
+    const level=Number.isInteger(p.level)?Math.max(0,Math.min(100,p.level)):0;
+    return {coverage,band:Math.floor(coverage/2),bst:total,
+      quality:total===null?0:.35*total+1.2*(profile?.score||0)+.1*level};
+  };
+  const best=(a,b)=>b.ranking.band-a.ranking.band||b.ranking.quality-a.ranking.quality
+    ||b.ranking.coverage-a.ranking.coverage||b.scores.redundancy-a.scores.redundancy||b.delta-a.delta||a.order-b.order;
   considered.forEach((entry,order)=>{
     if(members.length<MAX_TEAM){
       const change=compareTeams(before,evaluateTeam(chart,types,[...members,entry.pokemon],abilities));
-      if(worth(change))additions.push({entry,order,...change,statistics:compareBaseStats(members,[...members,entry.pokemon])});
+      if(worth(change))additions.push({entry,order,...change,ranking:ranking(change,entry.pokemon),statistics:compareBaseStats(members,[...members,entry.pokemon])});
     }
     members.forEach((out,index)=>{
       const change=compareTeams(before,evaluateTeam(chart,types,members.map((p,i)=>i===index?entry.pokemon:p),abilities));
-      if(worth(change))swaps.push({entry,out,index,order,...change,statistics:compareBaseStats(members,members.map((p,i)=>i===index?entry.pokemon:p))});
+      if(worth(change))swaps.push({entry,out,index,order,...change,ranking:ranking(change,entry.pokemon),statistics:compareBaseStats(members,members.map((p,i)=>i===index?entry.pokemon:p))});
     });
   });
   // Variety: each candidate and each replaced member appears at most twice among the substitutions.
