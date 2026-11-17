@@ -1,4 +1,4 @@
-PROGRESSIVE TRACKER v1.5.0 - APLICACION PORTABLE PARA WINDOWS
+PROGRESSIVE TRACKER v1.6.0 - APLICACION PORTABLE PARA WINDOWS
 
 INICIAR
 1. Descarga PokemonTracker-Windows-x64.zip desde el release oficial:
@@ -13,7 +13,7 @@ INICIAR
    perfil local existente para Soul Link. Si hay dos Lime3DS, conecta cada PID.
 5. Requisitos: Windows 10/11 x64, Microsoft Edge WebView2 Runtime instalado.
 
-SOUL LINK EN v1.5.0
+SOUL LINK (DESDE v1.5.0)
 - Crear sala comienza en 1/4 y admite tres invitados con el mismo enlace.
 - Partida privada por defecto: cada persona controla Compartir mi partida.
 - Enlazar capturas no exige compartir el equipo ni las cajas.
@@ -41,6 +41,17 @@ PERFILES, PARTIDAS Y SOUL LINK
 - El emulador puede cambiar de PID tras cerrarse; vuelve a elegirlo en Conexión.
 - Opcional: en accesos directos avanzados se admite --profile principal
   o --profile segundo-jugador, pero estos nombres no se muestran en pantalla.
+
+NOVEDADES DE v1.6.0
+- Vista de cajas por tarjetas, BST y estadisticas base con referencia local.
+- Equipo virtual de hasta seis Pokemon con analisis defensivo/ofensivo,
+  comparacion, seleccion guiada y guardado por partida.
+- Recuadros OBS de geometria estable con borde opcional por perfil.
+- Cementerio con disposicion horizontal, vertical, cuadricula y personalizada.
+- Al actualizar desde v1.5.0, cierra todas las ventanas y respalda
+  %LOCALAPPDATA%\PokemonTracker\runtime. Instala en una carpeta nueva.
+- TRACKER_PREVIEW.json pertenecia solo a la carpeta de pruebas aislada;
+  no se distribuye en el paquete estable.
 
 DISTRIBUCION LIMPIA
 - La distribución ahora incluye un único PokemonTracker.exe, sin carpeta _internal.

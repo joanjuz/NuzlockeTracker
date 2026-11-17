@@ -1,4 +1,4 @@
-PROGRESSIVE TRACKER v1.5.0 - GUIA DE INICIO (WINDOWS)
+PROGRESSIVE TRACKER v1.6.0 - GUIA DE INICIO (WINDOWS)
 
 DESCARGAR
 1. Descarga PokemonTracker-Windows-x64.zip desde:
@@ -25,8 +25,11 @@ OBS
 3. Pegalas en OBS Studio como Fuente de navegador, con fondo transparente.
 4. Puedes importar sprites PNG, APNG, GIF o WebP personalizados desde
    el editor, o utilizar la carpeta sprites_personalizados.
-5. Ajusta escala, fuentes y barras, y verifica el resultado en OBS.
-   Mantiene abierto el tracker mientras transmites.
+5. Los recuadros de OBS mantienen un tamano fijo al cambiar sprites, GIF y textos.
+   Configura bordes por perfil y elige distribucion horizontal, vertical,
+   cuadricula o personalizada en Cementerio. Ajusta el ancho de la fuente OBS
+   si eliges una fila muy larga de muertos.
+6. Mantiene abierto el tracker mientras transmites.
 
 DATOS DE DEFINITIVE RANDOMIZER (ULTRA SOL / ULTRA LUNA)
 1. Guarda los cambios en Randomizer y exporta datos para Progressive Tracker.
@@ -63,13 +66,24 @@ SOUL LINK (2 A 4 JUGADORES)
 8. Las conexiones anteriores estan en Opciones de conexion y comparten la
    partida completa. Crea una sala nueva para tener privacidad individual.
 
-PERFILES, RESPALDOS Y ACTUALIZACIONES (DESDE v1.4.0)
+ANALISIS AVANZADO Y EQUIPOS VIRTUALES (v1.6.0)
+1. Cajas > Vista de analisis permite tarjetas, BST, estadisticas base y filtros.
+2. Análisis > Asistente de equipos permite elegir hasta seis Pokemon de manera
+   explicita, guardar composiciones y comparar defensas y cobertura ofensiva.
+3. Los datos base de una ROM modificada se importan desde DGD/CSV; sin ellos
+   se usa una referencia local por especie y forma, que puede diferir de la ROM.
+4. La proyeccion mega y las sugerencias de niveles son informativas y no
+   modifican la RAM, la ROM ni el equipo del emulador.
+
+PERFILES, RESPALDOS Y ACTUALIZACIONES (DESDE v1.5.0)
 - Tu progreso y preferencias se guardan normalmente en:
   %LOCALAPPDATA%\PokemonTracker\runtime
 - Antes de actualizar: cierra el tracker y respalda esa carpeta.
 - El respaldo es privado: puede contener credenciales. No lo publiques.
 - Para actualizar: extrae la nueva descarga en OTRA carpeta y ejecuta
   el nuevo EXE. No reemplaces archivos mientras el programa este abierto.
+- La version estable NO lleva TRACKER_PREVIEW.json; la preview usaba un perfil
+  Datos-Prueba aislado y ese directorio no debe copiarse al perfil habitual.
 - Es portable y no incluye instalador ni desinstalador.
 - En dos instancias, comprueba el PID correcto de cada emulador.
 - La barra Partida permite crear, abrir y eliminar perfiles independientes.
