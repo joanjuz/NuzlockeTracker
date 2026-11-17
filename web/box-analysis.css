@@ -1,0 +1,26 @@
+/* Analysis boxes: Pokémon lead, species bases stay separate from specimen values. */
+.box-analysis-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,275px),1fr));gap:18px;align-items:start}
+.box-analysis-card{min-width:0;border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:16px;transition:border-color .15s}
+.box-analysis-card:focus-within,.box-analysis-card:hover{border-color:var(--muted)}
+.box-card-heading{display:flex;align-items:center;gap:8px;min-width:0}
+.box-card-open{display:flex;align-items:center;gap:10px;flex:1;min-width:0;padding:0;border:0;background:none;text-align:left;border-radius:6px}
+.box-card-open:hover{background:none}.box-card-open:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+.box-card-open img{flex:0 0 76px;width:76px;height:76px;object-fit:contain;image-rendering:pixelated}
+.box-card-identity{display:block;min-width:0}.box-card-name{display:block;font-size:17px;font-weight:700;overflow-wrap:anywhere;line-height:1.2}
+.box-card-identity>small{display:block;margin-top:4px;font-size:11px;color:var(--muted)}
+.box-card-types{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}.box-card-types>span{font-size:10px;line-height:1.3;padding:3px 7px;border-radius:5px;background:var(--soft);color:var(--text);border:1px solid var(--border)}
+.box-card-bst{text-align:right;align-self:flex-start;flex-shrink:0;padding-top:4px}.box-card-bst b{display:block;font-size:23px;line-height:1;font-variant-numeric:tabular-nums}.box-card-bst small{display:block;margin-top:5px;font-size:10px;color:var(--muted)}
+.box-card-tags{display:flex;flex-wrap:wrap;gap:6px;font-size:10px;color:var(--accent);margin:5px 0 0}.box-card-tags span{padding:3px 0}
+.box-card-facts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:15px 0 13px;padding-top:12px;border-top:1px solid var(--border)}
+.box-card-facts>div{min-width:0}.box-card-facts span{display:block;font-size:10px;color:var(--muted);margin-bottom:4px}.box-card-facts b{font-size:12px;font-weight:500;overflow-wrap:anywhere}
+.box-base-stats{margin:0;display:grid;gap:5px}.box-base-stat{display:grid;grid-template-columns:37px minmax(0,1fr);align-items:center;gap:8px;font-size:11px}
+.box-base-stat dt{color:var(--muted)}.box-base-stat dd{display:grid;grid-template-columns:minmax(0,1fr) 27px;align-items:center;gap:8px;margin:0;text-align:right;font-variant-numeric:tabular-nums}
+.box-base-track{height:5px;background:var(--soft);border-radius:4px;overflow:hidden}.box-base-track i{display:block;height:100%;border-radius:4px;background:var(--muted);opacity:.55}.box-base-stat-best .box-base-track i{background:var(--accent);opacity:.85}.box-base-stat-best dd>span:last-child{font-weight:700}
+.box-card-moves{display:grid;grid-template-columns:1fr 1fr;gap:5px 12px;margin-top:14px;font-size:11px;line-height:1.5;color:var(--muted)}.box-card-moves>span{min-width:0;overflow-wrap:anywhere}
+.box-current-values{font-size:11px;margin-top:12px}.box-current-values summary{cursor:pointer;color:var(--muted);padding:5px 0}.box-current-values summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}.box-current-values p{font-size:10px;line-height:1.5;color:var(--muted);margin:5px 0}.box-current-values dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:7px 0 0}.box-current-values dl>div{min-width:0}.box-current-values dt{font-size:9px;color:var(--muted)}.box-current-values dd{margin:3px 0 0;font-size:12px;font-variant-numeric:tabular-nums}
+.box-card-footer{display:flex;justify-content:space-between;align-items:end;gap:10px;border-top:1px solid var(--border);margin-top:14px;padding-top:12px;font-size:10px;color:var(--muted)}.box-card-footer>span:first-child{flex-shrink:0}.box-card-footer small{display:block;font-size:10px;margin-top:4px}.box-card-source{text-align:right;line-height:1.5;max-width:120px;text-decoration:underline dotted;text-underline-offset:3px;cursor:help}
+.box-card-mega{display:flex;justify-content:flex-end;margin-top:10px}.box-card-mega button{font-size:11px;min-height:34px;padding:6px 11px}
+.box-card-unavailable{color:var(--muted);font-size:10px;line-height:1.5;margin:6px 0 0}.box-card-dead .box-card-open img{filter:grayscale(1);opacity:.6}.box-analysis-more{margin:14px 0}
+.box-analysis-controls>label,.box-analysis-controls>label:first-child{min-width:130px}.box-analysis-table .box-card-mega{margin:0}.box-analysis-table button[data-analysis-mega]{font-size:10px;padding:5px 8px;margin-top:5px}
+@media(max-width:650px){.box-analysis-gallery{gap:12px;grid-template-columns:repeat(auto-fill,minmax(min(100%,265px),1fr))}.box-analysis-card{padding:14px}.box-analysis-controls>label,.box-analysis-controls>label:first-child{min-width:0;flex:1 1 130px}.box-analysis-controls>label.checkbox{flex-basis:100%}}
+@media(prefers-reduced-motion:reduce){.box-analysis-card{transition:none}}

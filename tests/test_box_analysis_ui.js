@@ -83,6 +83,18 @@ eq($('boxes').hidden,false);eq($('box-analysis').hidden,true);eq($('box-analysis
 eq($('boxes').children.length,2,'Vista normal: los dos Pokémon de la caja 1');
 ok($('boxes').children[0].innerHTML.includes('Caja 1 · 1'));
 eq($('box-analysis').innerHTML,'','La vista normal no dibuja la tabla');
+// Gallery is the first analysis view; individual specimens remain native buttons.
+function cardsAreDefaultAndKeepBaseSeparate(){
+  $('box-view-mode').value='analysis';$('box-view-mode').onchange();
+  const gallery=$('box-analysis').innerHTML;
+  ok(gallery.includes('class="box-analysis-gallery"'),'La vista analítica abre tarjetas, no tabla');
+  eq((gallery.match(/<article class="box-analysis-card/g)||[]).length,2,'Una tarjeta por ejemplar');
+  ok(gallery.includes('data-entry="box:1:4"')&&gallery.includes('type="button"'),'La ficha se abre con botón nativo por teclado');
+  ok(gallery.includes('aria-label="Estadísticas base de la especie"'),'Las barras se identifican como base');
+  ok(!gallery.includes('<table'),'La tabla no ocupa la vista principal');
+}
+cardsAreDefaultAndKeepBaseSeparate();
+$('box-analysis-presentation').value='table';ctx.renderBoxes();
 // Analysis view of the selected box.
 $('box-view-mode').value='analysis';$('box-view-mode').onchange();
 eq($('boxes').hidden,true);eq($('box-analysis').hidden,false);eq($('box-analysis-controls').hidden,false);
@@ -153,6 +165,41 @@ ok($('box-analysis-status').textContent.includes('0 / 32 cajas leídas')&&$('box
 ctx.state=snapshot;$('global').checked=false;$('box-view-mode').value='normal';$('box-view-mode').onchange();
 eq($('boxes').hidden,false);eq($('box-analysis').hidden,true);eq($('living-dex-label').hidden,false);
 eq($('boxes').children.length,2,'La vista normal vuelve intacta');
+
+function cardOrderingAndProvenanceAreEffective(){
+  ctx.state={...snapshot,party:[{...lead,base_stats_source:'Definitive Game Data · partida actual'}]};
+  $('box-analysis-party').checked=true;$('global').checked=true;
+  $('box-analysis-presentation').value='cards';$('box-view-mode').value='analysis';$('box-view-mode').onchange();
+  const cards=()=>[...$('box-analysis').innerHTML.matchAll(/class="box-card-name">([^<]+)</g)].map(match=>match[1]);
+  $('box-analysis-sort').value='bst';$('box-analysis-sort').onchange();
+  eq(cards(),['Líder','Ola','Llama','Chispa','Huevo','Duda','Medio'],'Orden BST aplicado a las tarjetas dibujadas');
+  $('box-analysis-direction').value='asc';$('box-analysis-direction').onchange();
+  eq(cards(),['Huevo','Chispa','Llama','Ola','Líder','Duda','Medio'],'Sentido ascendente cambia realmente el orden');
+  const gallery=$('box-analysis').innerHTML;
+  ok(gallery.includes('title="Definitive Game Data · partida actual"'),'La procedencia completa es consultable');
+  ok(gallery.includes('Estadísticas actuales')&&gallery.includes('210'),'Se conservan actuales disponibles en detalle separado');
+  ok(gallery.includes('Naturaleza')&&gallery.includes('Firme'),'Naturaleza se muestra sin cambiar las bases');
+  eq(ctx.boxCurrentStat(ctx.state.party[0],'HP'),210,'No se modifican los actuales del snapshot');
+}
+cardOrderingAndProvenanceAreEffective();
+
+function megaPreviewIsSortedWithoutMutatingSnapshot(){
+  let active=false;
+  const normal={...pika,base_stats_source:'Referencia Gen7',mega_preview:{label:'Mega de prueba'}};
+  ctx.analysisPokemon=p=>active&&p.encryption_constant===normal.encryption_constant?{...p,base_stats:stats(100,150,100,150,100,100),stats:null,max_hp:null,types:['Dragón'],analysis_mega:true,analysis_preview_label:'Mega de prueba'}:p;
+  ctx.analysisMegaControl=p=>p.mega_preview?'<button type="button" data-analysis-mega="33:100">Aplicar mega</button>':'';
+  ctx.state={...snapshot,party:[],boxes:{'1':[normal,chari]}};
+  $('box-analysis-party').checked=false;$('box-analysis-sort').value='bst';$('box-analysis-sort').onchange();
+  const names=()=>[...$('box-analysis').innerHTML.matchAll(/class="box-card-name">([^<]+)</g)].map(match=>match[1]);
+  eq(names(),['Llama','Chispa']);
+  active=true;ctx.renderBoxes();
+  eq(names(),['Chispa','Llama'],'Ordena según la forma mega explícitamente aplicada');
+  ok($('box-analysis').innerHTML.includes('Mega de prueba')&&$('box-analysis').innerHTML.includes('data-analysis-mega='),'Forma simulada y control visibles');
+  eq(normal.base_stats.HP,35,'La simulación no reescribe las bases originales');
+  $('box-analysis-type').value='Dragón';ctx.renderBoxes();eq(names(),['Chispa'],'El filtro usa los tipos de la simulación');
+  ctx.analysisPokemon=p=>p;ctx.analysisMegaControl=()=>'';$('box-analysis-type').value='';
+}
+megaPreviewIsSortedWithoutMutatingSnapshot();
 
 // --- Wiring.
 const page=read('index.html'),css=read('style.css'),source=read('app/box-analysis.js');
