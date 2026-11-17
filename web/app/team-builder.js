@@ -271,8 +271,10 @@ $('builder-delete').onclick=()=>{
 };
 // --- Recommendations: explained, rule-based suggestions from TeamInsights. Applying one only edits the draft.
 const builderSigned=value=>(value>0?'+':'')+String(Math.round(value*10)/10).replace('.',',');
+const builderStatistics=change=>change.statistics?.reason?`<span>${esc(change.statistics.reason)}</span>`:'';
 function builderChange(change){
   return `<span>${change.gains.map(text=>esc(text)).join('; ')}.</span>`
+    +builderStatistics(change)
     +(change.losses.length?`<span class="builder-cost">A cambio: ${change.losses.map(text=>esc(text)).join('; ')}.</span>`:'<span class="builder-cost">Sin nuevas debilidades compartidas ni pérdida de cobertura.</span>');
 }
 function builderCandidateName(entry){
@@ -288,6 +290,7 @@ function builderAdvice(evaluation,entries,abilities){
     `${builderCandidateName(item.entry)}${builderChange(item)}<button type="button" data-builder-toggle="${esc(item.entry.id)}" data-focus="add${esc(item.entry.id)}">Añadir al borrador</button>`);
   const swaps=result.swaps.map(item=>
     `Sustituir a <b>${esc(TeamInsights.label(item.out))}</b> por ${builderCandidateName(item.entry)}<span>Motivo: ${item.gains.map(text=>esc(text)).join('; ')}.</span>`
+    +builderStatistics(item)
     +(item.losses.length?`<span class="builder-cost">Se perdería o empeoraría: ${item.losses.map(text=>esc(text)).join('; ')}.</span>`:'<span class="builder-cost">Sin nuevas debilidades compartidas ni pérdida de cobertura.</span>')
     +`<button type="button" data-builder-swap="${esc(TeamInsights.pokemonId(item.out))}|${esc(item.entry.id)}" data-focus="swap${item.index}${esc(item.entry.id)}">Aplicar al borrador</button>`);
   const pool=result.considered?`Se compararon ${result.considered} candidatos${result.skipped?` (quedaron ${result.skipped} sin comparar)`:''}.`:'No hay otros candidatos con los que comparar.';
@@ -304,7 +307,7 @@ function builderAdvice(evaluation,entries,abilities){
     +(evaluation.size<TeamInsights.MAX_TEAM?builderList('Incorporaciones posibles',additions,'Ningún candidato mejora la cobertura sin empeorar más de lo que aporta.'):'')
     +builderList('Sustituciones posibles',swaps,'Ninguna sustitución de un integrante mejora el conjunto según estas reglas.')
     +'</div>'
-    +`<p class="subtitle">${pool} Las sugerencias comparan tipos, habilidades compatibles y movimientos conocidos, de una incorporación o una sustitución cada vez. No tienen en cuenta niveles, estadísticas, objetos ni las reglas de tu partida: son opciones para valorar, no «el mejor equipo».</p>`
+    +`<p class="subtitle">${pool} Las sugerencias comparan tipos, habilidades compatibles y movimientos conocidos, de una incorporación o una sustitución cada vez. Las estadísticas base verificadas solo desempatan opciones con la misma mejora de cobertura; los valores desconocidos no se estiman. No tienen en cuenta niveles, objetos ni las reglas de tu partida: son opciones para valorar, no «el mejor equipo».</p>`
     +'</section>';
 }
 function builderSwap(out,id){

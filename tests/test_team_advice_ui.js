@@ -123,7 +123,7 @@ ok(report.includes('3 integrantes son débiles a Fuego y ninguno lo resiste ni e
 ok(report.includes('Incorporaciones posibles')&&report.includes('Sustituciones posibles'));
 ok(/Sustituir a <b>[^<]+<\/b> por <b>[^<]+<\/b>/.test(report)&&report.includes('Motivo: '));
 ok(report.includes('Añadir al borrador')&&report.includes('Aplicar al borrador'));
-ok(report.includes('no «el mejor equipo»')&&report.includes('No tienen en cuenta niveles, estadísticas, objetos'),'Sin afirmaciones absolutas');
+ok(report.includes('no «el mejor equipo»')&&report.includes('No tienen en cuenta niveles, objetos'),'Sin afirmaciones absolutas');
 ok(report.includes('Se compararon 3 candidatos.'));
 ok(!/data-builder-(toggle|swap)="[^"]*"[^>]*>[^<]*<\/button>[^]*Caído/.test(report.split('Cobertura ofensiva')[0])||!report.includes('Caído'),'Los muertos no se sugieren');
 // Applying a substitution edits only the draft.
@@ -173,6 +173,12 @@ const hostile='<img src=x onerror=alert(1)>';
 const evil=mon(hostile,1,['Agua'],[move(hostile,'Agua')],{species:hostile});
 ctx.state={...live,boxes:{'1':[evil,...Array(29).fill(null)]}};ctx.renderTeamBuilder();$('builder-use-party').onclick();
 ok(!$('builder-report').innerHTML.includes('<img src=x'));
+function statisticsExplanationStaysInert(){
+  const markup=ctx.builderChange({gains:['mejora la cobertura'],losses:[],statistics:{reason:hostile}});
+  ok(markup.includes('&lt;img src=x onerror=alert(1)&gt;'),'La explicación de estadísticas verificadas se muestra como texto');
+  ok(!markup.includes('<img src=x'),'La explicación de estadísticas no interpreta HTML');
+}
+statisticsExplanationStaysInert();
 eq(commands.length,0,'Las recomendaciones no envían órdenes');
 ok(read('index.html').includes('id="builder-complete"'));
 ok(!/Math\.random|Date\.now/.test(read('insights.js')),'Reglas deterministas');
