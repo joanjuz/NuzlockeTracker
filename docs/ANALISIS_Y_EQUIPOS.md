@@ -75,10 +75,12 @@ Un equipo virtual se puede guardar con un nombre (hasta 60 caracteres). Las acci
 - De cada integrante solo se guarda su identificador de ejemplar (el mismo que usa el registro de muertes, estable al evolucionar, cambiar de apodo o de caja), la especie y el apodo. No se guardan credenciales ni datos de Soul Link.
 - Los equipos guardados no forman parte del estado que se comparte con Soul Link, OBS o la exportación de sesión, y no se envían a Internet.
 - Al abrir un equipo, cada integrante se busca en el equipo y en las cajas leídas. Si no aparece se muestra como **No localizado**: conserva su nombre guardado, no cuenta en la cobertura y nunca se sustituye por otro Pokémon. Si vuelve a leerse, se localiza de nuevo. Si evolucionó, se indica qué especie era.
-- El archivo tiene `schema_version` 1. Un archivo dañado se aparta con el sufijo `.corrupt-<fecha>` y se empieza una lista nueva. Un archivo de una versión más nueva se conserva sin cambios y la lista queda en solo lectura.
+- El archivo tiene `schema_version` 1. Un archivo dañado se aparta en una copia con nombre único y se empieza una lista nueva. Si no se puede preservar el original, queda en solo lectura y se avisa. Un archivo de una versión más nueva también se conserva sin cambios y queda en solo lectura.
 - En la vista del compañero no se cargan ni se guardan equipos.
 
-API local (requiere el token de sesión para escribir): `GET /api/teams` y `POST /api/teams` con `action` `save`, `rename`, `duplicate` o `delete` (`confirm: true`).
+Al abrir o editar una composición aparece **Comparación con el equipo actual**, con recuentos de integrantes localizados, balance defensivo, cobertura y ganancias/pérdidas. Funciona también con equipos incompletos; los ausentes conservan su hueco y se avisa de que no entran en el cálculo. «Usar equipo actual» respeta la opción de incluir muertos.
+
+API local (requiere el token de sesión para escribir): `GET /api/teams` y `POST /api/teams` con `action` `save`, `rename`, `duplicate` o `delete` (`confirm: true`). GET entrega un `scope` efímero que POST debe devolver: una solicitud anterior a un cambio de partida o juego se rechaza con 409. Si no se pudieron cargar los equipos, el guardado queda bloqueado; reabrir el asistente permite reintentar. Este identificador no se guarda ni se comparte en Soul Link.
 
 ### Recomendaciones
 
@@ -103,7 +105,9 @@ Con al menos un integrante, el informe empieza con una lectura del equipo y con 
 
 Solo se muestran cambios con algún beneficio y cuyo saldo conjunto es positivo, ordenados por ese saldo; cada candidato aparece una vez entre las sustituciones. **Añadir al borrador** y **Aplicar al borrador** modifican únicamente el equipo virtual. **Completar con sugerencias** rellena los espacios libres con la mejor incorporación de cada paso y se detiene cuando ninguna aporta; el resultado es un borrador que se puede editar antes de guardar.
 
-Límites deliberados: no se sugieren Pokémon muertos ni huevos; se comparan como máximo 300 candidatos y nunca combinaciones de varios cambios a la vez; el BST no interviene. Las sugerencias no consideran niveles, estadísticas, objetos ni las reglas de la partida, así que son opciones para valorar y no «el mejor equipo».
+Cuando todas las bases de ambas composiciones son conocidas, desempatan cambios con la misma mejora de cobertura. Se comparan promedios de ataque según las categorías de los movimientos conocidos, aguante físico (raíz de PS×Defensa), aguante especial (raíz de PS×Defensa Especial) y Velocidad. El ataque que no usa ningún movimiento ofensivo no aporta puntuación. La explicación muestra los valores antes y después; son referencias de especie, no estadísticas actuales ni una simulación de combate. Sin bases suficientes, no se inventan valores y se conserva el orden de cobertura.
+
+Límites deliberados: no se sugieren Pokémon muertos ni huevos; se comparan como máximo 300 candidatos y nunca combinaciones de varios cambios a la vez; el BST no interviene. Las sugerencias no consideran niveles, estadísticas actuales, objetos ni las reglas de la partida, así que son opciones para valorar y no «el mejor equipo».
 
 ### Asesor de movimientos
 
