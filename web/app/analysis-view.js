@@ -4,6 +4,8 @@ function multiplier(value){return value===null?'—':`${Number(value.toFixed(3))
 function cellClass(value){return value===0?'immune':value>1?'weak':value<1?'resist':'neutral'}
 function renderAnalysis(){
   if(!state||!analysisData)return;
+  // The team assistant (team-builder.js) owns the view while its section is open.
+  if(typeof teamBuilderActive==='function'&&teamBuilderActive()){renderTeamBuilder();return}
   const team=state.party.filter(Boolean);
   syncAnalysisSelectors(team);
   const simple=$('analysis-defense').value==='simple';

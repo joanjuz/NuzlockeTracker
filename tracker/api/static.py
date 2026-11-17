@@ -58,7 +58,7 @@ STATIC_FILES = {
 }
 # Main UI split into classic scripts (web/app/), loaded in this order by index.html.
 APP_SCRIPTS = ('helpers', 'profiles', 'team', 'detail', 'boxes', 'box-analysis', 'dead', 'routes', 'progress', 'stage-lists', 'caps-proposal',
-               'analysis-view', 'connection', 'shell', 'companion-loader', 'update-notice')
+               'analysis-view', 'team-builder', 'connection', 'shell', 'companion-loader', 'update-notice')
 STATIC_FILES.update({f'/app/{name}.js': (f'web/app/{name}.js', 'text/javascript; charset=utf-8')
                      for name in APP_SCRIPTS})
 

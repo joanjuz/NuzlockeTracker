@@ -35,3 +35,33 @@ Cada fila muestra sprite, apodo y especie, nivel, tipos, habilidad, naturaleza, 
 - **Orden:** BST, PS, Ataque, Defensa, Ataque Especial, Defensa Especial y Velocidad base, nivel actual, tipo o nombre, en sentido descendente o ascendente. Los valores desconocidos quedan siempre al final.
 
 La línea de estado indica cuántas cajas se han leído. Si faltan cajas, la lectura sigue en curso o las cajas no están verificadas, se avisa de que el resultado es parcial. La tabla dibuja como máximo 240 filas e indica cuántas quedan fuera.
+
+## Asistente de equipos
+
+En **Análisis**, el selector superior alterna entre **Equipo actual** (el análisis de siempre) y **Asistente de equipos**. El asistente permite armar equipos virtuales de hasta seis integrantes con los Pokémon que tienes. Es una simulación: no cambia el equipo dentro del juego ni envía órdenes al emulador.
+
+### Candidatos
+
+- Pokémon del equipo actual y de las cajas leídas. Cada ejemplar aparece una sola vez, aunque una lectura antigua de cajas lo repita.
+- Los Pokémon marcados como muertos se excluyen salvo que actives **Incluir muertos**. Los huevos no se ofrecen.
+- Los datos que no proceden de una lectura en vivo y verificada (sin conexión, o cajas sin verificar en esta conexión) se etiquetan como **Lectura guardada**.
+- Se puede buscar por apodo o especie, filtrar por tipo y procedencia, y ordenar por ubicación, BST, cada estadística base, nivel, tipo o nombre.
+
+### Selección
+
+Pulsa un candidato para añadirlo y vuelve a pulsarlo para quitarlo. **Usar equipo actual** copia el equipo de la partida y **Vaciar** empieza de cero. Cada integrante se puede subir, bajar o quitar. Con seis integrantes hay que quitar uno para añadir otro.
+
+### Cobertura
+
+El informe se recalcula con cada cambio:
+
+- **Debilidades compartidas:** tipos a los que son débiles dos o más integrantes, con quiénes lo resisten o son inmunes.
+- **Tipos sin resistencia ni inmunidad**, **Resistencias** e **Inmunidades**.
+- **Sin ataque supereficaz:** tipos contra los que ningún movimiento conocido es supereficaz.
+- **Tipos que resisten todos tus ataques.**
+- **Posibles redundancias:** tipos repetidos entre integrantes y tres o más ataques del mismo tipo.
+- El gráfico de defensa por tipo y la cobertura ofensiva por tipo del análisis normal.
+
+La cobertura ofensiva usa los movimientos que cada Pokémon conoce ahora. Sin movimientos conocidos, el informe lo indica en lugar de suponer cobertura.
+
+Un equipo virtual pertenece a un juego: al cambiar de juego o abrir la vista del compañero se empieza un borrador nuevo.

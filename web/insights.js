@@ -79,6 +79,9 @@ function filterEntries(entries,filters={}){
     if(type&&!arr(p.types).includes(type))return false;
     if(ability&&String(p.ability??'')!==ability)return false;
     if(filters.available&&(entry.dead||entry.egg))return false;
+    if(filters.hideDead&&entry.dead)return false;
+    if(filters.hideEggs&&entry.egg)return false;
+    if(filters.kind&&entry.kind!==filters.kind)return false;
     if(box&&entry.kind==='box'&&entry.box!==box)return false;
     if(words.length){const text=fold([p.nickname,p.species].join(' '));if(!words.every(word=>text.includes(word)))return false}
     return true;
@@ -110,6 +113,79 @@ function entryFacets(entries){
   const sorted=set=>[...set].sort((a,b)=>a.localeCompare(b,'es'));
   return {types:sorted(types),abilities:sorted(abilities)};
 }
-const api={BUCKETS,bucketOf,label,defenseSummary,sortDefense,STAT_KEYS,pokemonId,baseStat,bst,ownedEntries,filterEntries,sortEntries,sortValue,entryFacets};
+// --- Virtual teams: candidates the user really owns, and how a chosen team is located again.
+const MAX_TEAM=6;
+// Party first, then boxes. One entry per specimen; `historical` marks data that is not a live, verified reading.
+function candidateEntries(snapshot){
+  const live=Boolean(snapshot)&&snapshot.stale!==true&&Boolean(snapshot.connection)&&snapshot.connection.status==='connected';
+  const seen=new Set(),result=[];
+  for(const entry of ownedEntries(snapshot,{party:true,boxes:true})){
+    if(entry.id===null||seen.has(entry.id))continue;
+    seen.add(entry.id);
+    result.push({...entry,historical:!live||(entry.kind==='box'&&snapshot.box_verified===false)});
+  }
+  return result;
+}
+// What a saved team keeps of each member: enough to name it when it can no longer be found.
+function memberOf(entry){
+  const p=entry.pokemon;
+  return {id:entry.id,species_id:Number.isInteger(p.species_id)?p.species_id:0,species:String(p.species??''),nickname:String(p.nickname??'')};
+}
+// located: same specimen and species; changed: same specimen, another species (evolved); missing: not in party or boxes.
+function resolveTeam(members,entries){
+  const byId=new Map(arr(entries).map(entry=>[entry.id,entry]));
+  return arr(members).slice(0,MAX_TEAM).map(member=>{
+    const entry=member&&byId.get(member.id)||null;
+    const status=!entry?'missing':member.species_id&&entry.pokemon.species_id!==member.species_id?'changed':'located';
+    return {member,entry,status};
+  });
+}
+function damagingMoves(p){return arr(p&&p.analysis_moves).filter(move=>move&&typeof move==='object'&&move.category!=='Estado')}
+// Best known move against each single type, and every member that hits it super effectively.
+function offenseSummary(chart,types,team,abilities=true){
+  return arr(types).map((type,index)=>{
+    let best=null;const hitters=[];
+    for(const p of arr(team)){
+      if(!p)continue;
+      for(const move of damagingMoves(p)){
+        const value=TA.offensive(chart,move,p,[type],abilities);
+        if(best===null||value>best.value)best={value,move,pokemon:p};
+        if(value>1)hitters.push({value,move,pokemon:p});
+      }
+    }
+    return {type,index,best,hitters};
+  });
+}
+// Facts about a team; every list is derived from defenseSummary/offenseSummary.
+function evaluateTeam(chart,types,team,abilities=true){
+  const members=arr(team).filter(Boolean);
+  const defense=defenseSummary(chart,types,members,abilities),offense=offenseSummary(chart,types,members,abilities);
+  const names=list=>list.map(item=>label(item.pokemon));
+  const moves=members.reduce((n,p)=>n+damagingMoves(p).length,0);
+  const byType=new Map(),byAttack=new Map();
+  for(const p of members){
+    for(const type of new Set(arr(p.types)))if(typeof type==='string'&&type){if(!byType.has(type))byType.set(type,[]);byType.get(type).push(label(p))}
+    for(const move of damagingMoves(p)){
+      const type=TA.attackType(move,p,abilities);
+      if(typeof type!=='string'||!type)continue;
+      if(!byAttack.has(type))byAttack.set(type,[]);
+      byAttack.get(type).push({name:String(move.name??'Movimiento'),pokemon:label(p)});
+    }
+  }
+  const ordered=map=>[...map].sort((a,b)=>b[1].length-a[1].length);
+  return {
+    members,size:members.length,defense,offense,knownMoves:moves,
+    sharedWeaknesses:defense.filter(row=>row.weak>=2).sort((a,b)=>b.weak-a.weak||b.x4.length-a.x4.length||a.index-b.index)
+      .map(row=>({type:row.type,weak:row.weak,members:names([...row.x4,...row.x2]),answers:names([...row.immune,...row.quarter,...row.half])})),
+    unresisted:members.length?defense.filter(row=>row.resist+row.immunities===0).map(row=>row.type):[],
+    immunities:defense.filter(row=>row.immunities>0).map(row=>({type:row.type,members:names(row.immune)})),
+    resistances:defense.filter(row=>row.resist>0).map(row=>({type:row.type,members:names([...row.quarter,...row.half])})),
+    uncovered:moves?offense.filter(row=>!row.hitters.length).map(row=>row.type):[],
+    walled:moves?offense.filter(row=>row.best&&row.best.value<1).map(row=>row.type):[],
+    sharedTypes:ordered(byType).filter(([,list])=>list.length>=2).map(([type,list])=>({type,members:list})),
+    attackTypes:ordered(byAttack).map(([type,list])=>({type,count:list.length,moves:list}))
+  };
+}
+const api={MAX_TEAM,candidateEntries,memberOf,resolveTeam,damagingMoves,offenseSummary,evaluateTeam,BUCKETS,bucketOf,label,defenseSummary,sortDefense,STAT_KEYS,pokemonId,baseStat,bst,ownedEntries,filterEntries,sortEntries,sortValue,entryFacets};
 root.TeamInsights=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof window!=='undefined'?window:globalThis);
