@@ -81,6 +81,7 @@ function builderReport(team,abilities,entries){
   const types=analysisData.types,chart=analysisData.chart;
   const evaluation=TeamInsights.evaluateTeam(chart,types,team,abilities);
   return builderAdvice(evaluation,entries,abilities)
+    +builderMoves(evaluation,abilities)
     +builderSummary(evaluation)
     +'<details class="builder-detail" open><summary>Defensa por tipo</summary>'+defenseChart(team,types,chart,abilities,'weak')+'</details>'
     +'<details class="builder-detail"><summary>Cobertura ofensiva por tipo</summary>'+coverageReport(team,types,chart,abilities,false)+'</details>';
@@ -303,5 +304,42 @@ $('builder-complete').onclick=()=>{
     :free?'Ningún candidato mejora la cobertura del borrador según estas reglas.':'El equipo virtual ya tiene seis integrantes.');
   renderTeamBuilder();
 };
+// --- Move advisor: what the known moves cover and which attack types would add coverage.
+// A concrete move is named only when the snapshot carries evidence that the Pokémon can learn it.
+const MOVE_EVIDENCE={known:'Movimiento conocido',verified:'Disponible en datos verificables',generic:'Sugerencia genérica de tipo',missing:'Información no disponible'};
+const moveTag=kind=>`<span class="move-evidence move-evidence-${kind}">${MOVE_EVIDENCE[kind]}</span>`;
+function builderMoves(evaluation,abilities){
+  if(!evaluation.size)return '';
+  const advice=TeamInsights.moveAdvice(analysisData.chart,analysisData.types,evaluation,abilities);
+  const byType=advice.attackTypes.map(a=>`<b>${esc(a.type)}</b> ×${a.count}: ${a.moves.map(m=>`${esc(m.name)} (${esc(m.pokemon)})`).join(', ')}`);
+  const repeats=[
+    ...advice.stacked.map(a=>`El equipo tiene ${a.count} ataques de tipo <b>${esc(a.type)}</b>.`),
+    ...advice.room.flatMap(r=>r.repeated.map(x=>`${esc(r.pokemon)} conoce ${x.moves.length} ataques de tipo <b>${esc(x.type)}</b>: ${x.moves.map(name=>esc(name)).join(', ')}.`))
+  ];
+  const weak=[
+    ...(advice.uncovered.length?[`Sin ataque supereficaz: ${advice.uncovered.map(type=>esc(type)).join(', ')}.`]:[]),
+    ...advice.thin.map(t=>`<b>${esc(t.type)}</b>: un solo ataque supereficaz, ${esc(t.move)} de ${esc(t.pokemon)}.`)
+  ];
+  const suggestions=advice.suggestions.map(s=>
+    `${moveTag('generic')} Un movimiento de tipo <b>${esc(s.type)}</b>`
+    +(s.covers.length?` añadiría cobertura frente a ${s.covers.map(type=>esc(type)).join(', ')}`:'')
+    +(s.reinforces.length?`${s.covers.length?' y':''} reforzaría la de ${s.reinforces.map(type=>esc(type)).join(', ')}`:'')+'.');
+  const learnable=advice.learnable.map(l=>`${moveTag('verified')} ${esc(l.pokemon)} puede aprender <b>${esc(l.move)}</b> (${esc(l.type)}) según ${esc(l.source)}.`);
+  const room=advice.room.filter(r=>r.free).map(r=>`${esc(r.pokemon)} tiene ${r.free} ${r.free===1?'espacio libre':'espacios libres'} de movimiento.`);
+  const known=evaluation.knownMoves;
+  return '<section class="builder-advice builder-moves" aria-label="Asesor de movimientos"><h3 class="builder-section-title">Asesor de movimientos</h3>'
+    +(advice.lines.length?`<p class="builder-headline">${advice.lines.map(text=>esc(text)).join(' ')}</p>`:'')
+    +'<div class="builder-cards">'
+    +builderList(`Ataques por tipo ${moveTag('known')}`,byType,'No se conocen movimientos ofensivos de este equipo.')
+    +builderList('Redundancias',repeats,known?'Ningún tipo de ataque se repite tres veces ni dos en un mismo Pokémon.':'Sin movimientos ofensivos conocidos.')
+    +builderList('Tipos enemigos con poca cobertura',weak,known?'Cada tipo recibe ataques supereficaces de dos o más movimientos.':'Sin movimientos ofensivos conocidos.')
+    +builderList('Tipos de movimiento recomendados',[...learnable,...suggestions],known?'Ningún tipo de ataque nuevo añadiría cobertura.':'Añade Pokémon con movimientos conocidos para recibir sugerencias.')
+    +builderList('Quién tiene sitio',room,'Todos los integrantes conocen cuatro movimientos.')
+    +'</div>'
+    +`<p class="subtitle">${advice.hasLearnsets?'Los movimientos concretos proceden de los datos importados de esta partida.'
+      :`${moveTag('missing')} El Tracker no tiene datos de aprendizaje (nivel, MT o tutores) de esta partida, y la ROM puede estar randomizada: por eso solo se sugieren tipos de movimiento, no movimientos concretos.`}`
+    +' Los ataques se leen de los movimientos que cada Pokémon conoce ahora. El asesor no cambia movimientos en el juego.</p>'
+    +'</section>';
+}
 $('analysis-section-current').onclick=()=>setAnalysisSection('current');
 $('analysis-section-builder').onclick=()=>setAnalysisSection('builder');

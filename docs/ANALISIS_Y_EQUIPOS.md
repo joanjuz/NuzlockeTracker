@@ -104,3 +104,26 @@ Con al menos un integrante, el informe empieza con una lectura del equipo y con 
 Solo se muestran cambios con algún beneficio y cuyo saldo conjunto es positivo, ordenados por ese saldo; cada candidato aparece una vez entre las sustituciones. **Añadir al borrador** y **Aplicar al borrador** modifican únicamente el equipo virtual. **Completar con sugerencias** rellena los espacios libres con la mejor incorporación de cada paso y se detiene cuando ninguna aporta; el resultado es un borrador que se puede editar antes de guardar.
 
 Límites deliberados: no se sugieren Pokémon muertos ni huevos; se comparan como máximo 300 candidatos y nunca combinaciones de varios cambios a la vez; el BST no interviene. Las sugerencias no consideran niveles, estadísticas, objetos ni las reglas de la partida, así que son opciones para valorar y no «el mejor equipo».
+
+### Asesor de movimientos
+
+Debajo de las recomendaciones, el asesor analiza los movimientos que conocen los integrantes del equipo virtual:
+
+- **Ataques por tipo:** los movimientos ofensivos agrupados por el tipo con el que golpean (con habilidades compatibles, por ejemplo Piel Feérica convierte los ataques de tipo Normal).
+- **Redundancias:** tipos con tres o más ataques en el equipo y Pokémon con dos o más ataques del mismo tipo.
+- **Tipos enemigos con poca cobertura:** tipos sin ningún ataque supereficaz y tipos cubiertos por un único movimiento.
+- **Tipos de movimiento recomendados:** tipos que el equipo todavía no usa y que añadirían cobertura supereficaz, ordenados por cuánta cobertura nueva aportan. Por ejemplo: «Tienes 4 ataques de tipo Acero. Te vendría bien un movimiento de tipo Tierra para mejorar la cobertura frente a Eléctrico».
+- **Quién tiene sitio:** integrantes con espacios de movimiento libres.
+
+Cada dato lleva su nivel de evidencia:
+
+| Etiqueta | Significado |
+| --- | --- |
+| Movimiento conocido | Leído del Pokémon (RAM o lectura guardada) |
+| Disponible en datos verificables | El Pokémon puede aprenderlo según datos importados de esta partida |
+| Sugerencia genérica de tipo | Solo se recomienda un tipo de movimiento |
+| Información no disponible | No hay datos de aprendizaje para esta partida |
+
+El Tracker no incluye tablas de aprendizaje (nivel, MT o tutores) y Definitive Game Data v1 no las exporta. Además, una ROM randomizada puede tener aprendizajes distintos del juego original. Por eso hoy el asesor solo sugiere tipos y nunca afirma que un Pokémon pueda aprender un movimiento concreto. La categoría «Disponible en datos verificables» se activa únicamente si un Pokémon del estado trae la lista `learnable_moves`, reservada para una importación futura que incluya aprendizajes.
+
+El asesor no cambia movimientos en el juego.
