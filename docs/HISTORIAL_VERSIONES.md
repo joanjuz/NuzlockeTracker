@@ -1,3 +1,15 @@
+# 1.6.0 — Análisis avanzado, equipos virtuales y OBS estable
+
+- Galería analítica de cajas con BST, estadísticas base y filtros; referencia sin red con prioridad DGD/CSV.
+- Cobertura defensiva y ofensiva, comparación actual/virtual y composiciones guardadas de hasta seis Pokémon.
+- Recomendaciones por typing y sinergia, con calidad estadística como criterio secundario; selector visual explícito.
+- Proyección mega informativa; cambios de etapa de Level Caps solo mediante sugerencias confirmables.
+- Recuadros OBS estables, bordes configurables por perfil y cuatro distribuciones del cementerio.
+- Panel de Pokémon disponibles persistente y análisis completo del equipo virtual.
+- Conserva Soul Link, datos locales, lectura RAM solo lectura y perfiles existentes.
+
+[Notas completas de v1.6.0](releases/v1.6.0.md).
+
 # 1.5.0 — Soul Link de 2 a 4 jugadores, privado por defecto
 
 - Sala dinámica 1/4–4/4, invitación común y credenciales individuales.
