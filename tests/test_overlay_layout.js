@@ -13,6 +13,8 @@ for(const count of [1,6,12,30])for(const mode of ['horizontal','vertical','grid'
 }
 assert.equal(layout.measure(config,1).sprites.width,142);
 assert.equal(layout.measure(config,6).sprites.width,932);
+assert.equal(layout.measure(config,6).names.height,23,'default nickname line keeps the existing anchor');
+assert.equal(layout.measure(config,6).hp.height,35.3,'default HP label keeps the existing anchor');
 assert.equal(layout.measure({...config,frame_enabled:true,frame_width:8},6).all.height,layout.measure(config,6).all.height);
 assert.equal(layout.measure({...config,frame_names_height:75},6).names.height,75);
 assert.deepEqual(layout.measure({...config,nickname:'x'.repeat(999)},6),layout.measure(config,6));

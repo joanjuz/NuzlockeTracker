@@ -6,8 +6,8 @@ const OverlayLayout = (() => {
     const columns=c.direction==='column'?1:c.direction==='grid'?Math.min(3,n):n;
     const rows=Math.ceil(n/columns),width=columns*slot+(columns-1)*gap;
     const line=size=>Math.ceil(size*1.3);
-    const heights={sprites:c.sprite_size||94,names:c.frame_names_height||line(c.name_size||20)+4,
-      hp:(c.hp_height||17)+(c.hp_label==='none'?0:4+line(c.hp_text_size||13)),
+    const heights={sprites:c.sprite_size||94,names:c.frame_names_height||(c.name_size||20)*1.15,
+      hp:(c.hp_height||17)+(c.hp_label==='none'?0:4+(c.hp_text_size||13)*1.1),
       items:c.frame_items_height||((c.item_display==='name'?0:(c.item_icon_size||32)+2)+
         (c.item_display==='icon'?0:line(c.item_size||14)*2)+4),
       info:c.frame_info_height||Math.ceil((c.info_size||14)*1.45)*3+4};
