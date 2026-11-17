@@ -15,6 +15,7 @@ from .locations import location_name
 from .reference import ReferenceData
 from .progress import KEEP_CURRENT, LEVEL_CAP_ACTIONS, MAX_STAGES, RunProgress, level_caps_view, stage_list_export
 from .level_caps_source import LevelCapsSource
+from .virtual_teams import VirtualTeamStore
 from .battle import apply_battle_hp
 from .battle_gen6 import apply_gen6_battle_hp
 from .gen6_pc import Gen6BoxProbe
@@ -92,10 +93,12 @@ class TrackerService:
         self.state['party']=[self.refresh_template(p) for p in self.state['party']]
         self.state['boxes']={k:[self.refresh_template(p) for p in box] for k,box in self.state['boxes'].items()}
         self.refresh_persist_warning()
-    def open_progress(self,suffix):
+    def open_progress(self,suffix,game=None):
         """Adventure record of one run and game, and the separate record of where its level caps came from."""
         self.progress=RunProgress(self.output.with_name(self.output.stem+suffix+'-progress.json'))
         self.level_caps_source=LevelCapsSource(self.output.with_name(self.output.stem+suffix+'-level-caps-source.json'))
+        # Saved virtual teams are local to this run and game; they are never part of the snapshot.
+        self.virtual_teams=VirtualTeamStore(self.output.with_name(self.output.stem+suffix+'-virtual-teams.json'),game or self.state['game'],self.output.parent.name)
     @staticmethod
     def progress_suffix(game):
         if game=='Ultra Moon 1.0':return ''
@@ -469,7 +472,7 @@ class TrackerService:
         if profile.name!=self.profile.name:
             self.profile=profile
             suffix=self.progress_suffix(profile.name)
-            self.open_progress(suffix)
+            self.open_progress(suffix,profile.name)
             self.update(game=profile.name,party=[None]*6,boxes={},stale=True)
             self._refresh_game_data()
         self.profile=profile;self.sun_box_base=None;self.gen7_probe=None

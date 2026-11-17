@@ -1,8 +1,8 @@
 """Estado de la partida, referencia, diagnóstico, procesos y WebSocket.
 
 GET:  /api/session, /api/processes, /api/state, /api/templates, /api/analysis,
-      /api/routes[?game=], /api/move/<id>, /api/diagnostic, /ws
-POST: /api/diagnostic/save, /api/templates
+      /api/routes[?game=], /api/move/<id>, /api/diagnostic, /api/teams, /ws
+POST: /api/diagnostic/save, /api/templates, /api/teams
 """
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from urllib.parse import parse_qs, urlsplit
 from tracker import __version__
 from tracker.process_memory import list_emulator_instances
 from tracker.game_data import MAX_BYTES as GAME_DATA_LIMIT
+from tracker.virtual_teams import REQUEST_LIMIT as TEAMS_LIMIT
 
 from .routing import exact, route
 
@@ -171,6 +172,20 @@ def game_data_action(req, match):
         req.reply(500,{'error':'No se pudo guardar o retirar DGD. Se conserva la importación anterior.'})
 
 
+def teams_status(req, _match):
+    req.reply(200, req.ctx.service.virtual_teams.view())
+
+
+def teams_action(req, _match):
+    try:
+        data = req.read_json(TEAMS_LIMIT, 'Solicitud demasiado grande', 'Solicitud de equipos inválida')
+        req.reply(200, req.ctx.service.virtual_teams.apply(data))
+    except (ValueError, TypeError, UnicodeError) as exc:
+        req.reply(400, {'error': str(exc)})
+    except OSError:
+        req.reply(500, {'error': 'No se pudo guardar el equipo. Los equipos anteriores se conservan.'})
+
+
 ROUTES_GET = [
     exact('/api/session', session),
     exact('/api/processes', processes),
@@ -178,6 +193,7 @@ ROUTES_GET = [
     exact('/api/templates', templates_status),
     exact('/api/game-data', game_data_status),
     exact('/api/analysis', analysis),
+    exact('/api/teams', teams_status),
     exact('/api/routes', routes),
     route(r'/api/move/(.*)', move),
     exact('/api/diagnostic', diagnostic),
@@ -187,5 +203,6 @@ ROUTES_GET = [
 ROUTES_POST = [
     exact('/api/diagnostic/save', save_diagnostic),
     exact('/api/templates', import_templates),
+    exact('/api/teams', teams_action),
     route(r'/api/game-data/(preview|apply|remove)', game_data_action),
 ]

@@ -11,6 +11,8 @@ function setAnalysisSection(section){
   $('analysis-current').hidden=analysisSection!=='current';
   $('team-builder').hidden=analysisSection!=='builder';
   analysisSignature='';builderSignature='';
+  // Reopening the assistant refreshes the saved list (the first load happens with the scope).
+  if(state&&analysisSection==='builder'&&builderContext===builderScope())loadBuilderTeams();
   renderAnalysis();
 }
 // A virtual team belongs to one game and one view (own run or partner): switching starts a new draft.
@@ -95,12 +97,12 @@ function syncBuilderTypes(entries){
 function renderTeamBuilder(){
   if(!state||!analysisData)return;
   const scope=builderScope();
-  if(scope!==builderContext){builderContext=scope;builderMembers=[];builderSignature=''}
+  if(scope!==builderContext){builderContext=scope;builderMembers=[];builderSignature='';builderOpenId=null;builderTeams=[];builderNotice='';$('builder-name').value='';loadBuilderTeams()}
   const entries=TeamInsights.candidateEntries(state);
   syncBuilderTypes(entries);
   const sort=$('builder-sort').value,abilities=$('builder-abilities').checked;
   const filters={query:$('builder-search').value,type:$('builder-type').value,kind:$('builder-source').value,hideDead:!$('builder-dead').checked,hideEggs:true};
-  const signature=JSON.stringify([scope,builderMembers,filters,sort,abilities,state.stale,state.connection?.status,state.box_verified,
+  const signature=JSON.stringify([scope,builderMembers,builderOpenId,builderTeams,builderReadOnly,filters,sort,abilities,state.stale,state.connection?.status,state.box_verified,
     entries.map(e=>[e.id,e.key,e.dead,e.egg,e.historical,e.pokemon.species_id,e.pokemon.species,e.pokemon.nickname,e.pokemon.types,e.pokemon.ability_id,
       e.pokemon.base_stats,e.pokemon.analysis_moves])]);
   if(signature===builderSignature)return;
@@ -118,6 +120,7 @@ function renderTeamBuilder(){
   $('builder-candidates').innerHTML=found.length?found.slice(0,BUILDER_CANDIDATE_LIMIT).map(entry=>builderCandidate(entry,selected.has(entry.id),full)).join('')
     :`<p class="subtitle">${entries.length?'Ningún Pokémon coincide con los filtros.':'No hay Pokémon en el equipo ni en las cajas leídas.'}</p>`;
   $('builder-report').innerHTML=builderReport(team,abilities);
+  renderBuilderSaved();
   // The lists were rebuilt: put the keyboard focus back on the control that was used.
   if(focused)for(const node of document.querySelectorAll('#team-builder [data-focus]'))if(node.dataset.focus===focused&&!node.disabled){node.focus({preventScroll:true});break}
 }
@@ -155,5 +158,93 @@ $('builder-use-party').onclick=()=>{
 $('builder-clear').onclick=()=>{builderMembers=[];renderTeamBuilder()};
 $('builder-search').oninput=renderTeamBuilder;
 for(const id of ['builder-type','builder-source','builder-sort','builder-dead','builder-abilities'])$(id).onchange=renderTeamBuilder;
+// --- Saved teams: local to this run and game (GET/POST /api/teams). Nothing here reaches the game or the network.
+let builderTeams=[],builderOpenId=null,builderReadOnly=false,builderNotice='',builderRequest=0;
+const builderOpenTeam=()=>builderTeams.find(team=>team.id===builderOpenId)||null;
+function builderDirty(){
+  const open=builderOpenTeam();
+  return open?JSON.stringify(open.members.map(m=>m.id))!==JSON.stringify(builderMembers.map(m=>m.id)):builderMembers.length>0;
+}
+function builderSavedMessage(text){builderNotice=text;setText($('builder-saved-status'),text)}
+function applyBuilderTeams(result){
+  builderTeams=list(result.teams).filter(team=>team&&typeof team==='object'&&typeof team.id==='string'&&Array.isArray(team.members));
+  builderReadOnly=result.read_only===true;
+  if(!builderOpenTeam())builderOpenId=null;
+  builderSignature='';
+}
+async function loadBuilderTeams(){
+  const request=++builderRequest;
+  if(companionView){applyBuilderTeams({teams:[]});return}
+  try{
+    const result=await getJSON('/api/teams');
+    if(request!==builderRequest)return;
+    applyBuilderTeams(result);
+    builderSavedMessage(typeof result.notice==='string'?result.notice:'');
+  }catch(error){
+    if(request===builderRequest)builderSavedMessage('No se pudieron cargar los equipos guardados.');
+  }
+  if(teamBuilderActive())renderTeamBuilder();
+}
+async function builderTeamRequest(payload,done){
+  if(companionView)return;
+  const request=++builderRequest;
+  try{
+    const response=await fetch('/api/teams',{method:'POST',headers:{'Content-Type':'application/json','X-Tracker-Token':token},body:JSON.stringify(payload)});
+    const result=await response.json();
+    if(!response.ok)throw Error(result.error||'No se pudo guardar el equipo.');
+    if(request!==builderRequest)return;
+    applyBuilderTeams(result);
+    builderOpenId=typeof result.team==='string'?result.team:null;
+    const open=builderOpenTeam();
+    if(open)$('builder-name').value=open.name;
+    builderSavedMessage(done);
+  }catch(error){
+    builderSavedMessage(error.message);
+  }
+  renderTeamBuilder();
+}
+function renderBuilderSaved(){
+  const select=$('builder-saved'),open=builderOpenTeam(),locked=companionView||builderReadOnly;
+  select.replaceChildren();
+  select.add(new Option('Borrador sin guardar',''));
+  for(const team of builderTeams)select.add(new Option(`${team.name} (${team.members.length})`,team.id));
+  select.value=builderOpenId||'';
+  select.disabled=companionView;
+  $('builder-name').disabled=locked;
+  $('builder-save').disabled=locked||!builderMembers.length;
+  $('builder-save').textContent=open?'Guardar cambios':'Guardar equipo';
+  for(const id of ['builder-rename','builder-duplicate','builder-delete'])$(id).disabled=locked||!open;
+  const count=`${builderTeams.length} equipo${builderTeams.length===1?'':'s'} guardado${builderTeams.length===1?'':'s'} en esta partida y juego.`;
+  const info=companionView?'Los equipos se guardan solo en tu propia partida.'
+    :open?`${open.name} · ${open.game||''} · modificado ${String(open.modified||'').slice(0,10)}${builderDirty()?' · cambios sin guardar':''}`
+    :builderMembers.length?'Borrador sin guardar. '+count:count;
+  setText($('builder-saved-info'),info);
+  setText($('builder-saved-status'),builderNotice);
+}
+$('builder-saved').onchange=()=>{
+  const team=builderTeams.find(item=>item.id===$('builder-saved').value)||null;
+  if(builderDirty()&&!confirm('El equipo virtual tiene cambios sin guardar. ¿Abrir otro equipo y descartarlos?')){$('builder-saved').value=builderOpenId||'';return}
+  builderOpenId=team?team.id:null;
+  builderMembers=team?team.members.slice(0,TeamInsights.MAX_TEAM).map(m=>({id:String(m.id),species_id:Number(m.species_id)||0,species:String(m.species??''),nickname:String(m.nickname??'')})):[];
+  $('builder-name').value=team?team.name:'';
+  builderSavedMessage('');
+  renderTeamBuilder();
+};
+$('builder-save').onclick=()=>{
+  const name=$('builder-name').value.trim();
+  if(!name){builderSavedMessage('Escribe un nombre para el equipo.');$('builder-name').focus();return}
+  return builderTeamRequest({action:'save',name,members:builderMembers,...(builderOpenId?{id:builderOpenId}:{})},'Equipo guardado.');
+};
+$('builder-rename').onclick=()=>{
+  const name=$('builder-name').value.trim();
+  if(!name){builderSavedMessage('Escribe el nuevo nombre.');$('builder-name').focus();return}
+  if(builderOpenId)return builderTeamRequest({action:'rename',id:builderOpenId,name},'Nombre cambiado.');
+};
+$('builder-duplicate').onclick=()=>{if(builderOpenId)return builderTeamRequest({action:'duplicate',id:builderOpenId},'Equipo duplicado. Ahora editas la copia.')};
+$('builder-delete').onclick=()=>{
+  const open=builderOpenTeam();
+  if(!open||!confirm(`¿Eliminar el equipo guardado «${open.name}»? No se puede deshacer.`))return;
+  return builderTeamRequest({action:'delete',id:open.id,confirm:true},'Equipo eliminado. Sus integrantes siguen en el borrador.');
+};
 $('analysis-section-current').onclick=()=>setAnalysisSection('current');
 $('analysis-section-builder').onclick=()=>setAnalysisSection('builder');

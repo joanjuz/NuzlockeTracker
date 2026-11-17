@@ -65,3 +65,17 @@ El informe se recalcula con cada cambio:
 La cobertura ofensiva usa los movimientos que cada Pokémon conoce ahora. Sin movimientos conocidos, el informe lo indica en lugar de suponer cobertura.
 
 Un equipo virtual pertenece a un juego: al cambiar de juego o abrir la vista del compañero se empieza un borrador nuevo.
+
+### Equipos guardados
+
+Un equipo virtual se puede guardar con un nombre (hasta 60 caracteres). Las acciones son **Guardar equipo** / **Guardar cambios**, **Renombrar**, **Duplicar**, abrir desde la lista **Equipo guardado** y **Eliminar…**, que pide confirmación. Al abrir otro equipo con cambios sin guardar también se pregunta antes de descartarlos.
+
+- Se guardan en el equipo local, en un archivo por partida y por juego (`state<juego>-virtual-teams.json`, junto al progreso de esa partida). Otra partida u otro juego no los ven. Como máximo 50 equipos.
+- Cada equipo conserva nombre, hasta seis integrantes en su orden, fechas de creación y modificación, juego y partida de procedencia.
+- De cada integrante solo se guarda su identificador de ejemplar (el mismo que usa el registro de muertes, estable al evolucionar, cambiar de apodo o de caja), la especie y el apodo. No se guardan credenciales ni datos de Soul Link.
+- Los equipos guardados no forman parte del estado que se comparte con Soul Link, OBS o la exportación de sesión, y no se envían a Internet.
+- Al abrir un equipo, cada integrante se busca en el equipo y en las cajas leídas. Si no aparece se muestra como **No localizado**: conserva su nombre guardado, no cuenta en la cobertura y nunca se sustituye por otro Pokémon. Si vuelve a leerse, se localiza de nuevo. Si evolucionó, se indica qué especie era.
+- El archivo tiene `schema_version` 1. Un archivo dañado se aparta con el sufijo `.corrupt-<fecha>` y se empieza una lista nueva. Un archivo de una versión más nueva se conserva sin cambios y la lista queda en solo lectura.
+- En la vista del compañero no se cargan ni se guardan equipos.
+
+API local (requiere el token de sesión para escribir): `GET /api/teams` y `POST /api/teams` con `action` `save`, `rename`, `duplicate` o `delete` (`confirm: true`).

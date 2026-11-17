@@ -377,3 +377,4 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),select{borde
 .builder-detail{margin:10px 0}.builder-detail>summary{cursor:pointer;font-size:13px;font-weight:700;padding:8px 0}
 @media(max-width:900px){.builder-team{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.builder-team{grid-template-columns:1fr}.builder-filters label{width:100%}}
+.builder-saved{display:flex;flex-wrap:wrap;gap:10px 12px;align-items:end;border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin:12px 0 18px}.builder-saved label{min-width:200px;flex:1 1 200px}.builder-saved p{flex-basis:100%;margin:0}
