@@ -30,4 +30,10 @@ function substantialCoverageOutranksRawStrength(){
   assert.equal(result.additions[0].entry.id,coverage.id);
   assert.ok(result.additions[0].ranking.band>result.additions[1].ranking.band);
 }
-for(const test of [equivalentCoveragePrefersStrongerCandidate,qualityDoesNotMakeRedundantCandidateUseful,projectedClonesCannotDuplicateSelectedSpecimen,substantialCoverageOutranksRawStrength]){test();console.log(test.name+': OK')}
+function strongCandidateAtEndOfFullPCIsConsidered(){
+  const pool=Array.from({length:960},(_,i)=>entry(mon(i+2,'Agua',i===959?100:40)));
+  const result=I.suggestChanges(chart,types,[mon(1,'Normal',50)],pool,true);
+  assert.equal(result.additions[0].entry.id,'33:961');
+  assert.equal(result.skipped,0);
+}
+for(const test of [equivalentCoveragePrefersStrongerCandidate,qualityDoesNotMakeRedundantCandidateUseful,projectedClonesCannotDuplicateSelectedSpecimen,substantialCoverageOutranksRawStrength,strongCandidateAtEndOfFullPCIsConsidered]){test();console.log(test.name+': OK')}

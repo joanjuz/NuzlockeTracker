@@ -187,7 +187,8 @@ function evaluateTeam(chart,types,team,abilities=true){
   };
 }
 // --- Recommendations: deterministic rules over evaluateTeam. They explain trade-offs; they never name a "best" team.
-const SUGGESTION_POOL=300;
+// All 32 Gen7 boxes and the six party slots; never an unbounded search.
+const SUGGESTION_POOL=966;
 const plural=(n,one,many)=>n===1?one:many;
 const joinTypes=list=>list.join(', ');
 // Imported species bases only. These are relative team averages, not calculated battle stats.
