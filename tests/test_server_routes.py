@@ -14,7 +14,7 @@ from tracker.updates import FALLBACK_URL, UpdateChecker
 from tracker import __version__
 
 # Lista blanca histórica de la VPN (server.py antes de tracker/api).
-REMOTE_EXACT = {'/overlay', '/overlay.js', '/overlay.css', '/api/overlay/public',
+REMOTE_EXACT = {'/overlay', '/overlay.js', '/overlay.css', '/overlay-layout.js', '/api/overlay/public',
                 '/api/overlay/settings', '/fonts/Oxanium.ttf', '/overlay/counter-icon.png',
                 # Added on purpose: death image and slot frame are part of the OBS look.
                 '/overlay/death-image', '/overlay/slot-frame.png'}
