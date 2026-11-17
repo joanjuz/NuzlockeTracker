@@ -190,6 +190,31 @@ function evaluateTeam(chart,types,team,abilities=true){
 const SUGGESTION_POOL=300;
 const plural=(n,one,many)=>n===1?one:many;
 const joinTypes=list=>list.join(', ');
+// Imported species bases only. These are relative team averages, not calculated battle stats.
+// An unused attacking stat brings no benefit; bulk uses HP as well as the relevant defense.
+function baseStatProfile(team){
+  const members=arr(team).filter(Boolean);
+  if(!members.length||members.some(p=>STAT_KEYS.some(key=>baseStat(p,key)===null)))return null;
+  const profile={offense:0,physicalBulk:0,specialBulk:0,speed:0};
+  for(const p of members){
+    const categories=new Set(damagingMoves(p).map(move=>move.category));
+    profile.offense+=Math.max(categories.has('Físico')?baseStat(p,'ATK'):0,categories.has('Especial')?baseStat(p,'SPA'):0);
+    profile.physicalBulk+=Math.sqrt(baseStat(p,'HP')*baseStat(p,'DEF'));
+    profile.specialBulk+=Math.sqrt(baseStat(p,'HP')*baseStat(p,'SPD'));
+    profile.speed+=baseStat(p,'SPE');
+  }
+  for(const key of Object.keys(profile))profile[key]/=members.length;
+  profile.score=(profile.offense+profile.physicalBulk+profile.specialBulk+profile.speed)/4;
+  return profile;
+}
+function compareBaseStats(before,after){
+  const a=baseStatProfile(before),b=baseStatProfile(after);
+  if(!a||!b)return null;
+  const value=n=>Number(n.toFixed(1));
+  const fields=[['offense','ataque según movimientos'],['physicalBulk','aguante físico'],['specialBulk','aguante especial'],['speed','velocidad']];
+  return {before:a,after:b,delta:b.score-a.score,
+    reason:'Bases conocidas (promedios del equipo): '+fields.map(([key,name])=>`${name} ${value(a[key])} → ${value(b[key])}`).join('; ')+'. Son referencias de especie, no estadísticas actuales.'};
+}
 // Four separate measures. `total` only orders suggestions; it is not shown as a verdict.
 function teamScores(evaluation){
   const exposed=evaluation.sharedWeaknesses.filter(w=>!w.answers.length).map(w=>w.type);
@@ -260,15 +285,15 @@ function suggestChanges(chart,types,team,candidates,abilities=true,limit=5){
   const considered=pool.slice(0,SUGGESTION_POOL),before=evaluateTeam(chart,types,members,abilities);
   const additions=[],swaps=[];
   const worth=change=>change.gains.length>0&&change.delta>0;
-  const best=(a,b)=>b.delta-a.delta||a.order-b.order;
+  const best=(a,b)=>b.delta-a.delta||(b.statistics?.delta??0)-(a.statistics?.delta??0)||a.order-b.order;
   considered.forEach((entry,order)=>{
     if(members.length<MAX_TEAM){
       const change=compareTeams(before,evaluateTeam(chart,types,[...members,entry.pokemon],abilities));
-      if(worth(change))additions.push({entry,order,...change});
+      if(worth(change))additions.push({entry,order,...change,statistics:compareBaseStats(members,[...members,entry.pokemon])});
     }
     members.forEach((out,index)=>{
       const change=compareTeams(before,evaluateTeam(chart,types,members.map((p,i)=>i===index?entry.pokemon:p),abilities));
-      if(worth(change))swaps.push({entry,out,index,order,...change});
+      if(worth(change))swaps.push({entry,out,index,order,...change,statistics:compareBaseStats(members,members.map((p,i)=>i===index?entry.pokemon:p))});
     });
   });
   // Variety: each candidate and each replaced member appears at most twice among the substitutions.
@@ -332,6 +357,6 @@ function moveAdvice(chart,types,evaluation,abilities=true){
   }
   return {attackTypes:evaluation.attackTypes,stacked,uncovered,thin,suggestions:suggestions.slice(0,6),room,learnable,hasLearnsets:evaluation.members.some(p=>Array.isArray(p.learnable_moves)),lines};
 }
-const api={SUGGESTION_POOL,teamScores,teamNotes,compareTeams,suggestChanges,completeTeam,moveAdvice,MAX_TEAM,candidateEntries,memberOf,resolveTeam,damagingMoves,offenseSummary,evaluateTeam,BUCKETS,bucketOf,label,defenseSummary,sortDefense,STAT_KEYS,pokemonId,baseStat,bst,ownedEntries,filterEntries,sortEntries,sortValue,entryFacets};
+const api={baseStatProfile,SUGGESTION_POOL,teamScores,teamNotes,compareTeams,suggestChanges,completeTeam,moveAdvice,MAX_TEAM,candidateEntries,memberOf,resolveTeam,damagingMoves,offenseSummary,evaluateTeam,BUCKETS,bucketOf,label,defenseSummary,sortDefense,STAT_KEYS,pokemonId,baseStat,bst,ownedEntries,filterEntries,sortEntries,sortValue,entryFacets};
 root.TeamInsights=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof window!=='undefined'?window:globalThis);
