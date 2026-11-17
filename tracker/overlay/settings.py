@@ -46,6 +46,9 @@ DEFAULT: dict[str, Any] = {
     'info_in_composition': False, 'info_size': 14, 'info_show_level': True,
     'info_show_types': True, 'info_show_shiny': True, 'info_show_gender': True,
     'slot_frame': False,
+    'frame_enabled': False, 'frame_color': '#f05b65', 'frame_width': 1, 'frame_radius': 0,
+    'frame_names_height': 0, 'frame_items_height': 0, 'frame_info_height': 0,
+    'graveyard_layout': 'custom', 'graveyard_gap': 16,
     'stats_show_captures': True, 'stats_show_deaths': True, 'stats_show_alive': True,
     'stats_show_missed': True, 'stats_direction': 'row', 'stats_size': 20,
 }
@@ -54,6 +57,7 @@ VALID_FONTS = ('ttf', 'otf', 'woff', 'woff2')
 
 # Closed choices: key -> (allowed values, error message).
 CHOICES: dict[str, tuple[tuple[Any, ...], str]] = {
+    'graveyard_layout': (('horizontal', 'vertical', 'grid', 'custom'), 'Distribución desconocida'),
     'counter_mode': (('off', 'deaths', 'lives'), 'Modo de contador desconocido'),
     'graveyard_order': (('recent', 'oldest'), 'Orden del cementerio desconocido'),
     'item_display': (('name', 'icon', 'both'), 'Forma de mostrar el objeto desconocida'),
@@ -69,6 +73,9 @@ CHOICES: dict[str, tuple[tuple[Any, ...], str]] = {
 }
 BOOLEANS = frozenset(name for name, value in DEFAULT.items() if type(value) is bool)
 RANGES: dict[str, tuple[int, int]] = {
+    'frame_width': (0, 8), 'frame_radius': (0, 80),
+    'frame_names_height': (0, 600), 'frame_items_height': (0, 600), 'frame_info_height': (0, 600),
+    'graveyard_gap': (0, 120),
     'gap': (0, 120), 'slot_width': (60, 480), 'sprite_size': (24, 360),
     'name_size': (9, 80), 'name_weight': (400, 900),
     'hp_height': (3, 100), 'hp_radius': (0, 50),
@@ -82,7 +89,7 @@ RANGES: dict[str, tuple[int, int]] = {
     'info_size': (8, 60), 'stats_size': (10, 80),
 }
 COLORS = frozenset({'name_color', 'name_outline', 'hp_background', 'hp_border', 'hp_good', 'hp_mid',
-                    'hp_low', 'hp_text_color', 'item_color'})
+                    'hp_low', 'hp_text_color', 'item_color', 'frame_color'})
 HEX = re.compile(r'#[0-9a-fA-F]{6}')
 FONT_FILE = re.compile(r'[a-zA-Z0-9_-]{1,70}\.(?:ttf|otf|woff2?)')
 
@@ -121,6 +128,9 @@ def validated_settings(candidate: Any) -> dict[str, Any]:
     if not isinstance(candidate, dict) or set(candidate) - ALLOWED:
         raise ValueError('Configuración de overlay inválida')
     out = copy.deepcopy(DEFAULT)
+    # Old profiles used the composition gap for the graveyard too.
+    if 'graveyard_gap' not in candidate:
+        out['graveyard_gap'] = candidate.get('gap', DEFAULT['gap'])
     for name, value in candidate.items():
         _check(name, value)
         out[name] = value

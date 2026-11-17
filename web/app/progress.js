@@ -71,6 +71,7 @@ function levelCapsDirty(){return Boolean(capsDraft)&&!capsSaving&&draftDiffers(c
 // --- Header chip and party cards (every snapshot).
 function renderLevelCapIndicators(snapshot){
   if(!(typeof companionView!=='undefined'&&companionView))settleLevelCapsSave(snapshot);
+  renderLevelCapAuto(snapshot);
   const chip=$('level-cap-chip');if(!chip)return;
   const model=levelCapChip(snapshot,typeof companionView!=='undefined'&&companionView);
   chip.hidden=!model;
@@ -84,6 +85,45 @@ function renderLevelCapIndicators(snapshot){
   if(typeof renderCapsProposal==='function')renderCapsProposal();
 }
 
+// --- Automatic stage advance (opt-in): the service decides; this only shows what happened and offers to undo it.
+let capAutoDismissed='';
+try{capAutoDismissed=localStorage.getItem('progressive-cap-auto-dismissed')||''}catch(e){}
+function levelCapAutoEvent(snapshot){
+  const event=snapshot?.level_caps_auto?.event;
+  if(!event||typeof event!=='object'||typeof event.id!=='string'||event.id===capAutoDismissed)return null;
+  if(!event.from_stage||!event.to_stage||(event.kind!=='advance'&&event.kind!=='suggest'))return null;
+  return event;
+}
+function levelCapAutoText(event){
+  const from=`«${event.from_stage.name}» (Nv. ${num(event.from_stage.cap)})`,to=`«${event.to_stage.name}» (Nv. ${num(event.to_stage.cap)})`;
+  const rise=`${event.pokemon} subió del nivel ${num(event.from_level)} al ${num(event.to_level)} y superó el límite de ${from}.`;
+  return event.kind==='advance'?`Etapa avanzada automáticamente a ${to}. ${rise}`
+    :event.reason==='unverified_level_up'
+      ?`${event.pokemon} pasó del nivel ${num(event.from_level)} al ${num(event.to_level)} y superó el límite de ${from}. El Tracker no puede distinguir una subida de nivel de cargar un estado guardado. Confirma si quieres pasar a ${to}.`
+      :`${rise} La siguiente etapa, ${to}, tiene un límite menor: no se avanzó automáticamente.`;
+}
+function renderLevelCapAuto(snapshot){
+  const box=$('level-cap-auto-notice');if(!box)return;
+  const event=typeof companionView!=='undefined'&&companionView?null:levelCapAutoEvent(snapshot);
+  box.hidden=!event;
+  if(!event)return;
+  setText($('level-cap-auto-text'),levelCapAutoText(event));
+  setText($('level-cap-auto-action'),event.kind==='advance'?'Deshacer':'Pasar a esa etapa');
+}
+function dismissLevelCapAuto(){
+  const event=levelCapAutoEvent(state);
+  if(event){capAutoDismissed=event.id;try{localStorage.setItem('progressive-cap-auto-dismissed',event.id)}catch(e){}}
+  renderLevelCapAuto(state);
+}
+if($('level-cap-auto-notice')){
+  $('level-cap-auto-dismiss').onclick=dismissLevelCapAuto;
+  // Undo and "go to that stage" are ordinary manual choices of the current stage.
+  $('level-cap-auto-action').onclick=()=>{
+    const event=levelCapAutoEvent(state);if(!event)return;
+    command({action:'level_caps_current',stage:event.kind==='advance'?event.from_stage.id:event.to_stage.id});
+    dismissLevelCapAuto();
+  };
+}
 // --- Progreso view.
 function renderProgress(){
   if(!state)return;
@@ -95,7 +135,8 @@ function renderCapsCurrent(){
   const box=$('caps-current');if(!box)return;
   const raw=state.level_caps,view=levelCapsOf(state);
   const party=list(state.party).map(p=>p?[p.nickname||p.species,p.level,p.egg===true]:null);
-  const signature=JSON.stringify([raw?.status,view,party,capsDraft?1:0]);
+  const auto=state.level_caps_auto||{};
+  const signature=JSON.stringify([raw?.status,view,party,capsDraft?1:0,auto.enabled===true,auto.read_only===true]);
   if(signature===capsCurrentSignature)return;
   capsCurrentSignature=signature;
   if(raw?.status==='unsupported'){
@@ -124,6 +165,8 @@ function renderCapsCurrent(){
     +(view.removed_current?removedNotice(view.removed_current):'')
     +`<label>Elegir la etapa vigente<select id="caps-select">${options}</select></label>`
     +`<label class="checkbox caps-show"><input type="checkbox" id="caps-show"${view.show?' checked':''}> Mostrar el límite en la cabecera y en las fichas</label>`
+    +`<label class="checkbox caps-auto"><input type="checkbox" id="caps-auto" aria-describedby="caps-auto-note"${auto.enabled===true?' checked':''}${auto.read_only===true?' disabled':''}> Sugerir la siguiente etapa al superar el límite</label>`
+    +`<p class="caps-note" id="caps-auto-note">${auto.read_only===true?'Esta opción la configuró una versión más nueva del tracker y no se cambia aquí.':'Desactivado de forma predeterminada. Detecta un aumento de nivel por encima del límite entre lecturas recientes del mismo equipo y propone la siguiente etapa. Requiere tu confirmación: no se puede distinguir una subida real de cargar un estado guardado. No propone al abrir una partida, reconectar, importar datos o cambiar el equipo. No modifica el juego.'}</p>`
     +`</div>`+capsTeam(current);
 }
 function removedNotice(removed){
@@ -274,6 +317,7 @@ function capsInput(event){
 function capsChange(event){
   if(event.target?.id==='caps-select'){command({action:'level_caps_current',stage:event.target.value||null});return;}
   if(event.target?.id==='caps-show')command({action:'level_caps_show',show:Boolean(event.target.checked)});
+  if(event.target?.id==='caps-auto')command({action:'level_caps_auto',enabled:Boolean(event.target.checked)});
 }
 // Navigation inside the tracker keeps the draft; only leaving the page or the run asks first.
 function confirmLevelCapsLeave(){

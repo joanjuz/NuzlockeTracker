@@ -25,7 +25,19 @@ Cambia el valor slot=1 por cualquier posición entre 1 y 6 para crear **18 eleme
 
 ## Personalización
 
-La pestaña **OBS** tiene guardado automático, sin la antigua vista previa interna. Permite ordenar las capas, elegir distribución en fila, columna o cuadrícula, tamaño y espacio entre Pokémon.
+### Recuadros y distribución estable
+
+Cada fuente conserva un tamaño calculado a partir del perfil, sin depender del tamaño del archivo de imagen ni de los datos que vayan llegando. El editor muestra las **dimensiones fijas para OBS** de cada enlace y una vista previa de la fuente real. Copia esos tamaños al crear la fuente de navegador; si reduces la ventana de la fuente, OBS recorta el área exterior en lugar de reorganizarla.
+
+En **Recuadros de los recursos** puedes activar los bordes, elegir color, grosor y redondeo. Se dibujan por dentro y activarlos u ocultarlos no cambia el tamaño ni el anclaje. **Ver recuadros**, junto al selector de capa de la vista previa, muestra límites azules solo en el editor, sin incluirlos en los enlaces copiados. El marco PNG decorativo sigue siendo independiente.
+
+El ancho se controla con **Ancho de posición**; los sprites mantienen su proporción dentro del espacio reservado. Los altos de motes, objetos y datos admiten un valor explícito o `0`, que calcula una altura fija según las opciones tipográficas del perfil. Los motes largos se truncan y los objetos reservan su espacio aunque no haya objeto equipado. Los huecos vacíos también conservan su posición; **Mostrar ranuras vacías** permite ver sus bordes.
+
+El cementerio permite **Horizontal**, **Vertical**, **Cuadrícula** (hasta seis columnas) y **Cuadrícula personalizada**. Solo esta última habilita el número de columnas. Tiene separación propia, mantiene el orden elegido y reserva la superficie correspondiente al máximo configurado: recibir una muerte nueva o cambiar un sprite no desplaza las tarjetas anteriores. Los nombres y rutas largos se truncan dentro de su celda. Los perfiles antiguos conservan sus columnas y su separación anterior, sin bordes visibles añadidos.
+
+Todos estos ajustes se guardan con cada perfil OBS y se incluyen en su exportación. Los enlaces existentes (`layer`, `slot=1` a `slot=6`, `preset`) siguen funcionando; cambiar deliberadamente dimensiones, distribución o tipografía sí cambia el tamaño configurado de la fuente. Los GIF, PNG, WebP y recursos HD comparten la misma caja, con fondo transparente.
+
+La pestaña **OBS** tiene guardado automático y una vista previa de la fuente real. Permite ordenar las capas, elegir distribución en fila, columna o cuadrícula, tamaño y espacio entre Pokémon.
 
 **Sprites:** reutiliza los GIF y PNG de la carpeta layout, junto con los sprites personalizados existentes. Cuando un Pokémon está registrado en Muertos, su sprite se muestra en escala de grises. El overlay aplica el gris directamente aunque el archivo exportado tarde en regenerarse (por ejemplo, con sprites HD animados), y lo quita al revivirlo.
 

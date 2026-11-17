@@ -5,7 +5,7 @@
 <body><header><div><strong>OBS · Overlay del equipo</strong><p>Organiza las capas como quieras. Cada enlace funciona como Fuente de navegador en OBS.</p></div><span id="status" role="status" aria-live="polite">Cargando…</span></header>
 <main>
 <section class="panel preview-panel" aria-labelledby="preview-heading"><div class="preview-title"><h2 id="preview-heading">Vista previa</h2>
-<label class="inline-control">Capa<select id="preview-layer"><option value="all">Composición</option><option value="sprites">Sprites</option><option value="names">Motes</option><option value="hp">Vida</option><option value="items">Objetos</option><option value="info">Datos</option><option value="counter">Muertes / vidas</option><option value="graveyard">Cementerio</option><option value="stats">Estadísticas</option></select></label></div>
+<label class="check">Ver recuadros<input id="preview-bounds" type="checkbox" checked></label><label class="inline-control">Capa<select id="preview-layer"><option value="all">Composición</option><option value="sprites">Sprites</option><option value="names">Motes</option><option value="hp">Vida</option><option value="items">Objetos</option><option value="info">Datos</option><option value="counter">Muertes / vidas</option><option value="graveyard">Cementerio</option><option value="stats">Estadísticas</option></select></label></div>
 <p>Muestra la fuente tal como la verá OBS, con los datos de la partida activa. Se actualiza sola al cambiar cualquier ajuste; el fondo a cuadros indica las zonas transparentes.</p>
 <div id="preview-stage" class="preview-stage"><iframe id="preview-frame" title="Vista previa de la fuente de OBS" src="about:blank" loading="lazy" tabindex="-1"></iframe></div>
 <p id="preview-size" class="source-size" role="status" aria-live="polite"></p></section>
@@ -37,6 +37,15 @@
 <div class="button-row"><button id="overlay-export" type="button" class="secondary">Exportar ajustes</button>
 <label class="file-button secondary">Importar ajustes<input id="overlay-import" type="file" accept=".json,application/json"></label></div>
 <p id="backup-status" class="control-status" role="status" aria-live="polite"></p></section>
+<section class="panel"><h2>Recuadros de los recursos</h2><p>Las dimensiones se conservan al cambiar sprites, objetos y textos. Los bordes se dibujan por dentro; el marco PNG es independiente.</p><div class="controls">
+<label class="check">Mostrar bordes en OBS<input id="frame_enabled" type="checkbox"></label>
+<label>Color<input id="frame_color" type="color"></label>
+<label>Grosor (px)<input id="frame_width" type="number" min="0" max="8"></label>
+<label>Redondeo (px)<input id="frame_radius" type="number" min="0" max="80"></label>
+<label>Alto de motes (0: automático)<input id="frame_names_height" type="number" min="0" max="600"></label>
+<label>Alto de objetos (0: automático)<input id="frame_items_height" type="number" min="0" max="600"></label>
+<label>Alto de datos (0: automático)<input id="frame_info_height" type="number" min="0" max="600"></label>
+</div><p>El ancho y el tamaño del sprite se ajustan en Composición. Los límites azules solo aparecen en la vista previa.</p></section>
 <section class="panel"><h2>Composición y sprites</h2><div class="controls">
 <label class="wide-control">Orden de capas<select id="order"><option value="sprites,names,hp">Sprites → motes → vida</option><option value="names,sprites,hp">Motes → sprites → vida</option><option value="hp,sprites,names">Vida → sprites → motes</option><option value="sprites,hp,names">Sprites → vida → motes</option><option value="names,hp,sprites">Motes → vida → sprites</option><option value="hp,names,sprites">Vida → motes → sprites</option></select></label>
 <label>Distribución<select id="direction"><option value="row">En fila</option><option value="column">En columna</option><option value="grid">Cuadrícula 3 × 2</option></select></label>
@@ -100,7 +109,7 @@
 <label>Tamaño del texto (px)<input id="stats_size" type="number" min="10" max="80" value="20"></label></div></section>
 <section class="panel"><h2>Cementerio</h2><p>Muestra los Pokémon caídos de la partida activa en una cuadrícula, con su sprite en gris. Usa el enlace «Cementerio» como fuente aparte en OBS.</p><div class="controls">
 <label>Pokémon mostrados<input id="graveyard_max" type="number" min="1" max="60"></label>
-<label>Columnas<input id="graveyard_columns" type="number" min="1" max="12"></label>
+<label class="wide-control">Distribución<select id="graveyard_layout"><option value="horizontal">Horizontal →</option><option value="vertical">Vertical ↓</option><option value="grid">Cuadrícula (6 columnas)</option><option value="custom">Cuadrícula personalizada</option></select></label><label>Separación (px)<input id="graveyard_gap" type="number" min="0" max="120"></label><label>Columnas<input id="graveyard_columns" type="number" min="1" max="12"></label>
 <label>Tamaño del sprite (px)<input id="graveyard_sprite_size" type="number" min="24" max="256"></label>
 <label class="wide-control">Orden<select id="graveyard_order"><option value="recent">Más recientes primero</option><option value="oldest">Más antiguos primero</option></select></label>
 <label class="check">Título con el total<input id="graveyard_title" type="checkbox"></label>
@@ -132,4 +141,4 @@
 <label class="check">Usar marco PNG<input id="hp_custom_frame" type="checkbox"></label>
 </div><p>Puedes usar PNG transparentes propios para el marco y el relleno. El relleno se recorta con el porcentaje real de PS sin estirar la imagen. Máximo 8 MB por PNG; hasta 4096 × 1024 píxeles.</p></section>
 <section class="panel actions-panel"><div class="preview-title"><h2>Personalización</h2><button id="save">Guardar personalización</button><button id="reset" class="secondary">Restablecer</button></div><p id="save-status" role="status" aria-live="polite"></p><p>Los cambios se guardan automáticamente. Para ver el resultado, agrega los enlaces como Fuente de navegador en OBS. El modo local funciona mientras Pokémon Tracker esté abierto; para compartir usa la IP VPN.</p></section>
-</main><script src="/overlay-editor.js"></script></body></html>
+</main><script src="/overlay-layout.js"></script><script src="/overlay-editor.js"></script></body></html>

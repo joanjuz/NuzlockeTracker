@@ -16,6 +16,11 @@ function livingDexEntries(boxes,limit){
 }
 function renderBoxes(){
   if(!state)return;
+  // Analysis view (box-analysis.js) draws in its own container; the normal grid is left as it was.
+  const analysis=typeof boxAnalysisMode==='function'&&boxAnalysisMode();
+  $('boxes').hidden=analysis;
+  for(const id of ['box-analysis','box-analysis-controls','box-analysis-status'])$(id).hidden=!analysis;
+  if(analysis){$('living-dex-status').hidden=true;renderBoxAnalysis();return}
   const living=$('living-dex').checked;
   const showSprites=living&&$('living-dex-sprites').checked;
   const all=$('global').checked;

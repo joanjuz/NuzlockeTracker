@@ -1,6 +1,7 @@
 """Reference data, distinct from live PK7 values and randomizer metadata."""
 import copy,json
 from pathlib import Path
+from .species_reference import SpeciesReference
 DATA=Path(__file__).resolve().parent.parent/'data'
 ROUTE_PROFILES={
     'Ultra Moon 1.0':('Routes_UltraMoon.json','ultra-moon-1.0'),
@@ -11,10 +12,37 @@ ROUTE_PROFILES={
     'Alpha Sapphire 1.0':('Routes_ORAS.json','alpha-sapphire-1.0'),
 }
 class ReferenceData:
-    def __init__(self):self.analysis=json.loads((DATA/'Analysis_USUM.json').read_text(encoding='utf-8'));self.moves=json.loads((DATA/'MoveDetails_USUM.json').read_text(encoding='utf-8'))['moves']
+    def __init__(self):
+        self.analysis=json.loads((DATA/'Analysis_USUM.json').read_text(encoding='utf-8'))
+        self.moves=json.loads((DATA/'MoveDetails_USUM.json').read_text(encoding='utf-8'))['moves']
+        self.species_reference=SpeciesReference()
     template_moves = None
     game_data = None
     game_provider = None
+    def mega_preview(self,p,catalog,game):
+        """Informational projection for a matching held stone, never actual battle stats."""
+        if p.get('form',0)!=0:return None
+        stone=self.species_reference.mega_stone(p.get('item_id'))
+        if stone is None or stone['species']!=p.get('species_id'):return None
+        reference=self.species_reference.lookup(stone['species'],stone['form'],game)
+        if reference is None:return None
+        source=reference['source'];stats=reference['base_stats'];types=reference['types'];abilities=reference['abilities']
+        imported=self.game_data.species(stone['species'],stone['form'],game) if self.game_data is not None else None
+        if imported is not None:
+            from .game_data import TYPE_NAMES,STAT_KEYS,SOURCE
+            source=SOURCE
+            stats={label:imported['baseStats'][key] for key,label in STAT_KEYS.items()}
+            types=list(dict.fromkeys(TYPE_NAMES[index] for index in imported['types']))
+            abilities=imported['abilities']
+            normal=self.game_data.species(stone['species'],0,game)
+            slots=[i for i,value in enumerate(normal['abilities']) if value==p.get('ability_id') and value>0] if normal else []
+            if slots:abilities=[imported['abilities'][i] for i in slots]
+        choices=set(value for value in abilities if value>0)
+        ability_id=next(iter(choices)) if len(choices)==1 else 0
+        ability=((self.game_data.ability_name(ability_id,game) if self.game_data is not None else None) or catalog.name('abilities',ability_id)) if ability_id else 'Habilidad por confirmar'
+        return {'form':stone['form'],'label':stone['label'],'base_stats':stats,'base_stats_source':source,
+                'types':types,'ability_id':ability_id,'ability':ability,'ability_known':bool(ability_id),'sprite_id':stone['sprite_id'],
+                'item_id':p['item_id'],'source':'Simulación mega · '+source,'reference_only':imported is None}
     def move(self,id,catalog):
         result=copy.deepcopy(self.moves.get(str(id)))
         if result is None:raise ValueError('Movimiento fuera del catálogo USUM.')

@@ -531,6 +531,117 @@ class DemoBrowserTests(unittest.TestCase):
         self.assert_clean()
 
 
+    def test_visual_analysis_gallery_guided_choice_and_mega_preview(self) -> None:
+        self.open_tracker()
+        self.open_tab('boxes')
+        self.page.locator('#box-view-mode').select_option('analysis')
+        expect(self.page.locator('.box-analysis-card')).to_have_count(6)
+        expect(self.page.locator('.box-base-stat')).to_have_count(36)
+        self.page.locator('#search').fill('Regeneración')
+        expect(self.page.locator('.box-analysis-card')).to_have_count(1)
+        self.page.locator('#search').fill('')
+        self.page.locator('#box-analysis-presentation').select_option('table')
+        expect(self.page.locator('#box-analysis tbody tr')).to_have_count(6)
+        self.page.locator('#box-analysis-presentation').select_option('cards')
+        self.open_tab('analysis')
+        expect(self.page.locator('#analysis-content .fx-row')).to_have_count(18)
+        expect(self.page.locator('.analysis-overview')).to_contain_text('Amenazas principales')
+        # A controlled fixture exercises the UI projection, never emulator memory.
+        self.page.evaluate("""() => {
+          state={...state,party:[{...state.party[0],species_id:6,species:'Charizard',form:0,item_id:660,
+            types:['Fuego','Volador'],mega_preview:{form:1,item_id:660,label:'Mega X',sprite_id:6,
+              types:['Fuego','Dragón'],ability_id:181,ability:'Garra Dura',reference_only:true,
+              base_stats:{HP:78,ATK:130,DEF:111,SPA:130,SPD:85,SPE:100},base_stats_source:'Referencia XY'}}]};
+          analysisSignature='';renderAnalysis();
+        }""")
+        mega = self.page.locator('#analysis-team-preview [data-analysis-mega]')
+        mega.click()
+        expect(mega).to_have_attribute('aria-pressed', 'true')
+        self.assertEqual(self.page.evaluate('analysisPokemon(state.party[0]).types'), ['Fuego', 'Dragón'])
+        self.assertEqual(self.page.evaluate('state.party[0].types'), ['Fuego', 'Volador'])
+        mega.focus()
+        self.page.evaluate('state.party[0].hp=1;renderAnalysis()')
+        expect(mega).to_be_focused()
+        self.page.locator('#analysis-section-builder').click()
+        slot = self.page.locator('[data-builder-slot="0"]').first
+        slot.click()
+        expect(self.page.locator('#builder-picker')).to_be_visible()
+        expect(self.page.locator('#builder-count')).to_have_text('0 / 6')
+        self.page.locator('#builder-picker-options [data-builder-pick]').first.click()
+        expect(self.page.locator('#builder-count')).to_have_text('1 / 6')
+        expect(self.page.locator('#builder-picker-title')).to_contain_text('2')
+        expect(self.page.locator('#builder-picker-options [data-builder-pick]').first).to_be_focused()
+        self.page.keyboard.press('Escape')
+        expect(self.page.locator('#builder-picker')).not_to_be_visible()
+        expect(self.page.locator('#team-builder [data-builder-slot="1"]').first).to_be_focused()
+        expect(self.page.locator('.builder-comparison')).to_be_visible()
+        expect(self.page.locator('.builder-comparison [data-metric="members"] [data-side="virtual"]')).to_have_text('1')
+        self.page.locator('#builder-complete').click()
+        expect(self.page.locator('#builder-count')).to_have_text('1 / 6')
+        self.page.locator('#builder-picker-close').click()
+        self.page.locator('.builder-library > summary').click()
+        self.page.locator('#builder-name').fill(f'Equipo visual {time.time_ns()}')
+        self.page.locator('#builder-save').click()
+        expect(self.page.locator('#builder-saved-status')).to_have_text('Equipo guardado.')
+        self.page.once('dialog', lambda dialog: dialog.accept())
+        self.page.locator('#builder-delete').click()
+        expect(self.page.locator('#builder-saved-status')).to_contain_text('Equipo eliminado.')
+        self.page.wait_for_load_state('networkidle')
+        self.assert_clean()
+
+
+    def test_analysis_workspace_responsive_visual_states(self) -> None:
+        self.open_tracker()
+        def capture(name: str, full: bool = True) -> None:
+            self.page.evaluate('window.scrollTo(0,0)')
+            self.page.screenshot(path=str(ARTIFACTS / name), full_page=full)
+        for theme in ('light', 'dark'):
+            self.page.locator('details.options > summary').click()
+            self.page.locator('#theme').select_option(theme)
+            self.page.locator('details.options > summary').click()
+            for width in (1280, 820, 560, 360):
+                self.page.set_viewport_size({'width': width, 'height': 900})
+                self.open_tab('boxes')
+                self.page.locator('#box-view-mode').select_option('analysis')
+                expect(self.page.locator('.box-analysis-card')).to_have_count(6)
+                self.assertLessEqual(self.page.evaluate('document.documentElement.scrollWidth-innerWidth'), 1)
+                capture(f'ux-boxes-{theme}-{width}.png')
+                self.open_tab('analysis')
+                self.page.locator('#analysis-section-current').click()
+                expect(self.page.locator('#analysis-content .fx-row')).to_have_count(18)
+                self.assertLessEqual(self.page.evaluate('document.documentElement.scrollWidth-innerWidth'), 1)
+                capture(f'ux-analysis-{theme}-{width}.png')
+                self.page.locator('#analysis-section-builder').click()
+                self.page.locator('#builder-use-party').click()
+                for index in (5, 4, 3):
+                    self.page.locator(f'[data-builder-remove="{index}"]').click()
+                expect(self.page.locator('#builder-count')).to_have_text('3 / 6')
+                self.assertLessEqual(self.page.evaluate('document.documentElement.scrollWidth-innerWidth'), 1)
+                capture(f'ux-builder-{theme}-{width}.png')
+                self.page.locator('#builder-complete').click()
+                expect(self.page.locator('#builder-picker')).to_be_visible()
+                expect(self.page.locator('#builder-picker-options [data-builder-pick]')).to_have_count(3)
+                self.assertLessEqual(self.page.evaluate('document.documentElement.scrollWidth-innerWidth'), 1)
+                capture(f'ux-picker-{theme}-{width}.png', False)
+                self.page.keyboard.press('Escape')
+        self.open_tab('boxes')
+        self.page.set_viewport_size({'width': 560, 'height': 900})
+        self.page.locator('#global').check()
+        self.page.evaluate("""() => {
+          window.__uxOriginalState=state;
+          const p=state.boxes['1'][0];
+          state={...state,boxes:Object.fromEntries(Array.from({length:32},(_,b)=>[String(b+1),
+            Array.from({length:30},(_,i)=>({...p,nickname:'Ejemplar '+(b*30+i+1),encryption_constant:80000+b*30+i}))]))};
+          boxAnalysisSignature='';renderBoxes();
+        }""")
+        expect(self.page.locator('.box-analysis-card')).to_have_count(240)
+        expect(self.page.locator('#box-analysis')).to_contain_text('Se muestran 240 de 960')
+        self.assertLessEqual(self.page.evaluate('document.documentElement.scrollWidth-innerWidth'), 1)
+        capture('ux-boxes-960-synthetic.png', False)
+        self.page.evaluate('state=window.__uxOriginalState;delete window.__uxOriginalState;boxAnalysisSignature="";renderBoxes()')
+        self.assert_clean()
+
+
 # Level caps proposed by Definitive Randomizer. The imported game data belongs to a run folder, so this
 # class starts its own demo in a throwaway profile: the files of the default folder are never touched.
 PROPOSAL_PROFILE = 'e2e-propuesta-limites'

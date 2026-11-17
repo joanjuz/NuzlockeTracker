@@ -36,7 +36,7 @@ function harness(query){
     fetch:async()=>{throw new Error('sin red');},
     document:{getElementById:id=>id==='overlay'?root:null,createElement:tag=>new Element(tag),
       documentElement:{clientWidth:1280,style:{setProperty(){}}}}};
-  vm.createContext(context);
+  context.OverlayLayout=require('../web/overlay-layout.js');vm.createContext(context);
   vm.runInContext(source.replace(/\r?\n  poll\(\);\r?\n/,'\n  globalThis.overlayTest={appearance,draw,poll};\n'),context);
   const config={order:['sprites','names','hp'],direction:'row',font:'Arial',slot_width:142,
     hp_border_width:1,hp_label:'none',hp_low_threshold:25,hp_mid_threshold:50,

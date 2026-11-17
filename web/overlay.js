@@ -11,6 +11,23 @@
   const preset = presetArg.length >= 1 && presetArg.length <= 40 ? presetArg : '';
   const root = document.getElementById('overlay');
   let settings = null, lastConfig = '', nodes = {};
+  function applyGeometry(){
+    const box=OverlayLayout.measure(settings,slot?1:6);
+    const current=box[layer];
+    root.style.width=current.width+'px';root.style.height=current.height+'px';
+    for(const [key,h] of Object.entries(box.slotHeights))css('--box-'+key,h+'px');
+    css('--grave-cols',String(box.graveColumns));
+    css('--grave-card-height',box.graveCardHeight+'px');
+    css('--grave-gap',(settings.graveyard_gap??settings.gap??16)+'px');
+    for(const key of ['counter','stats','graveyard']){
+      css('--'+key+'-width',box[key].width+'px');css('--'+key+'-height',box[key].height+'px');
+    }
+    root.dataset.frames=String(Boolean(settings.frame_enabled));
+    root.dataset.bounds=String(args.get('bounds')==='1');
+    css('--frame-color',settings.frame_color||'#f05b65');
+    css('--frame-width',(settings.frame_width??1)+'px');
+    css('--frame-radius',(settings.frame_radius||0)+'px');
+  }
   const mk = (tag, cls, parent) => {
     const el = document.createElement(tag);
     if (cls) el.className = cls;
@@ -106,6 +123,7 @@
     // CSS zoom reflows/rasterizes fonts and vector HP tracks at real scaled
     // dimensions; transform:scale only enlarges previously rasterized pixels.
     root.style.zoom=String(settings.render_scale||1);
+    applyGeometry();
     fitViewport();
     css('--counter-icon',(settings.counter_icon_size||36)+'px');
     css('--sprite-render',settings.sprite_scaling==='smooth'?'auto':'pixelated');
@@ -115,7 +133,6 @@
     css('--sprite-shadow',settings.sprite_shadow?'drop-shadow(0 4px 7px #000a)':'');
     css('--item-size',(settings.item_size||14)+'px');
     css('--item-icon',(settings.item_icon_size||32)+'px');
-    css('--grave-cols',String(settings.graveyard_columns||6));
     css('--grave-sprite',(settings.graveyard_sprite_size||64)+'px');css('--item-color',settings.item_color||'#f2c15c');
     css('--hp-speed',(settings.hp_animation_ms??250)+'ms');
     css('--slot',settings.slot_width+'px');css('--gap',settings.gap+'px');

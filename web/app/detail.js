@@ -36,7 +36,9 @@ function detailBaseStats(p){
     `<div><small>${esc(key)}</small><strong>${esc(val)}</strong></div>`
   );
   return '<section class="template-base-stats">'
-    +(p.base_stats_source==='Definitive Game Data'?'<h3>Estadísticas base · Definitive Game Data</h3>':'<h3>Estadísticas base · pk3DS Progressive</h3>')
+    +(p.base_stats_source==='Definitive Game Data'?'<h3>Estadísticas base · Definitive Game Data</h3>'
+      :p.base_stats_source==='pk3DS Progressive'?'<h3>Estadísticas base · pk3DS Progressive</h3>'
+      :`<h3>Estadísticas base</h3><p class="reference-note">${esc(p.base_stats_source||'Referencia de especie')}</p>`)
     +`<div class="template-base-grid">${cells.join('')}</div>`
     +'<p class="subtitle">Los valores actuales de la partida y los IV/EV se muestran por separado.</p>'
     +(p.base_stats_source==='Definitive Game Data'?`<p class="subtitle">Habilidades de especie: ${list(p.species_abilities).map(a=>esc(a.name)).join(' · ')}. La habilidad actual se lee del Pokémon.</p>`:'')

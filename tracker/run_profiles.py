@@ -45,6 +45,8 @@ def acquire_run_lock(home, profile):
 # The main run keeps its data loose in runtime/ (next to profiles/, the update
 # cache, etc.), so deleting it removes ONLY these entries, never the folder.
 PRINCIPAL_FILE_PATTERNS = ('state.json', 'state.tmp', 'state-*-progress.json*', 'state-progress.json*',
+                           'state-*-virtual-teams.json*', 'state-virtual-teams.json*',
+                           'state-*-level-caps-auto.json*', 'state-level-caps-auto.json*',
                            'session-profile.json', 'obs-overlay.json', 'obs-overlay.tmp',
                            'pk3ds-templates.json', 'companion-credentials.json', 'companion-cache.json',
                            'run-profile.json')

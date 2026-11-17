@@ -121,3 +121,22 @@ El resumen `level_caps` añade `revision` (huella corta de la lista guardada) y 
 ## Compatibilidad
 
 Soul Link comparte solo los campos de progreso de su lista (`schema_version: 1` sin cambios): los límites no se envían al compañero. El estado público de OBS, la lectura de RAM, los datos de Definitive Game Data que usa el tracker y los CSV de pk3DS no cambian. La copia **Guardar sesión…** incluye los límites dentro de `progress`.
+
+## Detección opcional para avanzar de etapa
+
+En **Progreso**, junto a la etapa vigente, **Sugerir la siguiente etapa al superar el límite** está desactivada de forma predeterminada. Se guarda por partida y juego en `state<juego>-level-caps-auto.json`; el formato de etapas sigue siendo versión 1.
+
+La lectura de RAM disponible no permite distinguir con fiabilidad una subida real de cargar un estado guardado posterior con el mismo equipo. Por eso el Tracker **sugiere y pide confirmación**; nunca cambia la etapa por su cuenta. No modifica el parche Player Level Caps, el equipo, los movimientos ni la memoria del juego.
+
+Con la opción activada, propone la siguiente etapa cuando:
+
+1. Hay etapa vigente y una siguiente.
+2. Dos lecturas recientes de RAM, conectado y sin datos obsoletos, muestran al mismo ejemplar pasando de un nivel igual o inferior al límite a uno superior.
+3. El equipo mantiene los mismos ejemplares y ningún integrante pierde niveles, incluida la lectura de confirmación.
+4. Otra lectura de RAM confirma el aumento. Los intervalos entre lecturas no superan 30 segundos.
+
+El aviso explica la incertidumbre y ofrece **Pasar a esa etapa** u **Ocultar**. Confirmar guarda una sola etapa mediante la selección manual existente. Si la siguiente etapa tiene un límite menor, el aviso lo explica también y requiere la misma confirmación.
+
+La referencia se reinicia al abrir una partida, activar la opción, reconectar, cambiar de juego, importar o actualizar metadatos y editar o elegir etapas manualmente. El equipo ya por encima del límite no genera propuestas. Un cambio de integrantes o una pérdida de niveles cancela la confirmación pendiente. Actualizar datos importados o revivir un registro no cuenta como una nueva lectura de RAM. Una subida de muchos niveles propone solo la siguiente etapa, nunca varias.
+
+La opción sigue usando la orden `POST /api/command` con `{"action":"level_caps_auto","enabled":true|false}`. El estado `level_caps_auto` conserva `enabled`, `read_only` y `event`; el aviso dura esta sesión y no se guarda en disco. Los eventos nuevos son `kind: "suggest"` con `reason: "unverified_level_up"` o `"decreasing_cap"`. La interfaz conserva compatibilidad con los avisos anteriores de avance y su acción Deshacer.

@@ -30,7 +30,7 @@ ENCOUNTER_FIELDS = ('species_id', 'species', 'nickname', 'origin_version',
 # tracker ships no official or default caps for any game, romhack or challenge.
 LEVEL_CAPS_VERSION = 1
 LEVEL_CAP_ACTIONS = ('level_caps_set', 'level_caps_current', 'level_caps_show',
-                     'level_caps_accept_proposal', 'level_caps_dismiss_proposal')
+                     'level_caps_accept_proposal', 'level_caps_dismiss_proposal', 'level_caps_auto')
 MAX_STAGES = 64
 MAX_STAGE_NAME = 60
 STAGE_ID_PATTERN = re.compile(r'[A-Za-z0-9_-]{1,32}\Z')

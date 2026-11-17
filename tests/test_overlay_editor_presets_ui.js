@@ -57,7 +57,7 @@ function harness({fetchImpl,parentApi}={}){
       if(options.method==='POST')posts.push({url,body:JSON.parse(options.body)});
       return fetchImpl?fetchImpl(url,options):{ok:false,json:async()=>({})};
     }};
-  vm.createContext(context);
+  context.OverlayLayout=require('../web/overlay-layout.js');vm.createContext(context);
   vm.runInContext(source,context);
   const $=id=>elements.get(id);
   const links=()=>Object.fromEntries($('links').children.map(row=>[row.children[0].textContent,row.children[1].value]));
