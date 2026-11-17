@@ -88,3 +88,14 @@ Una megapiedra equipada permite ofrecer una **proyección informativa** de esa
 forma, no prueba que el jugador pueda megaevolucionar ni activa nada en el juego.
 La forma importada DGD prevalece para bases, tipos y habilidad; si falta, la
 proyección queda marcada `reference_only` y la UI debe advertir que es referencia.
+
+Los sprites pequeños de las 47 formas mega y sus 45 especies normales están
+incluidos para que esta simulación no dependa de descargas al pulsar el botón.
+Procedencia: PokeAPI/sprites, commit `c0542f7c51215d9672439012838c99f520596cbd`,
+directorio `sprites/pokemon/`. Son 92 PNG (102 324 bytes en total).
+URLs y SHA-256 por archivo en `MegaSpriteSources.json`; actualización explícita
+mediante `python tools/cache_mega_sprites.py`, nunca al abrir la interfaz.
+El repositorio de sprites permite descargar sus recursos para aplicaciones;
+se conserva la atribución a PokeAPI y a sus colaboradores. Los personajes e imágenes
+de Pokémon pertenecen a Nintendo, Creatures y GAME FREAK; esta distribución no
+implica patrocinio ni autorización de sus titulares.
