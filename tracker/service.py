@@ -148,8 +148,12 @@ class TrackerService:
         imported=self.game_data.species(species,p.get('form',0),game)
         data.pop('game_data_source',None)
         data.pop('species_abilities',None)
-        data['base_stats_source']='pk3DS Progressive'
-        data['base_stats']=self.templates.data['stats'].get(str(species))
+        # CSV rows identify species, not forms. A regional/mega form must not
+        # inherit the normal species' imported bases without form evidence.
+        template=self.templates.data['stats'].get(str(species)) if p.get('form',0)==0 else None
+        fallback=self.reference.species_reference.lookup(species,p.get('form',0),game)
+        data['base_stats_source']='pk3DS Progressive' if template is not None else fallback['source'] if fallback else 'No disponible'
+        data['base_stats']=template if template is not None else fallback['base_stats'] if fallback else None
         if type(species) is int:
             data['types']=self.catalog.metadata('species',species).get('types',self.reference.pokemon_types(species,p.get('form',0)))
             data['type_source']='Catálogo ROM' if self.catalog.metadata('species',species).get('types') else 'Referencia USUM'
@@ -179,6 +183,7 @@ class TrackerService:
             evo_data={**evo,'target_name':name,'sprite_id':regional_sprites.get(target,target) if result_form==1 else target}
             evolutions.append(evo_data)
         data['evolutions']=evolutions
+        data['mega_preview']=self.reference.mega_preview(data,self.catalog,game)
         moves=p.get('moves')
         if isinstance(moves,list) and len(moves)==4:
             data['analysis_moves']=[self.reference.move(i,self.catalog) if i else None for i in moves]
