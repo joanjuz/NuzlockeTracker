@@ -2,6 +2,7 @@
 import json
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from tracker.level_caps_auto import CONFIRM_SECONDS, LevelCapsAuto, LevelUpWatcher, party_levels
@@ -81,7 +82,7 @@ class LevelUpWatcherTests(unittest.TestCase):
         self.feed(20, mon(1, 21))
         self.clock.now += CONFIRM_SECONDS + 5
         self.assertIsNone(self.feed(20, mon(1, 21)), 'Lectura tardía: se vuelve a pedir confirmación')
-        self.assertIsNotNone(self.feed(20, mon(1, 21)))
+        self.assertIsNone(self.feed(20, mon(1, 21)), 'La referencia anterior también caducó')
         self.watcher.reset()
         self.feed(20, mon(1, 20))
         self.feed(20, mon(1, 21))
@@ -97,6 +98,24 @@ class LevelUpWatcherTests(unittest.TestCase):
         self.feed(None, mon(1, 20))
         self.assertIsNone(self.feed(None, mon(1, 21)))
         self.assertIsNone(self.feed(20, mon(1, 21)), 'Sin límite vigente no queda nada pendiente')
+
+    def test_confirmation_rejects_a_changed_party(self):
+        self.feed(14, mon(1, 14), mon(2, 5))
+        self.feed(14, mon(1, 15), mon(2, 5))
+        self.assertIsNone(self.feed(14, mon(1, 15), mon(3, 40)))
+        self.assertIsNone(self.feed(14, mon(1, 15), mon(3, 40)))
+
+    def test_confirmation_rejects_another_members_level_rewind(self):
+        self.feed(14, mon(1, 14), mon(2, 10))
+        self.feed(14, mon(1, 15), mon(2, 10))
+        self.assertIsNone(self.feed(14, mon(1, 15), mon(2, 9)))
+        self.assertIsNone(self.feed(14, mon(1, 15), mon(2, 9)))
+
+    def test_old_baseline_does_not_count_as_a_level_up(self):
+        self.feed(14, mon(1, 14))
+        self.clock.now += CONFIRM_SECONDS + 1
+        self.assertIsNone(self.feed(14, mon(1, 15)))
+        self.assertIsNone(self.feed(14, mon(1, 15)))
 
     def test_only_valid_hatched_members_are_read(self):
         levels = party_levels([mon(1, 20), mon(2, 5, egg=True), mon(3, 5, checksum_valid=False), mon(4, 0), mon(5, 101),
@@ -161,7 +180,7 @@ class LevelCapsAutoServiceTests(unittest.TestCase):
         return self.service.snapshot()['level_caps_auto']
 
     def read(self, *members, **changes):
-        self.service.update(party=party(*members), stale=False, connection=dict(LIVE), **changes)
+        self.service.update(live_party=True, party=party(*members), stale=False, connection=dict(LIVE), **changes)
 
     def enable(self):
         self.service.handle({'action': 'level_caps_auto', 'enabled': True})
@@ -174,19 +193,20 @@ class LevelCapsAutoServiceTests(unittest.TestCase):
         self.assertEqual(self.caps()['current'], self.ids[0])
         self.assertIsNone(self.auto()['event'])
 
-    def test_real_level_up_advances_exactly_one_stage_saves_and_notifies(self):
+    def test_confirmed_crossing_suggests_one_stage_and_manual_confirmation_saves(self):
         self.enable()
         self.assertTrue(self.auto()['enabled'])
         self.read(mon(1, 14, 'Chispa'), mon(2, 9))
         self.read(mon(1, 15, 'Chispa'), mon(2, 9))
         self.assertEqual(self.caps()['current'], self.ids[0], 'Aún sin confirmar')
         self.read(mon(1, 15, 'Chispa'), mon(2, 9))
-        self.assertEqual(self.caps()['current'], self.ids[1])
+        self.assertEqual(self.caps()['current'], self.ids[0])
         event = self.auto()['event']
-        self.assertEqual((event['kind'], event['pokemon'], event['from_level'], event['to_level']), ('advance', 'Chispa', 14, 15))
+        self.assertEqual((event['kind'], event['pokemon'], event['from_level'], event['to_level']), ('suggest', 'Chispa', 14, 15))
         self.assertEqual((event['from_stage']['name'], event['to_stage']['name'], event['to_stage']['cap']),
                          ('Gimnasio 1', 'Gimnasio 2', 20))
-        # Saved in the same place and shape as a manual choice.
+        self.service.handle({'action': 'level_caps_current', 'stage': event['to_stage']['id']})
+        # Confirmation saves in the existing manual stage format.
         stored = json.loads((self.root / 'state-progress.json').read_text(encoding='utf-8'))['level_caps']
         self.assertEqual(stored['current'], self.ids[1])
         self.assertEqual(set(stored), {'version', 'stages', 'current', 'show', 'updated_at', 'removed_current'})
@@ -197,18 +217,19 @@ class LevelCapsAutoServiceTests(unittest.TestCase):
             self.read(mon(1, 15, 'Chispa'), mon(2, 9))
         self.assertEqual(self.caps()['current'], self.ids[1])
 
-    def test_big_jump_advances_one_stage_only(self):
+    def test_big_jump_suggests_one_stage_only(self):
         self.enable()
         self.read(mon(1, 14))
         self.read(mon(1, 40))
         self.read(mon(1, 40))
-        self.assertEqual(self.caps()['current'], self.ids[1], 'Un salto por encima de varios límites avanza solo uno')
+        self.assertEqual(self.caps()['current'], self.ids[0], 'Un salto por encima de varios límites avanza solo uno')
+        self.assertEqual(self.auto()['event']['to_stage']['id'],self.ids[1])
         for _ in range(4):
             self.read(mon(1, 40))
-        self.assertEqual(self.caps()['current'], self.ids[1])
+        self.assertEqual(self.caps()['current'], self.ids[0])
         self.read(mon(1, 41))
         self.read(mon(1, 41))
-        self.assertEqual(self.caps()['current'], self.ids[1], 'Ya estaba por encima del nuevo límite')
+        self.assertEqual(self.caps()['current'], self.ids[0], 'Ya estaba por encima del nuevo límite')
 
     def test_loaded_team_above_cap_old_run_reconnect_and_imports_do_not_advance(self):
         self.enable()
@@ -290,7 +311,8 @@ class LevelCapsAutoServiceTests(unittest.TestCase):
         self.read(mon(1, 14))
         self.read(mon(1, 15))
         self.read(mon(1, 15))
-        self.assertEqual(self.caps()['current'], self.ids[1])
+        self.assertEqual(self.caps()['current'], self.ids[0])
+        self.assertEqual(self.auto()['event']['kind'], 'suggest')
         self.service.handle({'action': 'level_caps_current', 'stage': self.ids[0]})  # undo
         self.assertEqual(self.caps()['current'], self.ids[0])
         self.assertIsNone(self.auto()['event'])
@@ -320,6 +342,86 @@ class LevelCapsAutoServiceTests(unittest.TestCase):
                 self.service.validate_level_caps(bad)
         self.service.validate_level_caps({'action': 'level_caps_auto', 'enabled': True})
         self.assertFalse(self.auto()['enabled'], 'Validar no cambia nada')
+
+    def test_metadata_refresh_cannot_confirm_a_pending_crossing(self):
+        self.enable()
+        self.read(mon(1, 14))
+        self.read(mon(1, 15))
+        self.service._refresh_game_data()
+        self.assertEqual(self.caps()['current'], self.ids[0])
+        self.assertIsNone(self.auto()['event'])
+        self.read(mon(1, 15))
+        self.assertIsNone(self.auto()['event'], 'An import starts a fresh baseline')
+
+    def test_editing_the_list_cancels_a_pending_crossing(self):
+        self.enable()
+        self.read(mon(1, 14))
+        self.read(mon(1, 15))
+        self.service.handle({'action': 'level_caps_set', 'stages': [
+            {'id': self.ids[0], 'name': 'Revisada', 'cap': 14},
+            {'id': self.ids[1], 'name': 'Siguiente', 'cap': 20}]})
+        self.read(mon(1, 15))
+        self.assertIsNone(self.auto()['event'])
+        self.assertEqual(self.caps()['current'], self.ids[0])
+
+    def test_manual_selection_cancels_pending_even_when_cap_is_equal(self):
+        self.service.handle({'action': 'level_caps_set', 'stages': [
+            {'id': self.ids[0], 'name': 'Primera', 'cap': 14},
+            {'id': self.ids[1], 'name': 'Segunda', 'cap': 14},
+            {'id': self.ids[2], 'name': 'Tercera', 'cap': 25}]})
+        self.enable()
+        self.read(mon(1, 14))
+        self.read(mon(1, 15))
+        self.service.handle({'action': 'level_caps_current', 'stage': self.ids[1]})
+        self.read(mon(1, 15))
+        self.assertEqual(self.caps()['current'], self.ids[1])
+        self.assertIsNone(self.auto()['event'])
+
+    def test_gen7_poll_uses_fresh_ram_readings_for_suggestions(self):
+        self.enable()
+        with patch('tracker.service.apply_battle_hp', side_effect=lambda reader, members, game: (members, False)):
+            for level in (14, 15, 15):
+                self.service._poll_gen7(party(mon(1, level)))
+        self.assertEqual(self.caps()['current'], self.ids[0])
+        self.assertEqual(self.auto()['event']['to_stage']['id'], self.ids[1])
+
+    def test_gen6_cached_battle_party_cannot_confirm_a_crossing(self):
+        self.enable()
+        self.read(mon(1, 14))
+        self.read(mon(1, 15))
+        with patch.object(self.service, '_gen6_battle_party', return_value=(party(mon(1, 15)), True)):
+            self.service._poll_gen6(None)
+        self.assertIsNone(self.auto()['event'])
+        self.assertEqual(self.caps()['current'], self.ids[0])
+
+    def test_gen6_replaced_overworld_party_cannot_confirm_a_crossing(self):
+        self.enable()
+        self.read(mon(1, 14))
+        self.read(mon(1, 15))
+        with patch.object(self.service, '_gen6_battle_party', return_value=(party(mon(1, 15)), True)):
+            self.service._poll_gen6(party(mon(2, 40)))
+        self.assertIsNone(self.auto()['event'])
+        self.assertEqual(self.caps()['current'], self.ids[0])
+
+    def test_gen6_poll_uses_fresh_ram_readings_for_suggestions(self):
+        self.enable()
+        with patch.object(self.service, '_gen6_battle_party', side_effect=lambda members, saved: (members, False)):
+            for level in (14, 15, 15):
+                self.service._poll_gen6(party(mon(1, level)))
+        self.assertEqual(self.caps()['current'], self.ids[0])
+        self.assertEqual(self.auto()['event']['to_stage']['id'], self.ids[1])
+
+    def test_same_party_save_state_crossing_only_suggests(self):
+        self.enable()
+        self.read(mon(1, 14))
+        self.read(mon(1, 40))
+        self.read(mon(1, 40))
+        self.assertEqual(self.caps()['current'], self.ids[0], 'Cannot distinguish a save state from a genuine level-up')
+        event = self.auto()['event']
+        self.assertEqual((event['kind'], event['reason']), ('suggest', 'unverified_level_up'))
+        self.assertEqual(event['to_stage']['id'], self.ids[1])
+        self.service.handle({'action': 'level_caps_current', 'stage': self.ids[1]})
+        self.assertEqual(RunProgress(self.root / 'state-progress.json').data['level_caps']['current'], self.ids[1])
 
     def test_no_memory_writes(self):
         source = (Path(__file__).resolve().parent.parent / 'tracker' / 'level_caps_auto.py').read_text(encoding='utf-8')

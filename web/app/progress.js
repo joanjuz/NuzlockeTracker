@@ -98,7 +98,9 @@ function levelCapAutoText(event){
   const from=`«${event.from_stage.name}» (Nv. ${num(event.from_stage.cap)})`,to=`«${event.to_stage.name}» (Nv. ${num(event.to_stage.cap)})`;
   const rise=`${event.pokemon} subió del nivel ${num(event.from_level)} al ${num(event.to_level)} y superó el límite de ${from}.`;
   return event.kind==='advance'?`Etapa avanzada automáticamente a ${to}. ${rise}`
-    :`${rise} La siguiente etapa, ${to}, tiene un límite menor: no se avanzó automáticamente.`;
+    :event.reason==='unverified_level_up'
+      ?`${event.pokemon} pasó del nivel ${num(event.from_level)} al ${num(event.to_level)} y superó el límite de ${from}. El Tracker no puede distinguir una subida de nivel de cargar un estado guardado. Confirma si quieres pasar a ${to}.`
+      :`${rise} La siguiente etapa, ${to}, tiene un límite menor: no se avanzó automáticamente.`;
 }
 function renderLevelCapAuto(snapshot){
   const box=$('level-cap-auto-notice');if(!box)return;
@@ -163,8 +165,8 @@ function renderCapsCurrent(){
     +(view.removed_current?removedNotice(view.removed_current):'')
     +`<label>Elegir la etapa vigente<select id="caps-select">${options}</select></label>`
     +`<label class="checkbox caps-show"><input type="checkbox" id="caps-show"${view.show?' checked':''}> Mostrar el límite en la cabecera y en las fichas</label>`
-    +`<label class="checkbox caps-auto"><input type="checkbox" id="caps-auto" aria-describedby="caps-auto-note"${auto.enabled===true?' checked':''}${auto.read_only===true?' disabled':''}> Avanzar automáticamente a la siguiente etapa</label>`
-    +`<p class="caps-note" id="caps-auto-note">${auto.read_only===true?'Esta opción la configuró una versión más nueva del tracker y no se cambia aquí.':'Desactivado de forma predeterminada. Si lo activas, cuando un Pokémon del equipo sube de nivel durante la partida y supera el límite vigente, se pasa a la siguiente etapa y se avisa. Avanza una sola etapa cada vez y nunca al abrir una partida, reconectar, importar datos o cambiar el equipo. No modifica el juego.'}</p>`
+    +`<label class="checkbox caps-auto"><input type="checkbox" id="caps-auto" aria-describedby="caps-auto-note"${auto.enabled===true?' checked':''}${auto.read_only===true?' disabled':''}> Sugerir la siguiente etapa al superar el límite</label>`
+    +`<p class="caps-note" id="caps-auto-note">${auto.read_only===true?'Esta opción la configuró una versión más nueva del tracker y no se cambia aquí.':'Desactivado de forma predeterminada. Detecta un aumento de nivel por encima del límite entre lecturas recientes del mismo equipo y propone la siguiente etapa. Requiere tu confirmación: no se puede distinguir una subida real de cargar un estado guardado. No propone al abrir una partida, reconectar, importar datos o cambiar el equipo. No modifica el juego.'}</p>`
     +`</div>`+capsTeam(current);
 }
 function removedNotice(removed){

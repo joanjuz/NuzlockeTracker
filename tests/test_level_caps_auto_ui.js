@@ -38,8 +38,8 @@ const plain=value=>JSON.parse(JSON.stringify(value));
   ctx.state=snapshot({enabled:false,read_only:false,event:null});
   run('renderProgress()');
   let html=$('caps-current').innerHTML;
-  ok(/<input type="checkbox" id="caps-auto" aria-describedby="caps-auto-note"> Avanzar automáticamente a la siguiente etapa<\/label>/.test(html),'Desactivada de forma predeterminada');
-  ok(html.includes('Desactivado de forma predeterminada')&&html.includes('Avanza una sola etapa cada vez')&&html.includes('No modifica el juego'));
+  ok(/<input type="checkbox" id="caps-auto" aria-describedby="caps-auto-note"> Sugerir la siguiente etapa al superar el límite<\/label>/.test(html),'Desactivada de forma predeterminada');
+  ok(html.includes('Desactivado de forma predeterminada')&&html.includes('Requiere tu confirmación')&&html.includes('No modifica el juego'));
   ok(html.includes('id="caps-show" checked')&&html.includes('id="caps-select"'),'La selección manual sigue disponible');
   ctx.capsChange({target:{id:'caps-auto',checked:true}});
   ctx.capsChange({target:{id:'caps-auto',checked:false}});
@@ -86,6 +86,19 @@ const plain=value=>JSON.parse(JSON.stringify(value));
   eq($('level-cap-auto-action').textContent,'Pasar a esa etapa');
   $('level-cap-auto-action').onclick();
   eq(plain(commands),[{action:'level_caps_current',stage:'y'}]);
+}
+// --- A same-team save state is indistinguishable from a level-up: always ask.
+{
+  const {ctx,$,commands,run}=load();
+  const suggest={...advance,id:'uncertain',kind:'suggest',reason:'unverified_level_up'};
+  ctx.state=snapshot({enabled:true,read_only:false,event:suggest},'a');
+  run('renderLevelCapIndicators(state)');
+  ok($('level-cap-auto-text').textContent.includes('pasó del nivel 14 al 15'));
+  ok($('level-cap-auto-text').textContent.includes('estado guardado'));
+  ok($('level-cap-auto-text').textContent.includes('Confirma si quieres pasar'));
+  eq(commands.length,0,'Detectar y mostrar no cambia la etapa');
+  $('level-cap-auto-action').onclick();
+  eq(plain(commands),[{action:'level_caps_current',stage:'b'}],'Solo confirmar cambia la etapa');
 }
 // --- Dismissed before a reload; partner view; malformed or hostile events.
 {

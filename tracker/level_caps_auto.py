@@ -1,10 +1,11 @@
-"""Optional automatic advance of the manual level-cap stages.
+"""Optional confirmed suggestions for advancing manual level-cap stages.
 
 Kept apart from the stage list on purpose: the ``level_caps`` block inside the
 progress file is not changed in shape, so earlier versions of the tracker keep
 reading it. This module stores one switch per run and game in its own small
-file and decides, from consecutive live party readings, when a Pokémon really
-levelled up past the current cap. It never reads or writes game memory.
+file and detects a level increase across the cap from recent live readings.
+Loading a save state can look identical, so every crossing needs confirmation.
+This module never reads or writes game memory.
 """
 from __future__ import annotations
 
@@ -44,7 +45,7 @@ def party_levels(party: Any) -> dict[str, JSONDict]:
 
 
 class LevelUpWatcher:
-    """Finds genuine level-ups across the current cap between consecutive live readings.
+    """Finds confirmed level increases across the cap between recent live readings.
 
     A level-up counts only when the same specimen was in the party in the
     previous live reading with a level at or below the cap, is now above it,
@@ -57,32 +58,37 @@ class LevelUpWatcher:
         self.clock = clock
         self.previous: dict[str, JSONDict] | None = None
         self.pending: JSONDict | None = None
+        self.previous_at: float | None = None
 
     def reset(self) -> None:
         self.previous = None
         self.pending = None
+        self.previous_at = None
 
     def observe(self, party: Any, cap: int | None) -> JSONDict | None:
         """Feed one live reading. Returns ``{'key','name','from','to','cap'}`` once a crossing is confirmed."""
         current = party_levels(party)
+        now_at = self.clock()
+        previous_at, self.previous_at = self.previous_at, now_at
         previous, self.previous = self.previous, current
         pending, self.pending = self.pending, None
-        if previous is None or cap is None:
+        if (previous is None or cap is None or previous_at is None
+                or now_at - previous_at > CONFIRM_SECONDS):
+            return None
+        # Check the whole team before confirming a previously observed crossing.
+        if set(current) != set(previous) or any(current[key]['level'] < previous[key]['level'] for key in current):
             return None
         if pending is not None:
             now = current.get(pending['key'])
             # Confirmed: same specimen, same cap, still above it, read again in time.
             if (now is not None and pending['cap'] == cap and now['level'] >= pending['to']
-                    and self.clock() - pending['seen'] <= CONFIRM_SECONDS):
+                    and now_at - pending['seen'] <= CONFIRM_SECONDS):
                 return {k: pending[k] for k in ('key', 'name', 'from', 'to', 'cap')}
-        # A different party (swap, deposit, another save) or a level going down is not a level-up.
-        if set(current) != set(previous) or any(current[key]['level'] < previous[key]['level'] for key in current):
-            return None
         for key, now in current.items():
             before = previous.get(key)
             if before is not None and before['level'] <= cap < now['level']:
                 self.pending = {'key': key, 'name': now['name'], 'from': before['level'], 'to': now['level'],
-                                'cap': cap, 'seen': self.clock()}
+                                'cap': cap, 'seen': now_at}
                 # Keep the pre-level-up baseline so the confirmation compares the same crossing.
                 self.previous = {**current, key: before}
                 break
@@ -139,8 +145,9 @@ class LevelCapsAuto:
     def decide(self, party: Any, caps: JSONDict) -> JSONDict | None:
         """One live reading plus the current caps view -> an event to apply, or None.
 
-        ``kind`` is ``advance`` (move to the next stage) or ``suggest`` (the next
-        stage has a lower cap: the user decides). At most one event per reading.
+        Every crossing suggests the next stage. Restoring a save state with the
+        same team looks like a level-up, so the player must confirm. At most one
+        event per reading; decreasing caps have their own explanation.
         """
         usable = self.enabled and caps.get('status') == 'ok' and caps.get('current_index') is not None
         crossing = self.watcher.observe(party, caps.get('current_cap') if usable else None)
@@ -150,7 +157,8 @@ class LevelCapsAuto:
         if index + 1 >= len(stages):
             return None
         current, following = stages[index], stages[index + 1]
-        return {'id': secrets.token_hex(6), 'kind': 'suggest' if following['cap'] < current['cap'] else 'advance',
+        return {'id': secrets.token_hex(6), 'kind': 'suggest',
+                'reason': 'decreasing_cap' if following['cap'] < current['cap'] else 'unverified_level_up',
                 'at': datetime.now(timezone.utc).isoformat(), 'pokemon': crossing['name'],
                 'from_level': crossing['from'], 'to_level': crossing['to'],
                 'from_stage': {'id': current['id'], 'name': current['name'], 'cap': current['cap']},

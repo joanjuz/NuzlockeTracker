@@ -16,7 +16,7 @@ from .reference import ReferenceData
 from .progress import KEEP_CURRENT, LEVEL_CAP_ACTIONS, MAX_STAGES, RunProgress, level_caps_view, stage_list_export
 from .level_caps_source import LevelCapsSource
 from .virtual_teams import VirtualTeamStore
-from .level_caps_auto import LevelCapsAuto
+from .level_caps_auto import LevelCapsAuto, party_levels
 from .battle import apply_battle_hp
 from .battle_gen6 import apply_gen6_battle_hp
 from .gen6_pc import Gen6BoxProbe
@@ -369,15 +369,16 @@ class TrackerService:
             if self.refresh_persist_warning():
                 self.state['revision']+=1;self.condition.notify_all()
             return True
-    def update(self,**changes):
+    def update(self,*,live_party=False,**changes):
         with self.condition:
             live=not changes.get('stale',self.state['stale'])
-            if not live:
+            if (not live or changes.get('connection',self.state['connection']).get('status')!='connected'
+                or ('party' in changes and not live_party)):
                 # Any interruption (disconnect, game change, saved data) restarts the level-up baseline.
                 self.level_caps_auto.watcher.reset()
             if 'party' in changes and live:
                 self.progress.observe(changes['party'])
-                if changes.get('connection',self.state['connection']).get('status')=='connected':
+                if live_party and changes.get('connection',self.state['connection']).get('status')=='connected':
                     self.observe_level_caps_auto(changes['party'])
                 else:
                     self.level_caps_auto.watcher.reset()
@@ -443,13 +444,10 @@ class TrackerService:
         if isinstance(failed,dict):
             LOG.warning('Comando %s rechazado: %s',failed.get('action'),failed.get('message'))
     def observe_level_caps_auto(self,party):
-        """Advance one stage when a party member really levelled up past the current cap (opt-in)."""
+        """Suggest one stage after a confirmed crossing from fresh party readings (opt-in)."""
         auto=self.level_caps_auto
         event=auto.decide(party,level_caps_view(self.progress.data))
         if event is None:return
-        if event['kind']=='advance':
-            try:self.progress.set_current_stage(event['to_stage']['id'])
-            except ValueError:return
         auto.event=event
         LOG.info('Límite de nivel: %s por subida de %s (%s -> %s); etapa %s -> %s',
                  'avance automático' if event['kind']=='advance' else 'sugerencia',event['pokemon'],
@@ -586,6 +584,9 @@ class TrackerService:
     # -- Gen6 X/Y/ORAS -------------------------------------------------
     def _poll_gen6(self,party:Party|None)->None:
         saved=self.snapshot_fields('party','stale','box_verified')
+        # Battle HP may be applied to a cached party when the overworld read fails.
+        # Cached levels cannot serve as a fresh confirmation of a level increase.
+        fresh_levels=party_levels(party)
         party,gen6_battle=self._gen6_battle_party(party,saved)
         # Keep memory snapshots isolated and reject apparently valid but
         # inconsistent RAM instead of guessing a PC base from empty bytes.
@@ -594,7 +595,7 @@ class TrackerService:
             changes.update(self._gen6_scan_step(saved))
         else:
             changes['connection']=self._gen6_idle_connection(saved)
-        self.update(**changes)
+        self.update(live_party=bool(fresh_levels) and fresh_levels==party_levels(party),**changes)
         if self.diagnostic is not None:
             self.diagnostic.update(box_status=('verified' if self.snapshot_fields('box_verified').get('box_verified') else 'unverified_gen6'),
                 box_address=hex(self.profile.box_address),validated_team_slots=sum(p is not None for p in party),
@@ -707,7 +708,7 @@ class TrackerService:
         if self.diagnostic is not None:
             self.diagnostic.update(box_address=hex(self.profile.box_address),box_status=status,
                 box_verified=changes.get('box_verified',saved.get('box_verified',False)),battle_hp=in_battle)
-        self.update(**changes)
+        self.update(live_party=True,**changes)
 
     @staticmethod
     def gen7_box_candidates(profile:GameProfile)->tuple[int,...]:
@@ -1019,6 +1020,9 @@ class TrackerService:
             changed=changed or self.level_caps_auto.event is not None;self.level_caps_auto.event=None
         else:
             changed=self.progress.set_level_caps_shown(cmd['show'])
+        if action in ('level_caps_set','level_caps_current','level_caps_accept_proposal'):
+            self.level_caps_auto.watcher.reset()
+            self.level_caps_auto.event=None
         if changed:
             self.update()
     def validate_route_miss(self,cmd):
