@@ -16,6 +16,7 @@ from .reference import ReferenceData
 from .progress import KEEP_CURRENT, LEVEL_CAP_ACTIONS, MAX_STAGES, RunProgress, level_caps_view, stage_list_export
 from .level_caps_source import LevelCapsSource
 from .virtual_teams import VirtualTeamStore
+from .level_caps_auto import LevelCapsAuto
 from .battle import apply_battle_hp
 from .battle_gen6 import apply_gen6_battle_hp
 from .gen6_pc import Gen6BoxProbe
@@ -75,6 +76,7 @@ class TrackerService:
         self.state['progress']=copy.deepcopy(self.progress.data)
         self.state['level_caps']=level_caps_view(self.progress.data)
         self.state['level_caps_source']=self.level_caps_source.view(self.state['level_caps']['revision'])
+        self.state['level_caps_auto']=self.level_caps_auto.view()
         self.profile=PROFILES[self.state['game']]
         self.reader=None;self.config=None;self.retry_at=0;self.scan_next=None;self.scan_verified=set();self.gen6_pending_boxes={};self.gen6_box_failed=False;self.gen6_probe=None;self.gen6_research_done=False;self.diagnostic=None;self.sun_box_base=None
         self.next_box_refresh_at=0.0;self.gen7_probe=None
@@ -97,6 +99,8 @@ class TrackerService:
         """Adventure record of one run and game, and the separate record of where its level caps came from."""
         self.progress=RunProgress(self.output.with_name(self.output.stem+suffix+'-progress.json'))
         self.level_caps_source=LevelCapsSource(self.output.with_name(self.output.stem+suffix+'-level-caps-source.json'))
+        # Optional automatic stage advance: its switch lives in its own file, not in the stage list.
+        self.level_caps_auto=LevelCapsAuto(self.output.with_name(self.output.stem+suffix+'-level-caps-auto.json'))
         # Saved virtual teams are local to this run and game; they are never part of the snapshot.
         self.virtual_teams=VirtualTeamStore(self.output.with_name(self.output.stem+suffix+'-virtual-teams.json'),game or self.state['game'],self.output.parent.name)
     @staticmethod
@@ -367,8 +371,16 @@ class TrackerService:
             return True
     def update(self,**changes):
         with self.condition:
-            if 'party' in changes and not changes.get('stale',self.state['stale']):
+            live=not changes.get('stale',self.state['stale'])
+            if not live:
+                # Any interruption (disconnect, game change, saved data) restarts the level-up baseline.
+                self.level_caps_auto.watcher.reset()
+            if 'party' in changes and live:
                 self.progress.observe(changes['party'])
+                if changes.get('connection',self.state['connection']).get('status')=='connected':
+                    self.observe_level_caps_auto(changes['party'])
+                else:
+                    self.level_caps_auto.watcher.reset()
             if ('party' in changes or 'boxes' in changes) and not changes.get('stale',self.state['stale']):
                 self.progress.remember(changes.get('party',self.state['party']),
                                        changes.get('boxes',self.state['boxes']))
@@ -386,6 +398,7 @@ class TrackerService:
             # Derived, read-only summary of the manual caps; RAM reading never uses it.
             changes['level_caps']=level_caps_view(self.progress.data)
             changes['level_caps_source']=self.level_caps_source.view(changes['level_caps']['revision'])
+            changes['level_caps_auto']=self.level_caps_auto.view()
             changed=not all(self.state.get(k)==v for k,v in changes.items())
             if changed:
                 self.log_transitions(changes)
@@ -429,6 +442,18 @@ class TrackerService:
         failed=changes.get('last_command_error')
         if isinstance(failed,dict):
             LOG.warning('Comando %s rechazado: %s',failed.get('action'),failed.get('message'))
+    def observe_level_caps_auto(self,party):
+        """Advance one stage when a party member really levelled up past the current cap (opt-in)."""
+        auto=self.level_caps_auto
+        event=auto.decide(party,level_caps_view(self.progress.data))
+        if event is None:return
+        if event['kind']=='advance':
+            try:self.progress.set_current_stage(event['to_stage']['id'])
+            except ValueError:return
+        auto.event=event
+        LOG.info('Límite de nivel: %s por subida de %s (%s -> %s); etapa %s -> %s',
+                 'avance automático' if event['kind']=='advance' else 'sugerencia',event['pokemon'],
+                 event['from_level'],event['to_level'],event['from_stage']['name'],event['to_stage']['name'])
     def enrich(self,p):
         if p is None:return None
         p=dict(p);p['types']=self.catalog.metadata('species',p['species_id']).get('types',self.reference.pokemon_types(p['species_id'],p.get('form',0)))
@@ -912,6 +937,9 @@ class TrackerService:
         elif action=='level_caps_show':
             if type(cmd.get('show')) is not bool:raise ValueError('Opción de mostrar los límites inválida.')
             self.progress.check_level_caps_editable()
+        elif action=='level_caps_auto':
+            if type(cmd.get('enabled')) is not bool:raise ValueError('Indica si el avance automático se activa o se desactiva.')
+            self.level_caps_auto.check_writable()
         elif action=='level_caps_accept_proposal':
             self.level_caps_proposal_stages(cmd)
         elif action=='level_caps_dismiss_proposal':
@@ -979,10 +1007,16 @@ class TrackerService:
         elif action=='level_caps_dismiss_proposal':
             proposal=self.level_caps_proposal(cmd)
             changed=self.level_caps_source.record_dismiss(proposal['fingerprint'],proposal['tableSha256'] if cmd['dismissed'] else None)
+        elif action=='level_caps_auto':
+            try:changed=self.level_caps_auto.set_enabled(cmd['enabled'])
+            except OSError as exc:raise ValueError('No se pudo guardar la opción de avance automático: '+str(exc)[:160]) from exc
         elif action=='level_caps_set':
             changed=self.progress.set_level_caps(cmd['stages'],cmd['current'] if 'current' in cmd else KEEP_CURRENT)
+            # A manual edit always wins: the automatic notice no longer describes the current stage.
+            changed=changed or self.level_caps_auto.event is not None;self.level_caps_auto.event=None
         elif action=='level_caps_current':
             changed=self.progress.set_current_stage(cmd['stage'])
+            changed=changed or self.level_caps_auto.event is not None;self.level_caps_auto.event=None
         else:
             changed=self.progress.set_level_caps_shown(cmd['show'])
         if changed:

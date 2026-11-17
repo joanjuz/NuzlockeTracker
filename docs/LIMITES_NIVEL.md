@@ -121,3 +121,32 @@ El resumen `level_caps` añade `revision` (huella corta de la lista guardada) y 
 ## Compatibilidad
 
 Soul Link comparte solo los campos de progreso de su lista (`schema_version: 1` sin cambios): los límites no se envían al compañero. El estado público de OBS, la lectura de RAM, los datos de Definitive Game Data que usa el tracker y los CSV de pk3DS no cambian. La copia **Guardar sesión…** incluye los límites dentro de `progress`.
+
+## Avance automático opcional
+
+En **Progreso**, junto a la etapa vigente, la opción **Avanzar automáticamente a la siguiente etapa** está desactivada de forma predeterminada. Se guarda por partida y por juego en un archivo propio (`state<juego>-level-caps-auto.json`); la lista de etapas y su formato no cambian, así que una versión anterior del Tracker sigue leyendo las etapas igual.
+
+Con la opción activada, el Tracker pasa a la siguiente etapa cuando se cumple todo esto:
+
+1. Hay una etapa vigente y existe una etapa siguiente.
+2. La lectura es en vivo: conectado, datos no guardados y Pokémon con suma de comprobación válida.
+3. El mismo ejemplar estaba en el equipo en la lectura anterior con un nivel igual o inferior al límite vigente y ahora lo supera.
+4. El equipo es el mismo entre las dos lecturas (mismos ejemplares) y ningún integrante perdió niveles.
+5. La lectura siguiente, en menos de 30 segundos, confirma la subida con el mismo límite vigente.
+
+Entonces avanza **una sola etapa**, guarda el cambio como si se hubiera elegido a mano y muestra un aviso con el Pokémon, los niveles y las etapas. El aviso tiene **Deshacer** (vuelve a la etapa anterior) y **Ocultar**.
+
+No avanza en estos casos:
+
+- El equipo ya estaba por encima del límite al cargar la partida o al activar la opción.
+- Al abrir una partida antigua, importar datos, cambiar de juego o recuperar la conexión: la primera lectura tras cualquier interrupción solo fija la referencia.
+- Al cambiar integrantes del equipo, aunque el nuevo supere el límite.
+- Con una subida de muchos niveles: avanza una etapa, no varias.
+- Si no hay etapa vigente o ya es la última.
+- Si la siguiente etapa tiene un límite **menor** que la vigente (listas decrecientes): solo se muestra una sugerencia con el botón **Pasar a esa etapa**.
+
+La selección manual sigue funcionando igual y prevalece: elegir una etapa a mano o editar la lista retira el aviso automático. La opción se puede desactivar en cualquier momento. El avance automático no escribe en la memoria del juego, no cambia los límites dentro del juego ni afecta al parche Player Level Caps.
+
+Limitación conocida: cargar en el emulador un estado guardado posterior con el mismo equipo y un nivel mayor se parece a una subida de nivel real. Por eso el avance es de una sola etapa y se puede deshacer.
+
+Orden: `POST /api/command` con `{"action":"level_caps_auto","enabled":true|false}`. El estado incluye `level_caps_auto` con `enabled`, `read_only` y `event` (el último aviso de esta sesión; no se guarda en disco).
