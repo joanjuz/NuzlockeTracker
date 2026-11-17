@@ -3,9 +3,15 @@
 // Purely informative: it never sends a command and never changes the party in the game.
 const BUILDER_CANDIDATE_LIMIT=120;
 let analysisSection='current',builderMembers=[],builderContext='',builderSignature='',builderTypes='';
+let builderPickerSlot=null,builderPickerLimit=6,builderPickerScope='';
+const builderPokemon=p=>typeof analysisPokemon==='function'?analysisPokemon(p):p;
+function builderEntries(){return TeamInsights.candidateEntries(state).map(entry=>({...entry,originalPokemon:entry.pokemon,pokemon:builderPokemon(entry.pokemon)}))}
+const builderMegaControl=p=>typeof analysisMegaControl==='function'?analysisMegaControl(p):'';
+const builderTypeChips=types=>list(types).map(type=>`<span class="builder-type-chip">${esc(type)}</span>`).join('');
 function teamBuilderActive(){return analysisSection==='builder'}
 function setAnalysisSection(section){
   analysisSection=section==='builder'?'builder':'current';
+  if(analysisSection!=='builder')builderClosePicker();
   $('analysis-section-current').setAttribute('aria-pressed',String(analysisSection==='current'));
   $('analysis-section-builder').setAttribute('aria-pressed',String(analysisSection==='builder'));
   $('analysis-current').hidden=analysisSection!=='current';
@@ -23,7 +29,7 @@ function builderSprite(speciesId){
   return `<img src="/sprites/${id}.png" data-fallback="${id}" alt="" width="56" height="56" loading="lazy">`;
 }
 function builderSlot(item,index,count){
-  if(!item)return `<li class="builder-slot builder-slot-empty"><span>${index+1}</span><small>Espacio libre</small></li>`;
+  if(!item)return `<li class="builder-slot builder-slot-empty"><button type="button" data-builder-slot="${index}" data-focus="slot${index}" aria-label="Elegir Pokémon para el hueco ${index+1}"><span aria-hidden="true">+</span><strong>Elegir Pokémon</strong><small>Hueco ${index+1}</small></button></li>`;
   const {member,entry,status}=item,p=entry?.pokemon;
   const name=p?TeamInsights.label(p):member.nickname||member.species||'Pokémon';
   const note=status==='missing'?'<small class="builder-warning">No localizado en el equipo ni en las cajas leídas</small>'
@@ -32,8 +38,8 @@ function builderSlot(item,index,count){
     :`<small>${esc(member.species)}</small>`;
   return `<li class="builder-slot${status==='missing'?' builder-slot-missing':''}">`
     +builderSprite(p?p.species_id:member.species_id)
-    +`<div><strong>${esc(name)}</strong>${tags}${note}</div>`
-    +'<div class="builder-slot-actions">'
+    +`<div><strong>${esc(name)}</strong>${tags}${p?.analysis_mega?'<small class="builder-warning">'+esc(p.analysis_preview_label||'Mega simulada')+'</small>':''}${note}</div>`
+    +'<div class="builder-slot-actions">'+(entry?builderMegaControl(entry.originalPokemon||p):'')
     +`<button type="button" data-builder-move="${index}:-1" data-focus="up${index}" aria-label="Subir a ${esc(name)}" ${index===0?'disabled':''}>↑</button>`
     +`<button type="button" data-builder-move="${index}:1" data-focus="down${index}" aria-label="Bajar a ${esc(name)}" ${index===count-1?'disabled':''}>↓</button>`
     +`<button type="button" data-builder-remove="${index}" data-focus="remove${index}" aria-label="Quitar a ${esc(name)} del equipo virtual">Quitar</button>`
@@ -42,13 +48,13 @@ function builderSlot(item,index,count){
 function builderCandidate(entry,selected,full){
   const p=entry.pokemon,total=TeamInsights.bst(p);
   const hint=selected?'En el equipo virtual':full?'Equipo completo: quita o reemplaza un integrante':'Añadir al equipo virtual';
-  return `<button type="button" class="builder-candidate" data-builder-toggle="${esc(entry.id)}" data-focus="c${esc(entry.id)}" aria-pressed="${selected}" title="${hint}" ${full&&!selected?'disabled':''}>`
+  return `<article class="builder-candidate-wrap"><button type="button" class="builder-candidate" data-builder-toggle="${esc(entry.id)}" data-focus="c${esc(entry.id)}" aria-pressed="${selected}" title="${hint}" ${full&&!selected?'disabled':''}>`
     +builderSprite(p.species_id)
     +`<strong>${esc(TeamInsights.label(p))}</strong>`
     +`<small>${list(p.types).map(type=>esc(type)).join(' / ')||'—'}</small>`
     +`<small>${builderPlace(entry)}${total===null?'':' · BST '+num(total)}</small>`
     +(entry.dead||entry.historical?`<small class="builder-warning">${[entry.dead?'Muerto':'',entry.historical?'Lectura guardada':''].filter(Boolean).join(' · ')}</small>`:'')
-    +'</button>';
+    +'</button>'+builderMegaControl(entry.originalPokemon||p)+'</article>';
 }
 function builderList(title,items,empty){
   return `<article class="builder-card"><h3>${title}</h3>${items.length?`<ul>${items.map(item=>`<li>${item}</li>`).join('')}</ul>`:`<p class="subtitle">${empty}</p>`}</article>`;
@@ -77,34 +83,51 @@ function builderSummary(evaluation){
     +'</div>';
 }
 function builderReport(team,abilities,entries){
-  if(!team.length)return '<p class="subtitle">Añade Pokémon al equipo virtual para ver su cobertura.</p>';
+  if(!team.length)return '<div class="builder-start"><h3>Elige tu primer integrante</h3><p class="subtitle">Pulsa un hueco o elige entre tus Pokémon disponibles.</p></div>';
   const types=analysisData.types,chart=analysisData.chart;
   const evaluation=TeamInsights.evaluateTeam(chart,types,team,abilities);
-  return builderComparison(evaluation,abilities)
+  return builderOverview(evaluation)
+    +builderComparison(evaluation,abilities)
     +builderAdvice(evaluation,entries,abilities)
-    +builderMoves(evaluation,abilities)
-    +builderSummary(evaluation)
-    +'<details class="builder-detail" open><summary>Defensa por tipo</summary>'+defenseChart(team,types,chart,abilities,'weak')+'</details>'
+    +'<details class="builder-detail"><summary>Asesor de movimientos</summary>'+builderMoves(evaluation,abilities)+'</details>'
+    +'<details class="builder-detail"><summary>Debilidades, resistencias y redundancias</summary>'+builderSummary(evaluation)+'</details>'
+    +'<details class="builder-detail"><summary>Defensa por tipo</summary>'+defenseChart(team,types,chart,abilities,'weak')+'</details>'
     +'<details class="builder-detail"><summary>Cobertura ofensiva por tipo</summary>'+coverageReport(team,types,chart,abilities,false)+'</details>';
+}
+function builderOverview(evaluation){
+  const weak=evaluation.sharedWeaknesses.slice(0,3).map(row=>row.type);
+  const immunity=evaluation.immunities.length,covered=evaluation.knownMoves?evaluation.offense.length-evaluation.uncovered.length:null;
+  return '<div class="builder-overview">'
+    +`<div><h3>Vigila</h3><div class="builder-chip-row">${weak.length?builderTypeChips(weak):'<span>Sin debilidades compartidas</span>'}</div></div>`
+    +`<div><h3>Falta cobertura</h3><div class="builder-chip-row">${!evaluation.knownMoves?'<span>Sin ataques conocidos</span>':evaluation.uncovered.length?builderTypeChips(evaluation.uncovered):'<span>Los 18 tipos cubiertos</span>'}</div></div>`
+    +`<div><h3>Puntos fuertes</h3><p>${immunity} ${immunity===1?'tipo con inmunidad':'tipos con inmunidad'}${covered===null?'':` · ${covered} tipos cubiertos`}</p></div></div>`;
 }
 function builderComparison(virtual,abilities){
   const party=list(state.party).filter(p=>p&&!p.egg);
-  const heading='<section class="builder-advice" aria-label="Comparación con el equipo actual"><h3 class="builder-section-title">Comparación con el equipo actual</h3>';
+  const heading='<section class="builder-comparison" aria-label="Comparación con el equipo actual"><div class="builder-comparison-heading"><h3>Actual y virtual</h3><span>Comparación con el equipo actual</span></div>';
   if(!party.length)return heading+'<p class="subtitle">No hay un equipo actual leído para comparar.</p></section>';
   const current=TeamInsights.evaluateTeam(analysisData.chart,analysisData.types,party,abilities);
   const change=TeamInsights.compareTeams(current,virtual),before=TeamInsights.teamScores(current),after=TeamInsights.teamScores(virtual);
-  const row=(name,a,b)=>`<tr><th scope="row">${name}</th><td>${a}</td><td>${b}</td></tr>`;
+  const metric=(key,name,a,b,positive=true)=>{
+    const delta=typeof a==='number'&&typeof b==='number'?b-a:null;
+    const direction=delta===null||delta===0?'same':(delta>0)===positive?'gain':'risk';
+    return `<div class="builder-compare-metric" data-metric="${key}"><span>${name}</span><div><b data-side="current">${a}</b><span class="builder-compare-arrow ${direction}" aria-label="${direction==='gain'?'Mejora':direction==='risk'?'Riesgo':'Sin cambio'}">→</span><b data-side="virtual">${b}</b></div></div>`;
+  };
+  const shortList=(items,kind,empty)=>items.length?items.slice(0,3).map(text=>`<span class="builder-effect ${kind}">${kind==='gain'?'+':'−'} ${esc(text)}</span>`).join(''):`<span class="builder-compare-empty">${empty}</span>`;
   return heading
-    +`<p class="subtitle">${state.stale===true||state.connection?.status!=='connected'?'Comparación basada en lecturas guardadas. ':''}El equipo virtual incluye solo los integrantes localizados; los ausentes conservan su lugar en el borrador. Esta comparación no cambia el equipo del juego.</p>`
-    +'<div class="table-wrap"><table><caption>Equipo actual y equipo virtual</caption><thead><tr><th scope="col">Medida</th><th scope="col">Actual</th><th scope="col">Virtual</th></tr></thead><tbody>'
-    +row('Integrantes localizados',current.size,virtual.size)
-    +row('Balance defensivo',builderSigned(before.defense),builderSigned(after.defense))
-    +row('Tipos con ataque supereficaz',current.knownMoves?before.covered:'No disponible',virtual.knownMoves?after.covered:'No disponible')
-    +row('Redundancias',before.redundancy,after.redundancy)
-    +'</tbody></table></div><div class="builder-cards">'
-    +builderList('Qué aporta el equipo virtual',change.gains.map(text=>esc(text)),'Sin nuevas resistencias, inmunidades o coberturas ni reducción de debilidades compartidas.')
-    +builderList('Qué se pierde o empeora',change.losses.map(text=>esc(text)),'Sin nuevas debilidades compartidas ni pérdida de resistencias, inmunidades o cobertura.')
-    +'</div></section>';
+    +'<div class="builder-compare-labels"><span>Actual</span><span>Virtual</span></div><div class="builder-compare-grid">'
+    +metric('members','Integrantes localizados',current.size,virtual.size)
+    +metric('defense','Balance defensivo',before.defense,after.defense)
+    +metric('coverage','Tipos con ataque supereficaz',current.knownMoves?before.covered:'—',virtual.knownMoves?after.covered:'—')
+    +metric('redundancy','Redundancias',before.redundancy,after.redundancy,false)
+    +'</div><div class="builder-compare-effects">'
+    +`<div><h4>Mejoras</h4>${shortList(change.gains,'gain','Sin nuevas coberturas ni resistencias.')}</div>`
+    +`<div><h4>Riesgos</h4>${shortList(change.losses,'risk','Sin pérdidas de cobertura.')}</div></div>`
+    +'<details class="builder-comparison-detail"><summary>Ver comparación completa</summary>'
+    +`<p class="subtitle">${state.stale===true||state.connection?.status!=='connected'?'Comparación basada en lecturas guardadas. ':''}Solo cuentan los integrantes localizados; los ausentes conservan su hueco. El equipo del juego no cambia.</p>`
+    +builderList('Qué aporta el equipo virtual',change.gains.map(text=>esc(text)),'Sin cambios de cobertura.')
+    +builderList('Qué se pierde o empeora',change.losses.map(text=>esc(text)),'Sin pérdidas de cobertura.')
+    +'</details></section>';
 }
 function syncBuilderTypes(entries){
   const types=TeamInsights.entryFacets(entries).types,signature=JSON.stringify(types);
@@ -119,14 +142,14 @@ function syncBuilderTypes(entries){
 function renderTeamBuilder(){
   if(!state||!analysisData)return;
   const scope=builderScope();
-  if(scope!==builderContext){builderContext=scope;builderMembers=[];builderSignature='';builderOpenId=null;builderTeams=[];builderNotice='';$('builder-name').value='';loadBuilderTeams()}
-  const entries=TeamInsights.candidateEntries(state);
+  if(scope!==builderContext){builderClosePicker();builderContext=scope;builderMembers=[];builderSignature='';builderOpenId=null;builderTeams=[];builderNotice='';$('builder-name').value='';loadBuilderTeams()}
+  const entries=builderEntries();
   syncBuilderTypes(entries);
   const sort=$('builder-sort').value,abilities=$('builder-abilities').checked;
   const filters={query:$('builder-search').value,type:$('builder-type').value,kind:$('builder-source').value,hideDead:!$('builder-dead').checked,hideEggs:true};
   const signature=JSON.stringify([scope,builderMembers,builderOpenId,builderTeams,builderReadOnly,filters,sort,abilities,state.stale,state.connection?.status,state.box_verified,
     entries.map(e=>[e.id,e.key,e.dead,e.egg,e.historical,e.pokemon.species_id,e.pokemon.species,e.pokemon.nickname,e.pokemon.types,e.pokemon.ability_id,
-      e.pokemon.base_stats,e.pokemon.analysis_moves])]);
+      e.pokemon.base_stats,e.pokemon.analysis_moves,e.pokemon.level,e.pokemon.analysis_mega,e.pokemon.analysis_preview_label,e.pokemon.base_stats_source])]);
   if(signature===builderSignature)return;
   builderSignature=signature;
   const focused=document.activeElement?.dataset?.focus;
@@ -143,10 +166,11 @@ function renderTeamBuilder(){
     :`<p class="subtitle">${entries.length?'Ningún Pokémon coincide con los filtros.':'No hay Pokémon en el equipo ni en las cajas leídas.'}</p>`;
   $('builder-report').innerHTML=builderReport(team,abilities,entries);
   renderBuilderSaved();
+  if(builderPickerSlot!==null)renderBuilderPicker();
   // The lists were rebuilt: put the keyboard focus back on the control that was used.
   if(focused)for(const node of document.querySelectorAll('#team-builder [data-focus]'))if(node.dataset.focus===focused&&!node.disabled){node.focus({preventScroll:true});break}
 }
-function builderEntry(id){return TeamInsights.candidateEntries(state).find(entry=>entry.id===id)||null}
+function builderEntry(id){return builderEntries().find(entry=>entry.id===id)||null}
 function builderToggle(id){
   const index=builderMembers.findIndex(member=>member.id===id);
   if(index>=0)builderMembers=builderMembers.filter((_,i)=>i!==index);
@@ -168,17 +192,19 @@ function builderClick(event){
   const button=event.target.closest('button');
   if(!button||button.disabled)return;
   const data=button.dataset;
-  if(data.builderToggle!==undefined)builderToggle(data.builderToggle);
+  if(data.builderSlot!==undefined)builderOpenPicker(Number(data.builderSlot));
+  else if(data.builderToggle!==undefined)builderToggle(data.builderToggle);
   else if(data.builderRemove!==undefined){builderMembers=builderMembers.filter((_,i)=>i!==Number(data.builderRemove));renderTeamBuilder()}
   else if(data.builderSwap!==undefined){const [out,id]=data.builderSwap.split('|');builderSwap(out,id)}
   else if(data.builderMove!==undefined){const [index,step]=data.builderMove.split(':').map(Number);builderMove(index,step)}
 }
 $('team-builder').addEventListener('click',builderClick);
 $('builder-use-party').onclick=()=>{
-  builderMembers=TeamInsights.candidateEntries(state).filter(entry=>entry.kind==='party'&&!entry.egg&&($('builder-dead').checked||!entry.dead)).slice(0,TeamInsights.MAX_TEAM).map(TeamInsights.memberOf);
+  builderClosePicker();
+  builderMembers=builderEntries().filter(entry=>entry.kind==='party'&&!entry.egg&&($('builder-dead').checked||!entry.dead)).slice(0,TeamInsights.MAX_TEAM).map(TeamInsights.memberOf);
   renderTeamBuilder();
 };
-$('builder-clear').onclick=()=>{builderMembers=[];renderTeamBuilder()};
+$('builder-clear').onclick=()=>{builderClosePicker();builderMembers=[];renderTeamBuilder()};
 $('builder-search').oninput=renderTeamBuilder;
 for(const id of ['builder-type','builder-source','builder-sort','builder-dead','builder-abilities'])$(id).onchange=renderTeamBuilder;
 // --- Saved teams: local to this run and game (GET/POST /api/teams). Nothing here reaches the game or the network.
@@ -276,7 +302,7 @@ $('builder-delete').onclick=()=>{
 const builderSigned=value=>(value>0?'+':'')+String(Math.round(value*10)/10).replace('.',',');
 const builderStatistics=change=>change.statistics?.reason?`<span>${esc(change.statistics.reason)}</span>`:'';
 function builderChange(change){
-  return `<span>${change.gains.map(text=>esc(text)).join('; ')}.</span>`
+  return `<span>${change.gains.length?change.gains.map(text=>esc(text)).join('; '):'Sin mejora clara de cobertura'}.</span>`
     +builderStatistics(change)
     +(change.losses.length?`<span class="builder-cost">A cambio: ${change.losses.map(text=>esc(text)).join('; ')}.</span>`:'<span class="builder-cost">Sin nuevas debilidades compartidas ni pérdida de cobertura.</span>');
 }
@@ -284,34 +310,41 @@ function builderCandidateName(entry){
   const p=entry.pokemon;
   return `<b>${esc(TeamInsights.label(p))}</b> <small>${list(p.types).map(type=>esc(type)).join(' / ')||'—'} · ${builderPlace(entry)}${entry.historical?' · lectura guardada':''}</small>`;
 }
+function builderEffects(change){
+  const gained=change.gained||{},lost=change.lost||{};
+  const benefits=[...list(gained.immunity).map(type=>'inmunidad a '+type),...list(gained.resist).map(type=>'resistencia a '+type),...list(gained.coverage).map(type=>'cobertura frente a '+type)];
+  const costs=[...list(lost.immunity).map(type=>'pierde inmunidad a '+type),...list(lost.resist).map(type=>'pierde resistencia a '+type),...list(lost.coverage).map(type=>'pierde cobertura frente a '+type)];
+  const gain=benefits.length?benefits:list(change.gains),risk=costs.length?costs:list(change.losses);
+  return gain.slice(0,3).map(text=>`<span class="builder-effect gain">+ ${esc(text)}</span>`).join('')
+    +risk.slice(0,2).map(text=>`<span class="builder-effect risk">− ${esc(text)}</span>`).join('');
+}
+function builderRecommendation(change,action='add'){
+  const entry=change.entry,p=entry.pokemon,total=TeamInsights.bst(p),swap=action==='swap',picker=action==='pick';
+  const label=swap?'Aplicar al borrador':picker?'Elegir':'Añadir al borrador';
+  const data=swap?`data-builder-swap="${esc(TeamInsights.pokemonId(change.out))}|${esc(entry.id)}"`:picker?`data-builder-pick="${esc(entry.id)}"`:`data-builder-toggle="${esc(entry.id)}"`;
+  const reason=list(change.gained?.immunity).length?'Inmunidad a '+change.gained.immunity[0]
+    :list(change.gained?.coverage).length?'Cobertura frente a '+change.gained.coverage[0]
+    :list(change.gained?.resist).length?'Resiste '+change.gained.resist[0]
+    :list(change.gains).length?'Reduce debilidades compartidas':'Alternativa disponible; revisa los riesgos.';
+  return `<article class="builder-recommendation">${builderSprite(p.sprite_id||p.species_id)}<div class="builder-recommendation-name"><strong>${esc(TeamInsights.label(p))}</strong><small>${esc(p.species)}${p.analysis_mega?' · '+esc(p.analysis_preview_label||'Mega simulada'):''}</small><div class="builder-chip-row">${builderTypeChips(p.types)}</div></div>`
+    +`<div class="builder-recommendation-bst"><strong>${total===null?'—':num(total)}</strong><small>BST</small></div>`
+    +(swap?`<p class="builder-swap-caption">Sustituir a <b>${esc(TeamInsights.label(change.out))}</b> por <b>${esc(TeamInsights.label(p))}</b></p>`:'')
+    +`<p class="builder-recommendation-reason">${esc(reason)}</p><div class="builder-chip-row builder-recommendation-effects">${builderEffects(change)}</div>`
+    +`<details class="builder-recommendation-detail"><summary>Ver motivos</summary><p class="subtitle">${builderPlace(entry)}${entry.historical?' · lectura guardada':''}</p><div>Motivo: ${builderChange(change)}</div></details>`
+    +`<button type="button" class="${picker?'primary':''}" ${data}>${label}</button></article>`;
+}
 function builderAdvice(evaluation,entries,abilities){
   const types=analysisData.types,chart=analysisData.chart;
-  const scores=TeamInsights.teamScores(evaluation),notes=TeamInsights.teamNotes(evaluation);
-  const selected=new Set(builderMembers.map(member=>member.id));
+  const notes=TeamInsights.teamNotes(evaluation),selected=new Set(builderMembers.map(member=>member.id));
   const result=TeamInsights.suggestChanges(chart,types,evaluation.members,entries.filter(entry=>!selected.has(entry.id)),abilities);
-  const additions=result.additions.map(item=>
-    `${builderCandidateName(item.entry)}${builderChange(item)}<button type="button" data-builder-toggle="${esc(item.entry.id)}" data-focus="add${esc(item.entry.id)}">Añadir al borrador</button>`);
-  const swaps=result.swaps.map(item=>
-    `Sustituir a <b>${esc(TeamInsights.label(item.out))}</b> por ${builderCandidateName(item.entry)}<span>Motivo: ${item.gains.map(text=>esc(text)).join('; ')}.</span>`
-    +builderStatistics(item)
-    +(item.losses.length?`<span class="builder-cost">Se perdería o empeoraría: ${item.losses.map(text=>esc(text)).join('; ')}.</span>`:'<span class="builder-cost">Sin nuevas debilidades compartidas ni pérdida de cobertura.</span>')
-    +`<button type="button" data-builder-swap="${esc(TeamInsights.pokemonId(item.out))}|${esc(item.entry.id)}" data-focus="swap${item.index}${esc(item.entry.id)}">Aplicar al borrador</button>`);
-  const pool=result.considered?`Se compararon ${result.considered} candidatos${result.skipped?` (quedaron ${result.skipped} sin comparar)`:''}.`:'No hay otros candidatos con los que comparar.';
   return '<section class="builder-advice" aria-label="Recomendaciones">'
-    +'<dl class="builder-measures">'
-    +`<div><dt>Balance defensivo</dt><dd>${builderSigned(scores.defense)}</dd></div>`
-    +`<div><dt>Tipos con ataque supereficaz</dt><dd>${evaluation.knownMoves?`${scores.covered} / ${evaluation.offense.length}`:'No disponible'}</dd></div>`
-    +`<div><dt>Redundancias</dt><dd>${scores.redundancy}</dd></div>`
-    +`<div><dt>Tipos distintos</dt><dd>${scores.diversity}</dd></div></dl>`
-    +'<p class="subtitle">Medidas separadas para comparar cambios. El balance defensivo suma resistencias e inmunidades y resta debilidades; no es una nota del equipo.</p>'
-    +'<div class="builder-cards">'
-    +builderList('Lectura defensiva',notes.defensive.map(text=>esc(text)),'Sin debilidades compartidas ni tipos sin resistencia.')
+    +(builderMembers.length<TeamInsights.MAX_TEAM?'<div class="builder-advice-heading"><h3>Incorporaciones posibles</h3><button type="button" data-builder-slot="'+builderMembers.length+'">Ver opciones para el siguiente hueco</button></div><div class="builder-recommendation-grid">'+result.additions.slice(0,3).map(item=>builderRecommendation(item)).join('')+(result.additions.length?'':'<p class="subtitle">No hay mejoras claras de cobertura. Puedes elegir otro Pokémon en un hueco libre.</p>')+'</div>':'')
+    +'<details class="builder-detail"><summary>Sustituciones posibles'+(result.swaps.length?' · '+result.swaps.length:'')+'</summary><div class="builder-recommendation-grid">'
+    +result.swaps.map(item=>builderRecommendation(item,'swap')).join('')+(result.swaps.length?'':'<p class="subtitle">No hay sustituciones con una mejora clara.</p>')+'</div></details>'
+    +'<details class="builder-detail"><summary>Cómo se valoran las sugerencias</summary>'
+    +builderList('Lectura defensiva',notes.defensive.map(text=>esc(text)),'Sin debilidades compartidas.')
     +builderList('Lectura ofensiva',notes.offensive.map(text=>esc(text)),'Sin observaciones.')
-    +(evaluation.size<TeamInsights.MAX_TEAM?builderList('Incorporaciones posibles',additions,'Ningún candidato mejora la cobertura sin empeorar más de lo que aporta.'):'')
-    +builderList('Sustituciones posibles',swaps,'Ninguna sustitución de un integrante mejora el conjunto según estas reglas.')
-    +'</div>'
-    +`<p class="subtitle">${pool} Las sugerencias comparan tipos, habilidades compatibles y movimientos conocidos, de una incorporación o una sustitución cada vez. Las estadísticas base verificadas solo desempatan opciones con la misma mejora de cobertura; los valores desconocidos no se estiman. No tienen en cuenta niveles, objetos ni las reglas de tu partida: son opciones para valorar, no «el mejor equipo».</p>`
-    +'</section>';
+    +`<p class="subtitle">Se compararon ${result.considered} candidatos.${result.skipped?` Quedaron ${result.skipped} sin comparar.`:''} Primero se valora cobertura y sinergia; entre opciones parecidas se considera BST, distribución de bases y nivel conocido. Los valores desconocidos no se inventan. No calcula daño, objetos ni las reglas de tu partida: son opciones para valorar, no «el mejor equipo».</p></details></section>`;
 }
 function builderSwap(out,id){
   const index=builderMembers.findIndex(member=>member.id===out);
@@ -320,17 +353,64 @@ function builderSwap(out,id){
   builderMembers=builderMembers.map((member,i)=>i===index?TeamInsights.memberOf(entry):member);
   renderTeamBuilder();
 }
-$('builder-complete').onclick=()=>{
-  const entries=TeamInsights.candidateEntries(state),selected=new Set(builderMembers.map(member=>member.id));
+// Guided, explicit selection. Opening a slot never edits the draft.
+function builderClosePicker(){
+  builderPickerSlot=null;builderPickerScope='';
+  const dialog=$('builder-picker');
+  if(dialog?.open&&typeof dialog.close==='function')dialog.close();
+}
+function builderPickerRestoreFocus(){
+  const slot=document.querySelector?.(`#team-builder [data-builder-slot="${builderMembers.length}"]`);
+  (slot||$('builder-complete'))?.focus({preventScroll:true});
+}
+function builderOpenPicker(index=builderMembers.length){
+  if(builderMembers.length>=TeamInsights.MAX_TEAM){builderSavedMessage('El equipo virtual ya tiene seis integrantes.');return}
+  if(!Number.isInteger(index)||index<builderMembers.length||index>=TeamInsights.MAX_TEAM)return;
+  builderPickerSlot=builderMembers.length;builderPickerLimit=6;builderPickerScope=builderScope();
+  renderBuilderPicker();
+  const dialog=$('builder-picker');
+  if(!dialog.open&&typeof dialog.showModal==='function')dialog.showModal();
+}
+function builderPickerChoices(){
+  const entries=builderEntries(),selected=new Set(builderMembers.map(member=>member.id));
+  const pool=entries.filter(entry=>!selected.has(entry.id)&&!entry.dead&&!entry.egg);
   const team=TeamInsights.resolveTeam(builderMembers,entries).filter(item=>item.entry).map(item=>item.entry.pokemon);
-  // Free slots only: members that are not located keep their place.
-  const free=TeamInsights.MAX_TEAM-builderMembers.length;
-  const added=TeamInsights.completeTeam(analysisData.chart,analysisData.types,team,entries.filter(entry=>!selected.has(entry.id)),$('builder-abilities').checked).slice(0,free);
-  builderMembers=[...builderMembers,...added.map(item=>TeamInsights.memberOf(item.entry))];
-  builderSavedMessage(added.length?`Se ${added.length===1?'añadió 1 sugerencia':`añadieron ${added.length} sugerencias`} al borrador. Puedes cambiarlas antes de guardar.`
-    :free?'Ningún candidato mejora la cobertura del borrador según estas reglas.':'El equipo virtual ya tiene seis integrantes.');
+  const ranked=TeamInsights.suggestChanges(analysisData.chart,analysisData.types,team,pool,$('builder-abilities').checked,builderPickerLimit).additions;
+  const offered=new Set(ranked.map(item=>item.entry.id));
+  // Even an empty or unusual team can be started; extra choices are labelled without invented benefits.
+  const remaining=TeamInsights.sortEntries(pool.filter(entry=>!offered.has(entry.id)),'bst','desc');
+  const before=TeamInsights.evaluateTeam(analysisData.chart,analysisData.types,team,$('builder-abilities').checked);
+  const supplemental=remaining.map(entry=>({entry,...TeamInsights.compareTeams(before,TeamInsights.evaluateTeam(analysisData.chart,analysisData.types,[...team,entry.pokemon],$('builder-abilities').checked)),statistics:null}));
+  return {choices:[...ranked,...supplemental],ranked:ranked.length};
+}
+function renderBuilderPicker(){
+  if(builderPickerSlot===null)return;
+  if(builderScope()!==builderPickerScope||builderMembers.length>=TeamInsights.MAX_TEAM){builderClosePicker();return}
+  const {choices}=builderPickerChoices(),shown=choices.slice(0,builderPickerLimit);
+  setText($('builder-picker-title'),`Elige para el hueco ${builderMembers.length+1}`);
+  setText($('builder-picker-status'),'Tú decides cada incorporación. El equipo del juego no cambia.');
+  $('builder-picker-options').innerHTML=shown.length?shown.map(item=>builderRecommendation(item,'pick')).join(''):'<p class="subtitle">No quedan Pokémon disponibles en las cajas leídas. Revisa la lectura o los integrantes elegidos.</p>';
+  $('builder-picker-more').hidden=choices.length<=shown.length;
+}
+function builderPick(id){
+  if(builderPickerSlot===null||builderPickerScope!==builderScope()||builderMembers.length>=TeamInsights.MAX_TEAM)return;
+  const entry=builderEntry(id);
+  if(!entry||entry.dead||entry.egg||builderMembers.some(member=>member.id===id))return;
+  builderMembers=[...builderMembers,TeamInsights.memberOf(entry)];
+  builderSavedMessage(`${TeamInsights.label(entry.pokemon)} añadido al borrador.`);
+  builderPickerSlot=builderMembers.length;
+  if(builderMembers.length>=TeamInsights.MAX_TEAM)builderClosePicker();
   renderTeamBuilder();
-};
+  if($('builder-picker').open)$('builder-picker-options').querySelector?.('[data-builder-pick]')?.focus({preventScroll:true});
+}
+$('builder-complete').onclick=()=>builderOpenPicker(builderMembers.length);
+$('builder-picker-close').onclick=builderClosePicker;
+$('builder-picker-more').onclick=()=>{builderPickerLimit+=6;renderBuilderPicker()};
+$('builder-picker-options').addEventListener('click',event=>{
+  const button=event.target.closest('[data-builder-pick]');
+  if(button&&!button.disabled)builderPick(button.dataset.builderPick);
+});
+$('builder-picker').addEventListener('close',()=>{builderPickerSlot=null;builderPickerScope='';builderPickerRestoreFocus()});
 // --- Move advisor: what the known moves cover and which attack types would add coverage.
 // A concrete move is named only when the snapshot carries evidence that the Pokémon can learn it.
 const MOVE_EVIDENCE={known:'Movimiento conocido',verified:'Disponible en datos verificables',generic:'Sugerencia genérica de tipo',missing:'Información no disponible'};

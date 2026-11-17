@@ -53,11 +53,14 @@ STATIC_FILES = {
     '/companion.css': ('web/companion.css', 'text/css; charset=utf-8'),
     '/theme.js': ('web/theme.js', 'text/javascript; charset=utf-8'),
     '/style.css': ('web/style.css', 'text/css; charset=utf-8'),
+    '/analysis-workspace.css': ('web/analysis-workspace.css', 'text/css; charset=utf-8'),
+    '/box-analysis.css': ('web/box-analysis.css', 'text/css; charset=utf-8'),
+    '/team-builder.css': ('web/team-builder.css', 'text/css; charset=utf-8'),
     '/empty-pokemon.svg': ('web/empty-pokemon.svg', 'image/svg+xml'),
     '/app-icon.png': ('web/app-icon.png', 'image/png'),
 }
 # Main UI split into classic scripts (web/app/), loaded in this order by index.html.
-APP_SCRIPTS = ('helpers', 'profiles', 'team', 'detail', 'boxes', 'box-analysis', 'dead', 'routes', 'progress', 'stage-lists', 'caps-proposal',
+APP_SCRIPTS = ('helpers', 'profiles', 'team', 'detail', 'analysis-pokemon', 'boxes', 'box-analysis', 'dead', 'routes', 'progress', 'stage-lists', 'caps-proposal',
                'analysis-view', 'team-builder', 'connection', 'shell', 'companion-loader', 'update-notice')
 STATIC_FILES.update({f'/app/{name}.js': (f'web/app/{name}.js', 'text/javascript; charset=utf-8')
                      for name in APP_SCRIPTS})

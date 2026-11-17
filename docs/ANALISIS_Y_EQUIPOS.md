@@ -6,6 +6,8 @@ Las herramientas de esta página son informativas: leen los datos que el Tracker
 
 En **Análisis → Defensa del equipo**, **Presentación** alterna entre **Gráfico** y **Tabla**. La tabla detallada y la simplificada siguen disponibles.
 
+El equipo analizado aparece arriba. El resumen destaca amenazas, resistencias y cobertura pendiente; las barras usan el rojo y los neutros del Tracker. **Cobertura ofensiva del equipo** abre los movimientos y multiplicadores sin ocupar toda la pantalla de entrada.
+
 El gráfico dibuja una barra horizontal por cada uno de los 18 tipos atacantes y reparte a los integrantes del equipo en seis grupos:
 
 | Grupo | Significado |
@@ -25,16 +27,22 @@ Los multiplicadores proceden del mismo motor que la tabla (`web/analysis.js`); `
 
 ## Vista de análisis de cajas
 
-En **Cajas**, el selector **Vista** alterna entre **Vista normal** (la de siempre, con Living Dex) y **Vista de análisis**. La vista de análisis es una tabla de solo lectura: no mueve Pokémon ni envía órdenes al juego.
+En **Cajas**, el selector **Vista** alterna entre **Vista normal** (la de siempre, con Living Dex) y **Vista de análisis**. El análisis abre una galería de **Tarjetas**; **Presentación → Tabla** conserva una alternativa tabular. Ambas son de solo lectura.
 
-Cada fila muestra sprite, apodo y especie, nivel, tipos, habilidad, naturaleza, las seis estadísticas base, el BST, los movimientos conocidos y la caja y posición originales. Al pulsar un Pokémon se abre su ficha.
+Cada tarjeta muestra sprite, apodo y especie, nivel conocido, tipos, habilidad, naturaleza, BST, seis barras base, movimientos y ubicación. Al pulsar un Pokémon se abre la ficha del ejemplar leído.
 
-- **Estadísticas base y BST** son datos de la especie y solo existen si la partida importó Definitive Game Data o el CSV de estadísticas de pk3DS. Sin esos datos se muestra «No disponible»; el BST solo se calcula cuando están las seis estadísticas.
-- **Estadísticas actuales** son las del ejemplar en la partida. Aparecen debajo de la base, marcadas como «actual», y solo se conocen para el equipo (active **Incluir equipo actual**). El nivel tampoco se lee en las cajas.
-- **Filtros:** tipo (primario o secundario), habilidad, **Solo disponibles** (excluye muertos y huevos), búsqueda por apodo o especie, y la caja elegida o todas las cajas leídas con **Mostrar todas las cajas leídas**.
+- **Estadísticas base y BST** pertenecen a la especie y forma, sin aplicar naturaleza. Se resuelven con DGD de la forma exacta, CSV de especie normal o una caché incluida de referencia X/Y, ORAS o USUM. La tarjeta identifica la procedencia. La referencia no describe cambios de una ROM randomizada; si tampoco conoce la forma, muestra «No disponible». BST requiere las seis bases.
+- **Estadísticas actuales** pertenecen al ejemplar y se muestran por separado en **Valores actuales**, cuando existen (active **Incluir equipo actual**). La naturaleza aparece aparte y no modifica las barras base. El nivel y las estadísticas actuales de PC siguen sin leerse.
+- **Filtros:** tipo, habilidad, **Solo disponibles** (excluye muertos y huevos), búsqueda por nombre, habilidad, movimientos, objeto u origen, y la caja elegida o todas las cajas leídas.
 - **Orden:** BST, PS, Ataque, Defensa, Ataque Especial, Defensa Especial y Velocidad base, nivel actual, tipo o nombre, en sentido descendente o ascendente. Los valores desconocidos quedan siempre al final.
 
-La línea de estado indica cuántas cajas se han leído. Si faltan cajas, la lectura sigue en curso o las cajas no están verificadas, se avisa de que el resultado es parcial. La tabla dibuja como máximo 240 filas e indica cuántas quedan fuera.
+La línea de estado distingue cajas leídas y lectura parcial. Se muestran como máximo 240 tarjetas o filas, con aviso para afinar filtros; las cajas no leídas no se consideran vacías.
+
+### Aplicar mega como simulación
+
+Una megapiedra compatible permite **Aplicar mega** en cajas, análisis y equipo virtual. Cambian los datos usados para el análisis (forma, bases, tipos y habilidad); **Quitar mega** vuelve a la lectura original. Los sprites mega y sus especies normales están incluidos para trabajar sin conexión.
+
+La proyección utiliza DGD de la forma exacta cuando existe y referencia por juego cuando no; el botón informa de esa procedencia. No demuestra que el jugador pueda activar la mega ni modifica el juego. No fabrica PS ni estadísticas actuales. La comparación **Actual** mantiene el equipo leído; **Virtual** puede incluir la simulación. Las selecciones mega duran la sesión de análisis, no se añaden al archivo de equipos guardados y se reinician al cambiar de juego o vista de compañero. No se validan reglas de combate como el número de megas permitidas.
 
 ## Asistente de equipos
 
@@ -49,7 +57,9 @@ En **Análisis**, el selector superior alterna entre **Equipo actual** (el anál
 
 ### Selección
 
-Pulsa un candidato para añadirlo y vuelve a pulsarlo para quitarlo. **Usar equipo actual** copia el equipo de la partida y **Vaciar** empieza de cero. Cada integrante se puede subir, bajar o quitar. Con seis integrantes hay que quitar uno para añadir otro.
+Pulsa un hueco para abrir sugerencias visuales. **Elegir con sugerencias** abre la misma guía, sin incorporar nada automáticamente. Cada opción muestra sprite, tipos, BST, motivo, beneficios y costes; **Ver motivos** amplía la explicación. **Elegir** añade solo ese ejemplar y propone el siguiente paso; puedes cerrar en cualquier momento. **Ver más opciones** amplía la lista, incluidas alternativas cuyos riesgos también se evalúan.
+
+**Explorar Pokémon disponibles** abre búsqueda, filtros y ordenación. Pulsar un candidato lo añade o quita. **Usar equipo actual** respeta el filtro de muertos y **Vaciar** empieza de cero. Los integrantes se pueden subir, bajar o quitar; los ausentes conservan su hueco. **Guardar y abrir equipos** despliega las acciones de persistencia.
 
 ### Cobertura
 
@@ -103,11 +113,13 @@ Con al menos un integrante, el informe empieza con una lectura del equipo y con 
 - El motivo: inmunidades nuevas, resistencias a tipos que nadie resistía, debilidades compartidas que se reducen, cobertura supereficaz nueva.
 - Lo que se perdería o empeoraría: debilidades compartidas nuevas o mayores, inmunidades o resistencias perdidas, cobertura perdida.
 
-Solo se muestran cambios con algún beneficio y cuyo saldo conjunto es positivo, ordenados por ese saldo; cada candidato aparece una vez entre las sustituciones. **Añadir al borrador** y **Aplicar al borrador** modifican únicamente el equipo virtual. **Completar con sugerencias** rellena los espacios libres con la mejor incorporación de cada paso y se detiene cuando ninguna aporta; el resultado es un borrador que se puede editar antes de guardar.
+Las recomendaciones principales requieren beneficio y saldo positivo. Cada candidato aparece una vez entre las sustituciones. **Añadir al borrador**, **Aplicar al borrador** y **Elegir** requieren una decisión explícita y solo cambian el equipo virtual. La comparación muestra métricas emparejadas y resúmenes de mejoras/riesgos, con el detalle completo disponible.
 
-Cuando todas las bases de ambas composiciones son conocidas, desempatan cambios con la misma mejora de cobertura. Se comparan promedios de ataque según las categorías de los movimientos conocidos, aguante físico (raíz de PS×Defensa), aguante especial (raíz de PS×Defensa Especial) y Velocidad. El ataque que no usa ningún movimiento ofensivo no aporta puntuación. La explicación muestra los valores antes y después; son referencias de especie, no estadísticas actuales ni una simulación de combate. Sin bases suficientes, no se inventan valores y se conserva el orden de cobertura.
+El orden principal agrupa beneficios cercanos de cobertura y sinergia en bandas de dos puntos (`defensa + 1,5 × cobertura ofensiva`). Una banda superior siempre prevalece. Dentro de una banda, la calidad combina BST, distribución útil para los movimientos conocidos, aguante físico/especial, Velocidad y nivel disponible; después desempatan la cobertura exacta y redundancias. Esto evita anteponer una preevolución débil a una opción equivalente más sólida, sin convertir el sistema en «el mayor BST gana».
 
-Límites deliberados: no se sugieren Pokémon muertos ni huevos; se comparan como máximo 300 candidatos y nunca combinaciones de varios cambios a la vez; el BST no interviene. Las sugerencias no consideran niveles, estadísticas actuales, objetos ni las reglas de la partida, así que son opciones para valorar y no «el mejor equipo».
+La calidad secundaria usa `0,35 × BST + 1,2 × perfil de bases + 0,1 × nivel conocido`. El perfil promedia ataque útil según categoría, raíz de PS×Defensa, raíz de PS×Defensa Especial y Velocidad; no suma un ataque que ningún movimiento use. Sin bases suficientes no se estima calidad. Cuando ambas composiciones tienen bases completas, el detalle muestra sus promedios antes/después.
+
+Se evalúan hasta 966 candidatos (32 cajas y seis puestos de equipo), sin búsqueda de combinaciones múltiples. No se sugieren muertos ni huevos. No calcula daño, estadísticas actuales hipotéticas, efectos de objetos ni reglas de la partida. Las bases de referencia y los pesos son orientativos, especialmente con ROMs randomizadas.
 
 ### Asesor de movimientos
 

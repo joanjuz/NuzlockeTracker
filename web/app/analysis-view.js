@@ -6,7 +6,8 @@ function renderAnalysis(){
   if(!state||!analysisData)return;
   // The team assistant (team-builder.js) owns the view while its section is open.
   if(typeof teamBuilderActive==='function'&&teamBuilderActive()){renderTeamBuilder();return}
-  const team=state.party.filter(Boolean);
+  const originals=state.party.filter(Boolean);
+  const team=originals.map(p=>typeof analysisPokemon==='function'?analysisPokemon(p):p);
   syncAnalysisSelectors(team);
   const simple=$('analysis-defense').value==='simple';
   const mode=$('analysis-mode').value,abilities=$('analysis-abilities').checked,dual=$('analysis-dual').checked,a=$('analysis-a').value,b=$('analysis-b').value;
@@ -17,16 +18,40 @@ function renderAnalysis(){
   $('analysis-a-label').hidden=mode==='defense';
   $('analysis-b-label').hidden=mode!=='double';
   $('analysis-dual-label').hidden=mode==='defense';
-  const signature=JSON.stringify([team.map(p=>[p.types,p.ability_id,p.analysis_moves,p.slot,p.nickname]),mode,a,b,abilities,dual,simple,display,order]);
+  const signature=JSON.stringify([team.map(p=>[p.types,p.ability_id,p.analysis_moves,p.slot,p.nickname,p.species,p.analysis_mega]),originals.map(p=>[p.item_id,p.form,p.mega_preview]),mode,a,b,abilities,dual,simple,display,order]);
   if(signature===analysisSignature)return;
   analysisSignature=signature;
+  if($('analysis-team-preview'))$('analysis-team-preview').innerHTML=originals.map((p,i)=>{
+    const viewed=team[i];
+    return '<article class="analysis-member"><img src="/sprites/'+spriteId(viewed.sprite_id||viewed.species_id)+'.png" data-fallback="'+spriteId(p.species_id)+'" width="48" height="48" alt="">'
+      +`<div><strong>${esc(TeamInsights.label(p))}</strong><small>${esc(viewed.analysis_mega?viewed.analysis_preview_label:list(viewed.types).join(' / '))}</small></div>`
+      +(typeof analysisMegaControl==='function'?analysisMegaControl(p):'')+'</article>';
+  }).join('');
   const content=$('analysis-content');
   if(!team.length){content.innerHTML='<p class="subtitle">Sin Pokémon en el equipo.</p>';return}
   const types=analysisData.types,chart=analysisData.chart;
-  if(mode==='defense'){content.innerHTML=display==='table'?defenseTable(team,types,chart,abilities,simple,order):defenseChart(team,types,chart,abilities,order);return}
+  if(mode==='defense'){
+    content.innerHTML=analysisOverview(team,types,chart,abilities)
+      +(display==='table'?defenseTable(team,types,chart,abilities,simple,order):defenseChart(team,types,chart,abilities,order))
+      +'<details class="analysis-deeper"><summary>Cobertura ofensiva del equipo</summary>'+coverageReport(team,types,chart,abilities,false)+'</details>';
+    return;
+  }
   const chosen=team.filter(p=>String(p.slot)===a||(mode==='double'&&String(p.slot)===b));
   if(mode==='double'&&(chosen.length<2||a===b)){content.innerHTML='<p class="subtitle">Selecciona dos Pokémon diferentes del equipo.</p>';return}
   content.innerHTML=coverageReport(chosen,types,chart,abilities,dual);
+}
+function analysisOverview(team,types,chart,abilities){
+  const evaluation=TeamInsights.evaluateTeam(chart,types,team,abilities);
+  const chips=values=>values.slice(0,4).map(value=>`<span class="analysis-type-chip">${esc(value)}</span>`).join('')
+    +(values.length>4?`<span class="analysis-more">+${values.length-4}</span>`:'');
+  const threats=TeamInsights.sortDefense(evaluation.defense,'weak').filter(row=>row.weak).slice(0,3).map(row=>row.type);
+  const answers=TeamInsights.sortDefense(evaluation.defense,'resist').filter(row=>row.resist+row.immunities).slice(0,3).map(row=>row.type);
+  const coverage=evaluation.knownMoves?`${types.length-evaluation.uncovered.length} / ${types.length} tipos con ataque supereficaz`:'Sin ataques conocidos';
+  return '<section class="analysis-overview" aria-label="Resumen del equipo">'
+    +`<div><h3>Amenazas principales</h3><div class="analysis-chip-row">${threats.length?chips(threats):'Sin debilidades'}</div><small>Abre un tipo para ver quién lo recibe.</small></div>`
+    +`<div><h3>Puntos fuertes</h3><div class="analysis-chip-row">${answers.length?chips(answers):'Sin resistencias registradas'}</div><small>${evaluation.immunities.length} tipos con inmunidad</small></div>`
+    +`<div><h3>Falta cobertura</h3><div class="analysis-chip-row">${!evaluation.knownMoves?'Sin ataques conocidos':evaluation.uncovered.length?chips(evaluation.uncovered):'Todos los tipos cubiertos'}</div><small>${coverage}</small></div>`
+    +'</section>';
 }
 // Rebuilds the Pokémon pickers only when the team changes, keeping the current choice.
 function syncAnalysisSelectors(team){

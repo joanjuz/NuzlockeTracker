@@ -1,0 +1,25 @@
+/* Analysis extends the Tracker's red/white/charcoal identity. */
+#analysis-view{--fx-x4:var(--red);--fx-x2:#e99096;--fx-neutral:var(--soft);--fx-half:#717171;--fx-quarter:#575757;--fx-immune:#303030}
+#analysis-view .analysis-sections button[aria-pressed="true"]{background:var(--red);color:#fff}
+[data-theme="dark"] #analysis-view{--fx-half:#999;--fx-quarter:#b8b8b8;--fx-immune:#ececec}
+.analysis-team-preview{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:4px 0 24px}
+.analysis-member{min-width:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 8px;border-bottom:2px solid var(--border)}
+.analysis-member img{object-fit:contain;image-rendering:pixelated;flex-shrink:0}.analysis-member>div{min-width:0;flex:1}.analysis-member strong{display:block;font-size:12px;overflow-wrap:anywhere}.analysis-member small{display:block;font-size:10px;color:var(--muted);margin-top:4px}
+.analysis-mega-button{min-height:34px;padding:5px 9px;font-size:10px;border-color:var(--red-45);white-space:normal}.analysis-mega-button.active{color:var(--accent);background:var(--weak-bg)}
+.analysis-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;margin:24px 0 28px}
+.analysis-overview>div{min-width:0;padding:0 0 16px;border-bottom:1px solid var(--border)}.analysis-overview h3{font-size:13px;font-weight:600;margin:0 0 10px}.analysis-overview small{display:block;color:var(--muted);font-size:11px;margin-top:10px}
+.analysis-chip-row{display:flex;flex-wrap:wrap;gap:6px;font-size:12px}.analysis-type-chip{background:var(--soft);border:1px solid var(--border);padding:5px 8px;border-radius:6px}.analysis-more{padding:5px;color:var(--muted)}
+#analysis-view .fx-chart{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 16px}
+#analysis-view .fx-legend,#analysis-view .fx-chart>p{grid-column:1/-1}#analysis-view .fx-chart>p{font-size:11px;margin:4px 0 10px}
+#analysis-view .fx-row{background:var(--surface);border-color:var(--border);border-radius:9px;min-width:0}
+#analysis-view .fx-row>summary{grid-template-columns:80px minmax(0,1fr);gap:6px 10px;padding:10px 12px}
+#analysis-view .fx-counts{grid-column:1/-1;white-space:normal;font-size:10px}#analysis-view .fx-bar{height:18px;border-radius:3px}#analysis-view .fx-seg{min-width:12px;line-height:18px;font-size:10px}
+#analysis-view .fx-half{color:#fff}#analysis-view .fx-quarter{color:#fff}#analysis-view .fx-immune{background:repeating-linear-gradient(135deg,#ffffff08 0 5px,#ffffff25 5px 7px),var(--fx-immune);color:#fff}
+[data-theme="dark"] #analysis-view .fx-half,[data-theme="dark"] #analysis-view .fx-quarter,[data-theme="dark"] #analysis-view .fx-immune{color:#191919}
+.analysis-deeper{margin:24px 0;border-top:1px solid var(--border);padding-top:14px}.analysis-deeper>summary{font-size:14px;font-weight:600;cursor:pointer;min-height:32px}
+#analysis-view .coverage-grid{grid-template-columns:repeat(auto-fit,minmax(125px,1fr))}#analysis-view .coverage-cell{padding:12px;gap:6px}#analysis-view .coverage-cell b{font-size:21px}#analysis-view .coverage-cell.weak{background:var(--weak-bg);color:var(--text)}
+#analysis-view .analysis-controls{gap:12px}#analysis-view .analysis-controls label{min-width:150px}#analysis-view .analysis-controls .checkbox{min-width:0}
+.builder-library,.builder-catalog{margin:16px 0 24px}.builder-library>summary,.builder-catalog>summary{cursor:pointer;font-size:13px;font-weight:600;padding:12px 0;min-height:44px;border-bottom:1px solid var(--border)}
+@media(max-width:1050px){.analysis-team-preview{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:650px){.analysis-team-preview{grid-template-columns:repeat(2,minmax(0,1fr))}.analysis-overview{grid-template-columns:1fr;gap:14px;margin:18px 0}.analysis-overview>div{padding-bottom:12px}#analysis-view .fx-chart{grid-template-columns:1fr}#analysis-view .analysis-controls label{min-width:0;flex:1 1 140px}.analysis-member{padding:8px 0}.analysis-member img{width:40px;height:40px}.analysis-member .analysis-mega-button{width:100%}}
+@media(prefers-reduced-motion:reduce){#analysis-view *,#box-analysis *{transition:none}}

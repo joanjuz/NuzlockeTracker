@@ -101,7 +101,7 @@ eq([$('analysis-current').hidden,$('team-builder').hidden],[true,false]);
 eq($('analysis-section-builder').attributes['aria-pressed'],'true');
 eq($('builder-count').textContent,'0 / 6');
 eq(shownCandidates().map(c=>c[0]),['Skarm','Magne','Luca','Gyara','Chomp','Gengar'],'Muertos y huevos excluidos por defecto');
-ok($('builder-report').innerHTML.includes('Añade Pokémon'));
+ok($('builder-report').innerHTML.includes('Elige tu primer integrante'));
 eq(($('builder-team').innerHTML.match(/builder-slot-empty/g)||[]).length,6);
 ok($('builder-candidates').innerHTML.includes('Caja 1 · 2')&&$('builder-candidates').innerHTML.includes('Equipo · 1'));
 // Manual selection: add, coverage changes, remove, reorder.
@@ -181,15 +181,16 @@ function virtualTeamComparisonTracksCurrentParty(){
   for(const p of [skarm,magne,luca,chomp])click({builderToggle:I.pokemonId(p)});
   let report=$('builder-report').innerHTML;
   ok(report.includes('Comparación con el equipo actual'),'El borrador tiene una comparación visible');
-  ok(/Integrantes localizados<\/th><td>3<\/td><td>4<\/td>/.test(report),'Compara el equipo real de tres con el virtual de cuatro');
+  ok(/data-metric="members"[^]*?data-side="current">3<[^]*?data-side="virtual">4</.test(report),'Compara el equipo real de tres con el virtual de cuatro');
   ok(report.includes('añade cobertura supereficaz frente a')&&report.includes('Eléctrico'),'Explica la cobertura ganada frente al equipo actual');
   $('builder-clear').onclick();click({builderToggle:I.pokemonId(skarm)});
-  ok(/Integrantes localizados<\/th><td>3<\/td><td>1<\/td>/.test($('builder-report').innerHTML),'Compara equipos incompletos de un integrante');
+  ok(/data-metric="members"[^]*?data-side="current">3<[^]*?data-side="virtual">1</.test($('builder-report').innerHTML),'Compara equipos incompletos de un integrante');
   $('builder-clear').onclick();
   for(const p of [ghost,skarm,magne,luca,gyara,chomp])click({builderToggle:I.pokemonId(p)});
   ctx.state=withoutGhost;ctx.renderTeamBuilder();
   report=$('builder-report').innerHTML;
-  ok(/Integrantes localizados<\/th><td>3<\/td><td>5<\/td>/.test(report),'Con seis guardados y uno ausente solo compara cinco localizados');
+  ok(/data-metric="members"[^]*?data-side="current">3<[^]*?data-side="virtual">5</.test(report),'Con seis guardados y uno ausente solo compara cinco localizados');
+  ok(!report.includes('Incorporaciones posibles'),'Un ausente conserva el sexto hueco: no hay botones de añadir inertes');
   ok($('builder-team').innerHTML.includes('No localizado'),'La comparación no sustituye al ausente');
   ctx.state={...withoutGhost,stale:true};ctx.renderTeamBuilder();
   ok($('builder-report').innerHTML.includes('Comparación basada en lecturas guardadas'),'No presenta datos históricos como equipo en vivo');

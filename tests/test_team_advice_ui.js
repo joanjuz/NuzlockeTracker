@@ -84,7 +84,7 @@ eq(withTitan.additions.map(a=>a.entry.id),result.additions.map(a=>a.entry.id));
 const six=[skarm,magne,luca,gyara,chomp,ghost];
 eq(I.suggestChanges(chart,types,six,[titanEntry],true).additions,[]);
 // Bounded pool.
-const many=Array.from({length:400},(_,i)=>{const p=mon('N'+i,10,['Normal'],[move('Placaje','Normal')]);return {pokemon:p,id:I.pokemonId(p),kind:'box',box:1,slot:i,key:'k'+i,dead:false,egg:false}});
+const many=Array.from({length:I.SUGGESTION_POOL+100},(_,i)=>{const p=mon('N'+i,10,['Normal'],[move('Placaje','Normal')]);return {pokemon:p,id:I.pokemonId(p),kind:'box',box:1,slot:i,key:'k'+i,dead:false,egg:false}});
 const bounded=I.suggestChanges(chart,types,steel,many,true);
 eq([bounded.considered,bounded.skipped],[I.SUGGESTION_POOL,100],'Sin exploración ilimitada');
 eq(I.suggestChanges(chart,types,[],[],true),{additions:[],swaps:[],considered:0,skipped:0});
@@ -103,6 +103,8 @@ class El{
   addEventListener(type,fn){this.listeners[type]=fn}
   setAttribute(k,v){this.attributes[k]=String(v)}
   focus(){}
+  showModal(){this.open=true}
+  close(){this.open=false;this.listeners.close?.()}
 }
 const nodes={};const $=id=>nodes[id]??=new El(id);
 const commands=[];
@@ -117,13 +119,13 @@ const click=dataset=>$('team-builder').listeners.click({target:{closest:()=>({da
 const slots=()=>[...$('builder-team').innerHTML.matchAll(/<li class="builder-slot[^"]*">(?:<img[^>]*>)?<div><strong>([^<]+)</g)].map(m=>m[1]);
 $('analysis-section-builder').onclick();$('builder-use-party').onclick();
 let report=$('builder-report').innerHTML;
-ok(report.includes('<dt>Balance defensivo</dt>')&&report.includes('<dt>Tipos con ataque supereficaz</dt>')&&report.includes('<dt>Redundancias</dt>')&&report.includes('<dt>Tipos distintos</dt>'),'Medidas separadas');
-ok(report.includes(`<dd>${scores.covered} / 18</dd>`));
+ok(['members','defense','coverage','redundancy'].every(key=>report.includes(`data-metric="${key}"`)),'Medidas separadas');
+ok(new RegExp('data-metric="coverage"[^]*?data-side="virtual">'+scores.covered+'<').test(report));
 ok(report.includes('3 integrantes son débiles a Fuego y ninguno lo resiste ni es inmune.'));
 ok(report.includes('Incorporaciones posibles')&&report.includes('Sustituciones posibles'));
 ok(/Sustituir a <b>[^<]+<\/b> por <b>[^<]+<\/b>/.test(report)&&report.includes('Motivo: '));
 ok(report.includes('Añadir al borrador')&&report.includes('Aplicar al borrador'));
-ok(report.includes('no «el mejor equipo»')&&report.includes('No tienen en cuenta niveles, objetos'),'Sin afirmaciones absolutas');
+ok(report.includes('no «el mejor equipo»')&&report.includes('No calcula daño, objetos'),'Sin afirmaciones absolutas');
 ok(report.includes('Se compararon 3 candidatos.'));
 ok(!/data-builder-(toggle|swap)="[^"]*"[^>]*>[^<]*<\/button>[^]*Caído/.test(report.split('Cobertura ofensiva')[0])||!report.includes('Caído'),'Los muertos no se sugieren');
 // Applying a substitution edits only the draft.
@@ -154,11 +156,14 @@ substitutionKeepsMissingMember();
 // Complete with suggestions, then keep editing.
 $('builder-use-party').onclick();
 $('builder-complete').onclick();
-eq(slots().length,3+filled.length);
-eq(slots().slice(3),filled.map(f=>f.entry.pokemon.nickname));
-ok($('builder-saved-status').textContent.includes('Puedes cambiarlas antes de guardar'));
+eq(slots().length,3,'Abrir la guía no añade integrantes');
+ok($('builder-picker').open,'La guía abre la selección explícita');
+ctx.builderPick(filled[0].entry.id);
+eq(slots().length,4);eq(slots()[3],filled[0].entry.pokemon.nickname);
+ok($('builder-saved-status').textContent.includes('añadido al borrador'));
+$('builder-picker-close').onclick();
 click({builderRemove:'3'});
-eq(slots().length,2+filled.length,'El equipo sugerido se puede modificar');
+eq(slots().length,3,'El equipo elegido se puede modificar');
 // Full team: no additions block; nothing to add.
 $('builder-clear').onclick();
 for(const p of six)click({builderToggle:I.pokemonId(p)});
