@@ -26,17 +26,22 @@ class ReferenceData:
         if stone is None or stone['species']!=p.get('species_id'):return None
         reference=self.species_reference.lookup(stone['species'],stone['form'],game)
         if reference is None:return None
-        source=reference['source'];stats=reference['base_stats'];types=reference['types'];ability_id=reference['abilities'][0]
+        source=reference['source'];stats=reference['base_stats'];types=reference['types'];abilities=reference['abilities']
         imported=self.game_data.species(stone['species'],stone['form'],game) if self.game_data is not None else None
         if imported is not None:
             from .game_data import TYPE_NAMES,STAT_KEYS,SOURCE
             source=SOURCE
             stats={label:imported['baseStats'][key] for key,label in STAT_KEYS.items()}
             types=list(dict.fromkeys(TYPE_NAMES[index] for index in imported['types']))
-            ability_id=imported['abilities'][0]
-        ability=(self.game_data.ability_name(ability_id,game) if self.game_data is not None else None) or catalog.name('abilities',ability_id)
+            abilities=imported['abilities']
+            normal=self.game_data.species(stone['species'],0,game)
+            slots=[i for i,value in enumerate(normal['abilities']) if value==p.get('ability_id') and value>0] if normal else []
+            if slots:abilities=[imported['abilities'][i] for i in slots]
+        choices=set(value for value in abilities if value>0)
+        ability_id=next(iter(choices)) if len(choices)==1 else 0
+        ability=((self.game_data.ability_name(ability_id,game) if self.game_data is not None else None) or catalog.name('abilities',ability_id)) if ability_id else 'Habilidad por confirmar'
         return {'form':stone['form'],'label':stone['label'],'base_stats':stats,'base_stats_source':source,
-                'types':types,'ability_id':ability_id,'ability':ability,'sprite_id':stone['sprite_id'],
+                'types':types,'ability_id':ability_id,'ability':ability,'ability_known':bool(ability_id),'sprite_id':stone['sprite_id'],
                 'item_id':p['item_id'],'source':'Simulación mega · '+source,'reference_only':imported is None}
     def move(self,id,catalog):
         result=copy.deepcopy(self.moves.get(str(id)))

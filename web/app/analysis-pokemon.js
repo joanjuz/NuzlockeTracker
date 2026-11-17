@@ -23,7 +23,7 @@ function analysisMegaControl(p){
   analysisMegaContext();
   if(!analysisHasMega(p))return '';
   const selected=analysisMegaSelected.get(TeamInsights.pokemonId(p))===analysisMegaStamp(p);
-  return `<button type="button" class="analysis-mega-button${selected?' active':''}" data-analysis-mega="${esc(TeamInsights.pokemonId(p))}" aria-pressed="${selected}" title="${esc(p.mega_preview.reference_only?'Simulación con datos de referencia; pueden variar en tu ROM.':'Simulación con datos de esta partida.')} No cambia el juego.">${selected?'Quitar mega':'Aplicar mega'}</button>`;
+  return `<button type="button" class="analysis-mega-button${selected?' active':''}" data-analysis-mega="${esc(TeamInsights.pokemonId(p))}" aria-pressed="${selected}" title="${esc(p.mega_preview.reference_only?'Simulación con datos de referencia; pueden variar en tu ROM.':'Simulación con datos de esta partida.')}${p.mega_preview.ability_known===false?' Habilidad por confirmar; no se aplican efectos de una habilidad incierta.':''} No cambia el juego.">${selected?'Quitar mega':'Aplicar mega'}</button>`;
 }
 function analysisToggleMega(id,pokemon){
   analysisMegaContext();

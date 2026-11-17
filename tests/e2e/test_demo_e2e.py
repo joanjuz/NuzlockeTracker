@@ -626,6 +626,7 @@ class DemoBrowserTests(unittest.TestCase):
                 self.page.keyboard.press('Escape')
         self.open_tab('boxes')
         self.page.set_viewport_size({'width': 560, 'height': 900})
+        self.page.locator('#global').check()
         self.page.evaluate("""() => {
           window.__uxOriginalState=state;
           const p=state.boxes['1'][0];

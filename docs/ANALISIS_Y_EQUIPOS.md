@@ -44,6 +44,8 @@ Una megapiedra compatible permite **Aplicar mega** en cajas, análisis y equipo 
 
 La proyección utiliza DGD de la forma exacta cuando existe y referencia por juego cuando no; el botón informa de esa procedencia. No demuestra que el jugador pueda activar la mega ni modifica el juego. No fabrica PS ni estadísticas actuales. La comparación **Actual** mantiene el equipo leído; **Virtual** puede incluir la simulación. Las selecciones mega duran la sesión de análisis, no se añaden al archivo de equipos guardados y se reinician al cambiar de juego o vista de compañero. No se validan reglas de combate como el número de megas permitidas.
 
+Si DGD contiene habilidades distintas para las posiciones de una mega randomizada, se usa la correspondencia con la habilidad leída de la forma normal solo cuando es inequívoca. Si no puede determinarse, muestra **Habilidad por confirmar** y no aplica una inmunidad o resistencia supuesta.
+
 ## Asistente de equipos
 
 En **Análisis**, el selector superior alterna entre **Equipo actual** (el análisis de siempre) y **Asistente de equipos**. El asistente permite armar equipos virtuales de hasta seis integrantes con los Pokémon que tienes. Es una simulación: no cambia el equipo dentro del juego ni envía órdenes al emulador.

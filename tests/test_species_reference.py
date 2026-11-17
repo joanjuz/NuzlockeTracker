@@ -70,6 +70,21 @@ class SpeciesReferenceTests(unittest.TestCase):
             path.write_text('{bad', encoding='utf-8')
             self.assertIsNone(SpeciesReference(path).lookup(6,0,'Ultra Moon 1.0'))
 
+    def test_randomized_mega_ability_requires_unambiguous_evidence(self):
+        mega = {'types':[9,2], 'abilities':[26,1,0],
+                'baseStats':{'hp':78,'attack':130,'defense':111,'specialAttack':130,'specialDefense':85,'speed':100}}
+        normal = {'abilities':[77,88,0]}
+        self.reference.game_data = SimpleNamespace(species=lambda species,form,game: mega if form==1 else normal,
+                                                   ability_name=lambda ability,game: f'Habilidad {ability}')
+        p = {'species_id':6,'item_id':660,'ability_id':77}
+        known = self.reference.mega_preview(p, Catalog(), 'Ultra Moon 1.0')
+        self.assertEqual(known['ability_id'], 26)
+        normal['abilities'] = [77,77,0]
+        uncertain = self.reference.mega_preview(p, Catalog(), 'Ultra Moon 1.0')
+        self.assertEqual(uncertain['ability_id'], 0)
+        self.assertFalse(uncertain['ability_known'])
+        self.assertIn('confirmar', uncertain['ability'])
+
     def test_refresh_uses_fallback_without_inventing_current_stats_or_nature(self):
         with tempfile.TemporaryDirectory() as folder:
             service = TrackerService(Path(folder)/'state.json')
