@@ -176,6 +176,27 @@ function copyingPartyRespectsDeadFilter(){
   eq(slots(),['Caído','Skarm'],'La inclusión de muertos necesita activar el control');
 }
 copyingPartyRespectsDeadFilter();
+function virtualTeamComparisonTracksCurrentParty(){
+  ctx.state=live;ctx.renderTeamBuilder();$('builder-clear').onclick();
+  for(const p of [skarm,magne,luca,chomp])click({builderToggle:I.pokemonId(p)});
+  let report=$('builder-report').innerHTML;
+  ok(report.includes('Comparación con el equipo actual'),'El borrador tiene una comparación visible');
+  ok(/Integrantes localizados<\/th><td>3<\/td><td>4<\/td>/.test(report),'Compara el equipo real de tres con el virtual de cuatro');
+  ok(report.includes('añade cobertura supereficaz frente a')&&report.includes('Eléctrico'),'Explica la cobertura ganada frente al equipo actual');
+  $('builder-clear').onclick();click({builderToggle:I.pokemonId(skarm)});
+  ok(/Integrantes localizados<\/th><td>3<\/td><td>1<\/td>/.test($('builder-report').innerHTML),'Compara equipos incompletos de un integrante');
+  $('builder-clear').onclick();
+  for(const p of [ghost,skarm,magne,luca,gyara,chomp])click({builderToggle:I.pokemonId(p)});
+  ctx.state=withoutGhost;ctx.renderTeamBuilder();
+  report=$('builder-report').innerHTML;
+  ok(/Integrantes localizados<\/th><td>3<\/td><td>5<\/td>/.test(report),'Con seis guardados y uno ausente solo compara cinco localizados');
+  ok($('builder-team').innerHTML.includes('No localizado'),'La comparación no sustituye al ausente');
+  ctx.state={...withoutGhost,stale:true};ctx.renderTeamBuilder();
+  ok($('builder-report').innerHTML.includes('Comparación basada en lecturas guardadas'),'No presenta datos históricos como equipo en vivo');
+  ctx.state={...live,party:[null,null,null,null,null,null]};ctx.renderTeamBuilder();
+  ok($('builder-report').innerHTML.includes('No hay un equipo actual leído para comparar'),'Equipo actual vacío: sin conclusiones inventadas');
+}
+virtualTeamComparisonTracksCurrentParty();
 $('analysis-section-current').onclick();
 eq([ctx.teamBuilderActive(),$('analysis-current').hidden,$('team-builder').hidden],[false,false,true]);
 

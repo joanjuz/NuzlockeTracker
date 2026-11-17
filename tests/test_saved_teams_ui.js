@@ -88,6 +88,7 @@ const options=()=>$('builder-saved').options.map(o=>o.text);
   eq(confirms.length,1);eq($('builder-saved').value,'t2','Cancelar conserva el equipo abierto');eq(slots(),['Dos','Tres']);
   confirmAnswer=true;$('builder-saved').value='t1';$('builder-saved').onchange();
   eq(slots(),['Uno','Dos','Tres']);eq($('builder-name').value,'Final');
+  ok(/Integrantes localizados<\/th><td>2<\/td><td>3<\/td>/.test($('builder-report').innerHTML),'Abrir un equipo guardado lo compara con el equipo actual');
   // A saved member that no longer exists is shown as not located, never replaced.
   ctx.state={...live,boxes:{'1':Array(30).fill(null)}};ctx.renderTeamBuilder();
   eq(slots(),['Uno','Dos','Tres'],'El ausente conserva su nombre guardado');

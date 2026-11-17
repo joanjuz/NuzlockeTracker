@@ -80,11 +80,31 @@ function builderReport(team,abilities,entries){
   if(!team.length)return '<p class="subtitle">Añade Pokémon al equipo virtual para ver su cobertura.</p>';
   const types=analysisData.types,chart=analysisData.chart;
   const evaluation=TeamInsights.evaluateTeam(chart,types,team,abilities);
-  return builderAdvice(evaluation,entries,abilities)
+  return builderComparison(evaluation,abilities)
+    +builderAdvice(evaluation,entries,abilities)
     +builderMoves(evaluation,abilities)
     +builderSummary(evaluation)
     +'<details class="builder-detail" open><summary>Defensa por tipo</summary>'+defenseChart(team,types,chart,abilities,'weak')+'</details>'
     +'<details class="builder-detail"><summary>Cobertura ofensiva por tipo</summary>'+coverageReport(team,types,chart,abilities,false)+'</details>';
+}
+function builderComparison(virtual,abilities){
+  const party=list(state.party).filter(p=>p&&!p.egg);
+  const heading='<section class="builder-advice" aria-label="Comparación con el equipo actual"><h3 class="builder-section-title">Comparación con el equipo actual</h3>';
+  if(!party.length)return heading+'<p class="subtitle">No hay un equipo actual leído para comparar.</p></section>';
+  const current=TeamInsights.evaluateTeam(analysisData.chart,analysisData.types,party,abilities);
+  const change=TeamInsights.compareTeams(current,virtual),before=TeamInsights.teamScores(current),after=TeamInsights.teamScores(virtual);
+  const row=(name,a,b)=>`<tr><th scope="row">${name}</th><td>${a}</td><td>${b}</td></tr>`;
+  return heading
+    +`<p class="subtitle">${state.stale===true||state.connection?.status!=='connected'?'Comparación basada en lecturas guardadas. ':''}El equipo virtual incluye solo los integrantes localizados; los ausentes conservan su lugar en el borrador. Esta comparación no cambia el equipo del juego.</p>`
+    +'<div class="table-wrap"><table><caption>Equipo actual y equipo virtual</caption><thead><tr><th scope="col">Medida</th><th scope="col">Actual</th><th scope="col">Virtual</th></tr></thead><tbody>'
+    +row('Integrantes localizados',current.size,virtual.size)
+    +row('Balance defensivo',builderSigned(before.defense),builderSigned(after.defense))
+    +row('Tipos con ataque supereficaz',current.knownMoves?before.covered:'No disponible',virtual.knownMoves?after.covered:'No disponible')
+    +row('Redundancias',before.redundancy,after.redundancy)
+    +'</tbody></table></div><div class="builder-cards">'
+    +builderList('Qué aporta el equipo virtual',change.gains.map(text=>esc(text)),'Sin nuevas resistencias, inmunidades o coberturas ni reducción de debilidades compartidas.')
+    +builderList('Qué se pierde o empeora',change.losses.map(text=>esc(text)),'Sin nuevas debilidades compartidas ni pérdida de resistencias, inmunidades o cobertura.')
+    +'</div></section>';
 }
 function syncBuilderTypes(entries){
   const types=TeamInsights.entryFacets(entries).types,signature=JSON.stringify(types);
