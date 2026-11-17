@@ -103,3 +103,10 @@
 @media(max-width:760px){.builder-overview{grid-template-columns:1fr 1fr;gap:16px}.builder-overview>div:last-child{grid-column:1/-1}.builder-compare-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.builder-recommendation-grid{grid-template-columns:1fr}.builder-comparison-heading{display:block}.builder-comparison-heading>span{display:block;margin-top:3px}.builder-compare-labels{display:none}.builder-compare-metric [data-side="current"]::before{content:'Actual ';font-size:10px;font-weight:400}.builder-compare-metric [data-side="virtual"]::before{content:'Virtual ';font-size:10px;font-weight:400}.builder-compare-metric>div{gap:7px}.builder-compare-metric b{font-size:18px}.builder-advice-heading{display:block}.builder-advice-heading button{margin-top:8px}}
 @media(max-width:480px){#team-builder .builder-team{grid-template-columns:repeat(2,minmax(0,1fr))}.builder-overview,.builder-compare-effects{grid-template-columns:1fr}.builder-overview>div:last-child{grid-column:auto}.builder-comparison{padding:14px}.builder-compare-metric b{font-size:17px}.builder-compare-grid{gap:15px 9px}.builder-recommendation{padding:12px}.builder-recommendation-name>strong{font-size:14px}#builder-picker{border-radius:0;padding:18px}#team-builder .builder-slot-actions button{min-height:36px}}
 @media(prefers-reduced-motion:reduce){#team-builder *,#builder-picker *{scroll-behavior:auto;transition:none}}
+.builder-virtual-defense{margin:22px 0 12px;padding-top:16px;border-top:1px solid var(--border)}
+.builder-analysis-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px}
+.builder-analysis-heading h3{margin:0;font-size:16px}
+.builder-analysis-controls{display:flex;gap:12px;flex-wrap:wrap}
+.builder-analysis-controls label{display:grid;gap:4px;color:var(--muted);font-size:11px}
+.builder-analysis-controls select{max-width:100%;min-height:36px}
+@media(max-width:760px){.builder-analysis-heading{align-items:flex-start;flex-direction:column}.builder-analysis-controls{width:100%}.builder-analysis-controls label{flex:1;min-width:130px}}

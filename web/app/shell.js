@@ -83,5 +83,5 @@ $('density').onclick=()=>{
   try{localStorage.setItem('progressive-density',compact?'compact':'comfortable')}catch(e){}
   density();
 };
-document.addEventListener('pointerdown',event=>{document.querySelectorAll('details[open]').forEach(menu=>{if(!menu.closest('dialog')&&!menu.contains(event.target))menu.open=false})});
-document.addEventListener('keydown',event=>{if(event.key==='Escape')document.querySelectorAll('details[open]').forEach(menu=>menu.open=false)});
+document.addEventListener('pointerdown',event=>{document.querySelectorAll('details[open]').forEach(menu=>{if(!menu.closest('dialog')&&!menu.closest('#team-builder')&&!menu.contains(event.target))menu.open=false})});
+document.addEventListener('keydown',event=>{if(event.key==='Escape')document.querySelectorAll('details[open]').forEach(menu=>{if(!menu.closest('#team-builder'))menu.open=false})});

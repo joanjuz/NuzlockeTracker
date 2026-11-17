@@ -113,6 +113,12 @@ ok(/<b>Tierra<\/b>: 2 débiles \(Magne, Luca\) · lo resisten o son inmunes: Ska
 ok(/Sin ataque supereficaz<\/h3><ul><li>[^<]*Tierra/.test(report));
 ok(report.includes('3 integrantes de tipo <b>Acero</b>')&&report.includes('4 ataques de tipo <b>Acero</b>'),'Redundancias defensiva y ofensiva');
 ok(report.includes('class="fx-chart"')&&report.includes('coverage-grid'),'Reutiliza el gráfico y la cobertura del análisis');
+ok(report.includes('id="builder-defense-display"'),'El equipo virtual permite elegir gráfico o tabla');
+ok(report.includes('data-builder-panel="offense"'),'Cobertura ofensiva virtual accesible por separado');
+eq((report.match(/class="fx-row"/g)||[]).length,18,'Defensa virtual de los 18 tipos');
+vm.runInContext("builderDefenseDisplay='table';builderSignature='';renderTeamBuilder()",ctx);
+ok($('builder-report').innerHTML.includes('analysis-table')&&!$('builder-report').innerHTML.includes('class="fx-chart"'),'Tabla virtual reutiliza efectividad por integrante');
+vm.runInContext("builderDefenseDisplay='chart';builderSignature='';renderTeamBuilder()",ctx);
 click({builderToggle:I.pokemonId(chomp)});
 eq(slots(),['Skarm','Magne','Luca','Chomp']);
 report=$('builder-report').innerHTML;

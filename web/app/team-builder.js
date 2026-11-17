@@ -4,6 +4,27 @@
 const BUILDER_CANDIDATE_LIMIT=120;
 let analysisSection='current',builderMembers=[],builderContext='',builderSignature='',builderTypes='';
 let builderPickerSlot=null,builderPickerLimit=6,builderPickerScope='';
+let builderDefenseDisplay='chart',builderDefenseOrder='weak';
+let builderReportOpen=new Map();
+// Stable disclosure keys survive report replacement, including nested type rows.
+function builderDisclosureKey(node){
+  const parts=[];
+  for(let parent=node;parent&&parent.id!=='builder-report';parent=parent.parentElement){
+    if(parent.tagName==='DETAILS')parts.unshift(parent.dataset.builderPanel||parent.querySelector('.fx-type')?.textContent.trim()||parent.querySelector('summary')?.textContent.trim()||'');
+  }
+  return parts.join('|');
+}
+function builderReportState(){
+  const report=$('builder-report');
+  for(const node of report.querySelectorAll?.('details')||[])builderReportOpen.set(builderDisclosureKey(node),node.open);
+  return builderReportOpen;
+}
+function builderRestoreReport(open){
+  for(const node of $('builder-report').querySelectorAll?.('details')||[]){
+    const key=builderDisclosureKey(node);
+    if(open.has(key))node.open=open.get(key);
+  }
+}
 const builderPokemon=p=>typeof analysisPokemon==='function'?analysisPokemon(p):p;
 function builderEntries(){return TeamInsights.candidateEntries(state).map(entry=>({...entry,originalPokemon:entry.pokemon,pokemon:builderPokemon(entry.pokemon)}))}
 const builderMegaControl=p=>typeof analysisMegaControl==='function'?analysisMegaControl(p):'';
@@ -91,8 +112,11 @@ function builderReport(team,abilities,entries){
     +builderAdvice(evaluation,entries,abilities)
     +'<details class="builder-detail"><summary>Asesor de movimientos</summary>'+builderMoves(evaluation,abilities)+'</details>'
     +'<details class="builder-detail"><summary>Debilidades, resistencias y redundancias</summary>'+builderSummary(evaluation)+'</details>'
-    +'<details class="builder-detail"><summary>Defensa por tipo</summary>'+defenseChart(team,types,chart,abilities,'weak')+'</details>'
-    +'<details class="builder-detail"><summary>Cobertura ofensiva por tipo</summary>'+coverageReport(team,types,chart,abilities,false)+'</details>';
+    +'<section class="builder-virtual-defense" aria-labelledby="builder-defense-title"><div class="builder-analysis-heading"><h3 id="builder-defense-title">Defensa del equipo virtual</h3>'
+    +'<div class="builder-analysis-controls"><label>Presentación<select id="builder-defense-display">'+[['chart','Gráfico'],['table','Tabla']].map(([value,label])=>`<option value="${value}" ${builderDefenseDisplay===value?'selected':''}>${label}</option>`).join('')+'</select></label>'
+    +'<label>Orden<select id="builder-defense-sort">'+[['weak','Mayor debilidad'],['resist','Mayor resistencia'],['type','Orden de tipos'],['alpha','Alfabético']].map(([value,label])=>`<option value="${value}" ${builderDefenseOrder===value?'selected':''}>${label}</option>`).join('')+'</select></label></div></div>'
+    +(builderDefenseDisplay==='table'?defenseTable(team,types,chart,abilities,false,builderDefenseOrder):defenseChart(team,types,chart,abilities,builderDefenseOrder))+'</section>'
+    +'<details class="builder-detail" data-builder-panel="offense" open><summary>Cobertura ofensiva del equipo virtual</summary>'+coverageReport(team,types,chart,abilities,false)+'</details>';
 }
 function builderOverview(evaluation){
   const weak=evaluation.sharedWeaknesses.slice(0,3).map(row=>row.type);
@@ -142,7 +166,7 @@ function syncBuilderTypes(entries){
 function renderTeamBuilder(){
   if(!state||!analysisData)return;
   const scope=builderScope();
-  if(scope!==builderContext){builderClosePicker();builderContext=scope;builderMembers=[];builderSignature='';builderOpenId=null;builderTeams=[];builderNotice='';$('builder-name').value='';loadBuilderTeams()}
+  if(scope!==builderContext){builderClosePicker();builderContext=scope;builderMembers=[];builderSignature='';builderOpenId=null;builderTeams=[];builderNotice='';builderReportOpen=new Map();$('builder-report').innerHTML='';$('builder-name').value='';loadBuilderTeams()}
   const entries=builderEntries();
   syncBuilderTypes(entries);
   const sort=$('builder-sort').value,abilities=$('builder-abilities').checked;
@@ -152,7 +176,9 @@ function renderTeamBuilder(){
       e.pokemon.base_stats,e.pokemon.analysis_moves,e.pokemon.level,e.pokemon.analysis_mega,e.pokemon.analysis_preview_label,e.pokemon.base_stats_source])]);
   if(signature===builderSignature)return;
   builderSignature=signature;
-  const focused=document.activeElement?.dataset?.focus;
+  const active=document.activeElement,focused=active?.dataset?.focus,focusedId=active?.id;
+  const reportOpen=builderReportState();
+  const scrolls=Array.from($('team-builder').querySelectorAll?.('.analysis-scroll, #builder-candidates')||[],node=>[node.id||node.className,node.scrollLeft,node.scrollTop]);
   const resolved=TeamInsights.resolveTeam(builderMembers,entries);
   const team=resolved.filter(item=>item.entry).map(item=>item.entry.pokemon);
   const missing=resolved.length-team.length;
@@ -165,10 +191,16 @@ function renderTeamBuilder(){
   $('builder-candidates').innerHTML=found.length?found.slice(0,BUILDER_CANDIDATE_LIMIT).map(entry=>builderCandidate(entry,selected.has(entry.id),full)).join('')
     :`<p class="subtitle">${entries.length?'Ningún Pokémon coincide con los filtros.':'No hay Pokémon en el equipo ni en las cajas leídas.'}</p>`;
   $('builder-report').innerHTML=builderReport(team,abilities,entries);
+  builderRestoreReport(reportOpen);
   renderBuilderSaved();
   if(builderPickerSlot!==null)renderBuilderPicker();
   // The lists were rebuilt: put the keyboard focus back on the control that was used.
   if(focused)for(const node of document.querySelectorAll('#team-builder [data-focus]'))if(node.dataset.focus===focused&&!node.disabled){node.focus({preventScroll:true});break}
+  if(!focused&&focusedId&&active!==$(focusedId))$(focusedId)?.focus?.({preventScroll:true});
+  for(const node of $('team-builder').querySelectorAll?.('.analysis-scroll, #builder-candidates')||[]){
+    const saved=scrolls.find(item=>item[0]===(node.id||node.className));
+    if(saved){node.scrollLeft=saved[1];node.scrollTop=saved[2]}
+  }
 }
 function builderEntry(id){return builderEntries().find(entry=>entry.id===id)||null}
 function builderToggle(id){
@@ -199,6 +231,12 @@ function builderClick(event){
   else if(data.builderMove!==undefined){const [index,step]=data.builderMove.split(':').map(Number);builderMove(index,step)}
 }
 $('team-builder').addEventListener('click',builderClick);
+$('team-builder').addEventListener('change',event=>{
+  if(event.target.id==='builder-defense-display')builderDefenseDisplay=event.target.value;
+  else if(event.target.id==='builder-defense-sort')builderDefenseOrder=event.target.value;
+  else return;
+  builderSignature='';renderTeamBuilder();
+});
 $('builder-use-party').onclick=()=>{
   builderClosePicker();
   builderMembers=builderEntries().filter(entry=>entry.kind==='party'&&!entry.egg&&($('builder-dead').checked||!entry.dead)).slice(0,TeamInsights.MAX_TEAM).map(TeamInsights.memberOf);
@@ -330,7 +368,7 @@ function builderRecommendation(change,action='add'){
     +`<div class="builder-recommendation-bst"><strong>${total===null?'—':num(total)}</strong><small>BST</small></div>`
     +(swap?`<p class="builder-swap-caption">Sustituir a <b>${esc(TeamInsights.label(change.out))}</b> por <b>${esc(TeamInsights.label(p))}</b></p>`:'')
     +`<p class="builder-recommendation-reason">${esc(reason)}</p><div class="builder-chip-row builder-recommendation-effects">${builderEffects(change)}</div>`
-    +`<details class="builder-recommendation-detail"><summary>Ver motivos</summary><p class="subtitle">${builderPlace(entry)}${entry.historical?' · lectura guardada':''}</p><div>Motivo: ${builderChange(change)}</div></details>`
+    +`<details class="builder-recommendation-detail" data-builder-panel="${esc(action+':'+entry.id+':'+(swap?TeamInsights.pokemonId(change.out):''))}"><summary>Ver motivos</summary><p class="subtitle">${builderPlace(entry)}${entry.historical?' · lectura guardada':''}</p><div>Motivo: ${builderChange(change)}</div></details>`
     +`<button type="button" class="${picker?'primary':''}" ${data}>${label}</button></article>`;
 }
 function builderAdvice(evaluation,entries,abilities){
@@ -339,7 +377,7 @@ function builderAdvice(evaluation,entries,abilities){
   const result=TeamInsights.suggestChanges(chart,types,evaluation.members,entries.filter(entry=>!selected.has(entry.id)),abilities);
   return '<section class="builder-advice" aria-label="Recomendaciones">'
     +(builderMembers.length<TeamInsights.MAX_TEAM?'<div class="builder-advice-heading"><h3>Incorporaciones posibles</h3><button type="button" data-builder-slot="'+builderMembers.length+'">Ver opciones para el siguiente hueco</button></div><div class="builder-recommendation-grid">'+result.additions.slice(0,3).map(item=>builderRecommendation(item)).join('')+(result.additions.length?'':'<p class="subtitle">No hay mejoras claras de cobertura. Puedes elegir otro Pokémon en un hueco libre.</p>')+'</div>':'')
-    +'<details class="builder-detail"><summary>Sustituciones posibles'+(result.swaps.length?' · '+result.swaps.length:'')+'</summary><div class="builder-recommendation-grid">'
+    +'<details class="builder-detail" data-builder-panel="swaps"><summary>Sustituciones posibles'+(result.swaps.length?' · '+result.swaps.length:'')+'</summary><div class="builder-recommendation-grid">'
     +result.swaps.map(item=>builderRecommendation(item,'swap')).join('')+(result.swaps.length?'':'<p class="subtitle">No hay sustituciones con una mejora clara.</p>')+'</div></details>'
     +'<details class="builder-detail"><summary>Cómo se valoran las sugerencias</summary>'
     +builderList('Lectura defensiva',notes.defensive.map(text=>esc(text)),'Sin debilidades compartidas.')
